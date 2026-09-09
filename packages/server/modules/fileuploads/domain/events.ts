@@ -2,6 +2,7 @@ import type {
   FileUploadRecord,
   FileUploadRecordV2
 } from '@/modules/fileuploads/helpers/types'
+import type { DigitalTwinAsset } from '@/modules/fileuploads/services/digitalTwin'
 import type { FileImportResultPayload } from '@speckle/shared/workers/fileimport'
 
 export const fileuploadEventNamespace = 'fileupload' as const
@@ -29,6 +30,7 @@ type FileuploadUpdatedPayload = {
 type FileuploadFinishedPayload = {
   jobId: string
   jobResult: FileImportResultPayload
+  asset: DigitalTwinAsset
 }
 
 export type FileuploadEventsPayloads = {

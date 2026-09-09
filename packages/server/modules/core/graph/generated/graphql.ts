@@ -5,6 +5,7 @@ import type { AutomateFunctionPermissionChecksGraphQLReturn, AutomateFunctionGra
 import type { CommentReplyAuthorCollectionGraphQLReturn, CommentGraphQLReturn, CommentPermissionChecksGraphQLReturn } from '@/modules/comments/helpers/graphTypes';
 import type { PendingStreamCollaboratorGraphQLReturn } from '@/modules/serverinvites/helpers/graphTypes';
 import type { FileUploadGraphQLReturn } from '@/modules/fileuploads/helpers/types';
+import type { DigitalTwinAssetGraphQLReturn } from '@/modules/fileuploads/services/digitalTwin';
 import type { WorkspaceGraphQLReturn, WorkspaceSsoGraphQLReturn, WorkspaceMutationsGraphQLReturn, WorkspaceJoinRequestMutationsGraphQLReturn, WorkspaceInviteMutationsGraphQLReturn, WorkspaceProjectMutationsGraphQLReturn, PendingWorkspaceCollaboratorGraphQLReturn, WorkspaceCollaboratorGraphQLReturn, LimitedWorkspaceGraphQLReturn, LimitedWorkspaceCollaboratorGraphQLReturn, WorkspaceJoinRequestGraphQLReturn, LimitedWorkspaceJoinRequestGraphQLReturn, ProjectMoveToWorkspaceDryRunGraphQLReturn, ProjectRoleGraphQLReturn, WorkspacePermissionChecksGraphQLReturn } from '@/modules/workspacesCore/helpers/graphTypes';
 import type { WorkspacePlanGraphQLReturn, WorkspacePlanUsageGraphQLReturn, PriceGraphQLReturn } from '@/modules/gatekeeperCore/helpers/graphTypes';
 import type { WorkspaceBillingMutationsGraphQLReturn, WorkspaceSubscriptionSeatsGraphQLReturn, WorkspaceSubscriptionGraphQLReturn } from '@/modules/gatekeeper/helpers/graphTypes';
@@ -1433,6 +1434,70 @@ export type DenyWorkspaceJoinRequestInput = {
   workspaceId: Scalars['String']['input'];
 };
 
+/**
+ * A client facing view over a file import, describing the imported asset and where
+ * its converted geometry can be loaded from.
+ */
+export type DigitalTwinAsset = {
+  __typename?: 'DigitalTwinAsset';
+  convertedLastUpdate: Scalars['DateTime']['output'];
+  /** Holds any errors or info reported by the file importer */
+  convertedMessage?: Maybe<Scalars['String']['output']>;
+  /** Description provided alongside the upload, if any */
+  description?: Maybe<Scalars['String']['output']>;
+  fileName: Scalars['String']['output'];
+  fileSize?: Maybe<Scalars['Int']['output']>;
+  fileType: Scalars['String']['output'];
+  /** Id of the underlying file upload */
+  id: Scalars['String']['output'];
+  modelId?: Maybe<Scalars['String']['output']>;
+  performanceData?: Maybe<DigitalTwinAssetPerformanceData>;
+  projectId: Scalars['String']['output'];
+  /** Where the asset originates from */
+  source: DigitalTwinAssetSource;
+  status: DigitalTwinAssetStatus;
+  uploadDate: Scalars['DateTime']['output'];
+  /** The user that uploaded the source file */
+  userId: Scalars['String']['output'];
+  /**
+   * The version holding the converted geometry, once the import has completed.
+   * Use it together with projectId to load the asset in the viewer.
+   */
+  versionId?: Maybe<Scalars['String']['output']>;
+  /** Non fatal issues reported by the file importer */
+  warnings: Array<Scalars['String']['output']>;
+};
+
+export type DigitalTwinAssetCollection = {
+  __typename?: 'DigitalTwinAssetCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<DigitalTwinAsset>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type DigitalTwinAssetPerformanceData = {
+  __typename?: 'DigitalTwinAssetPerformanceData';
+  /** Duration of the file download before parsing started in seconds */
+  downloadDurationSeconds: Scalars['Float']['output'];
+  /** Total processing time in seconds, since job was picked up until it completed */
+  durationSeconds: Scalars['Float']['output'];
+  /** Duration of the transformation in seconds */
+  parseDurationSeconds: Scalars['Float']['output'];
+};
+
+export const DigitalTwinAssetSource = {
+  Speckle: 'speckle'
+} as const;
+
+export type DigitalTwinAssetSource = typeof DigitalTwinAssetSource[keyof typeof DigitalTwinAssetSource];
+export const DigitalTwinAssetStatus = {
+  Completed: 'completed',
+  Converting: 'converting',
+  Error: 'error',
+  Queued: 'queued'
+} as const;
+
+export type DigitalTwinAssetStatus = typeof DigitalTwinAssetStatus[keyof typeof DigitalTwinAssetStatus];
 export const DiscoverableStreamsSortType = {
   CreatedDate: 'CREATED_DATE',
   FavoritesCount: 'FAVORITES_COUNT'
@@ -1526,6 +1591,11 @@ export type FileUpload = {
   convertedStatus: Scalars['Int']['output'];
   /** Alias for convertedCommitId */
   convertedVersionId?: Maybe<Scalars['String']['output']>;
+  /**
+   * Snapshot of this file upload as a digital twin asset, in a shape that is ready
+   * to be consumed by clients (viewer, dashboards, external integrations).
+   */
+  digitalTwinAsset: DigitalTwinAsset;
   fileName: Scalars['String']['output'];
   fileSize: Scalars['Int']['output'];
   fileType: Scalars['String']['output'];
@@ -1647,6 +1717,13 @@ export type GenerateFileUploadUrlOutput = {
   __typename?: 'GenerateFileUploadUrlOutput';
   fileId: Scalars['String']['output'];
   url: Scalars['String']['output'];
+};
+
+export type GetDigitalTwinAssetsInput = {
+  /** The cursor for pagination. */
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  /** The maximum number of assets to return. */
+  limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type GetModelUploadsInput = {
@@ -2658,6 +2735,11 @@ export type Project = {
   dashboardTokens: DashboardTokenCollection;
   dashboards: DashboardCollection;
   description?: Maybe<Scalars['String']['output']>;
+  /**
+   * Returns all file imports of this project as digital twin assets, ordered by
+   * most recently updated first.
+   */
+  digitalTwinAssets: DigitalTwinAssetCollection;
   /** Public project-level configuration for embedded viewer */
   embedOptions: ProjectEmbedOptions;
   embedTokens: EmbedTokenCollection;
@@ -2779,6 +2861,11 @@ export type ProjectDashboardsArgs = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectDashboardsFilter>;
   limit?: Scalars['Int']['input'];
+};
+
+
+export type ProjectDigitalTwinAssetsArgs = {
+  input?: InputMaybe<GetDigitalTwinAssetsInput>;
 };
 
 
@@ -6565,6 +6652,11 @@ export type ResolversTypes = {
   DeleteUserEmailInput: DeleteUserEmailInput;
   DeleteVersionsInput: DeleteVersionsInput;
   DenyWorkspaceJoinRequestInput: DenyWorkspaceJoinRequestInput;
+  DigitalTwinAsset: ResolverTypeWrapper<DigitalTwinAssetGraphQLReturn>;
+  DigitalTwinAssetCollection: ResolverTypeWrapper<Omit<DigitalTwinAssetCollection, 'items'> & { items: Array<ResolversTypes['DigitalTwinAsset']> }>;
+  DigitalTwinAssetPerformanceData: ResolverTypeWrapper<DigitalTwinAssetPerformanceData>;
+  DigitalTwinAssetSource: DigitalTwinAssetSource;
+  DigitalTwinAssetStatus: DigitalTwinAssetStatus;
   DiscoverableStreamsSortType: DiscoverableStreamsSortType;
   DiscoverableStreamsSortingInput: DiscoverableStreamsSortingInput;
   EditCommentInput: EditCommentInput;
@@ -6585,6 +6677,7 @@ export type ResolversTypes = {
   GendoAIRenderInput: GendoAiRenderInput;
   GenerateFileUploadUrlInput: GenerateFileUploadUrlInput;
   GenerateFileUploadUrlOutput: ResolverTypeWrapper<GenerateFileUploadUrlOutput>;
+  GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
   GetModelUploadsInput: GetModelUploadsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
@@ -6983,6 +7076,9 @@ export type ResolversParentTypes = {
   DeleteUserEmailInput: DeleteUserEmailInput;
   DeleteVersionsInput: DeleteVersionsInput;
   DenyWorkspaceJoinRequestInput: DenyWorkspaceJoinRequestInput;
+  DigitalTwinAsset: DigitalTwinAssetGraphQLReturn;
+  DigitalTwinAssetCollection: Omit<DigitalTwinAssetCollection, 'items'> & { items: Array<ResolversParentTypes['DigitalTwinAsset']> };
+  DigitalTwinAssetPerformanceData: DigitalTwinAssetPerformanceData;
   DiscoverableStreamsSortingInput: DiscoverableStreamsSortingInput;
   EditCommentInput: EditCommentInput;
   EmailVerificationRequestInput: EmailVerificationRequestInput;
@@ -7002,6 +7098,7 @@ export type ResolversParentTypes = {
   GendoAIRenderInput: GendoAiRenderInput;
   GenerateFileUploadUrlInput: GenerateFileUploadUrlInput;
   GenerateFileUploadUrlOutput: GenerateFileUploadUrlOutput;
+  GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
   GetModelUploadsInput: GetModelUploadsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: Scalars['ID']['output'];
@@ -7906,6 +8003,40 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
   name: 'DateTime';
 }
 
+export type DigitalTwinAssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DigitalTwinAsset'] = ResolversParentTypes['DigitalTwinAsset']> = {
+  convertedLastUpdate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  convertedMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  fileName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  fileSize?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  fileType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  performanceData?: Resolver<Maybe<ResolversTypes['DigitalTwinAssetPerformanceData']>, ParentType, ContextType>;
+  projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['DigitalTwinAssetSource'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['DigitalTwinAssetStatus'], ParentType, ContextType>;
+  uploadDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  userId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  warnings?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type DigitalTwinAssetCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DigitalTwinAssetCollection'] = ResolversParentTypes['DigitalTwinAssetCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['DigitalTwinAsset']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type DigitalTwinAssetPerformanceDataResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DigitalTwinAssetPerformanceData'] = ResolversParentTypes['DigitalTwinAssetPerformanceData']> = {
+  downloadDurationSeconds?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  durationSeconds?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  parseDurationSeconds?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type EmbedTokenResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EmbedToken'] = ResolversParentTypes['EmbedToken']> = {
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   lastUsed?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
@@ -7944,6 +8075,7 @@ export type FileUploadResolvers<ContextType = GraphQLContext, ParentType extends
   convertedMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   convertedStatus?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   convertedVersionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  digitalTwinAsset?: Resolver<ResolversTypes['DigitalTwinAsset'], ParentType, ContextType>;
   fileName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   fileSize?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   fileType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -8301,6 +8433,7 @@ export type ProjectResolvers<ContextType = GraphQLContext, ParentType extends Re
   dashboardTokens?: Resolver<ResolversTypes['DashboardTokenCollection'], ParentType, ContextType, Partial<ProjectDashboardTokensArgs>>;
   dashboards?: Resolver<ResolversTypes['DashboardCollection'], ParentType, ContextType, RequireFields<ProjectDashboardsArgs, 'limit'>>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  digitalTwinAssets?: Resolver<ResolversTypes['DigitalTwinAssetCollection'], ParentType, ContextType, Partial<ProjectDigitalTwinAssetsArgs>>;
   embedOptions?: Resolver<ResolversTypes['ProjectEmbedOptions'], ParentType, ContextType>;
   embedTokens?: Resolver<ResolversTypes['EmbedTokenCollection'], ParentType, ContextType, Partial<ProjectEmbedTokensArgs>>;
   hasAccessToFeature?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<ProjectHasAccessToFeatureArgs, 'featureName'>>;
@@ -9569,6 +9702,9 @@ export type Resolvers<ContextType = GraphQLContext> = {
   DashboardToken?: DashboardTokenResolvers<ContextType>;
   DashboardTokenCollection?: DashboardTokenCollectionResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
+  DigitalTwinAsset?: DigitalTwinAssetResolvers<ContextType>;
+  DigitalTwinAssetCollection?: DigitalTwinAssetCollectionResolvers<ContextType>;
+  DigitalTwinAssetPerformanceData?: DigitalTwinAssetPerformanceDataResolvers<ContextType>;
   EmbedToken?: EmbedTokenResolvers<ContextType>;
   EmbedTokenCollection?: EmbedTokenCollectionResolvers<ContextType>;
   ExtendedViewerResources?: ExtendedViewerResourcesResolvers<ContextType>;

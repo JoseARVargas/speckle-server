@@ -7,6 +7,8 @@ import {
   getFileInfoFactoryV2,
   getModelUploadsItemsFactory,
   getModelUploadsTotalCountFactory,
+  getProjectUploadsItemsFactory,
+  getProjectUploadsTotalCountFactory,
   getStreamFileUploadsFactory,
   getStreamPendingModelsFactory,
   saveUploadFileFactory,
@@ -67,7 +69,14 @@ import cryptoRandomString from 'crypto-random-string'
 import { getFeatureFlags } from '@speckle/shared/environment'
 import { throwIfResourceAccessNotAllowed } from '@/modules/core/helpers/token'
 import { TokenResourceIdentifierType } from '@/modules/core/domain/tokens/types'
-import { getModelUploadsFactory } from '@/modules/fileuploads/services/management'
+import {
+  getModelUploadsFactory,
+  getProjectUploadsFactory
+} from '@/modules/fileuploads/services/management'
+import {
+  buildDigitalTwinAsset,
+  listDigitalTwinAssetsFactory
+} from '@/modules/fileuploads/services/digitalTwin'
 import type {
   FileUploadRecord,
   FileUploadRecordV2
@@ -334,6 +343,23 @@ export default {
     }
   },
   Project: {
+    async digitalTwinAssets(parent, args) {
+      const projectDb = await getProjectDbClient({ projectId: parent.id })
+      const listDigitalTwinAssets = listDigitalTwinAssetsFactory({
+        getProjectUploads: getProjectUploadsFactory({
+          getProjectUploadsItems: getProjectUploadsItemsFactory({ db: projectDb }),
+          getProjectUploadsTotalCount: getProjectUploadsTotalCountFactory({
+            db: projectDb
+          })
+        })
+      })
+
+      return await listDigitalTwinAssets({
+        projectId: parent.id,
+        limit: args.input?.limit ?? 25,
+        cursor: args.input?.cursor
+      })
+    },
     async pendingImportedModels(parent, args) {
       const projectDb = await getProjectDbClient({ projectId: parent.id })
       return await getStreamPendingModelsFactory({ db: projectDb })(parent.id, args)
@@ -375,12 +401,16 @@ export default {
       return (await getFileUploadModel({ upload: parent, ctx }))?.name
     },
     convertedVersionId: (parent) => parent.convertedCommitId,
+    digitalTwinAsset: (parent) => buildDigitalTwinAsset({ upload: parent }),
     async model(parent, _args, ctx) {
       return await getFileUploadModel({ upload: parent, ctx })
     },
     updatedAt: (parent) => {
       return parent.convertedLastUpdate || parent.uploadDate
     }
+  },
+  DigitalTwinAsset: {
+    description: (parent) => parent.metadata?.description ?? null
   },
   Mutation: {
     fileUploadMutations: () => ({})

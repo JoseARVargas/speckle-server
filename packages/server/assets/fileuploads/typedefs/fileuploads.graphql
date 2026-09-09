@@ -21,6 +21,12 @@ extend type Project {
   Returns a list models that are being created from a file import
   """
   pendingImportedModels(limit: Int = 25): [FileUpload!]!
+
+  """
+  Returns all file imports of this project as digital twin assets, ordered by
+  most recently updated first.
+  """
+  digitalTwinAssets(input: GetDigitalTwinAssetsInput): DigitalTwinAssetCollection!
 }
 
 type FileUploadCollection {
@@ -100,6 +106,99 @@ type FileUpload {
   Date when upload was last updated
   """
   updatedAt: DateTime!
+  """
+  Snapshot of this file upload as a digital twin asset, in a shape that is ready
+  to be consumed by clients (viewer, dashboards, external integrations).
+  """
+  digitalTwinAsset: DigitalTwinAsset!
+}
+
+input GetDigitalTwinAssetsInput {
+  """
+  The maximum number of assets to return.
+  """
+  limit: Int = 25
+  """
+  The cursor for pagination.
+  """
+  cursor: String
+}
+
+type DigitalTwinAssetCollection {
+  totalCount: Int!
+  cursor: String
+  items: [DigitalTwinAsset!]!
+}
+
+enum DigitalTwinAssetStatus {
+  queued
+  converting
+  completed
+  error
+}
+
+enum DigitalTwinAssetSource {
+  speckle
+}
+
+type DigitalTwinAssetPerformanceData {
+  """
+  Total processing time in seconds, since job was picked up until it completed
+  """
+  durationSeconds: Float!
+  """
+  Duration of the file download before parsing started in seconds
+  """
+  downloadDurationSeconds: Float!
+  """
+  Duration of the transformation in seconds
+  """
+  parseDurationSeconds: Float!
+}
+
+"""
+A client facing view over a file import, describing the imported asset and where
+its converted geometry can be loaded from.
+"""
+type DigitalTwinAsset {
+  """
+  Id of the underlying file upload
+  """
+  id: String!
+  projectId: String!
+  modelId: String
+  """
+  The user that uploaded the source file
+  """
+  userId: String!
+  fileName: String!
+  fileType: String!
+  fileSize: Int
+  """
+  Where the asset originates from
+  """
+  source: DigitalTwinAssetSource!
+  status: DigitalTwinAssetStatus!
+  """
+  The version holding the converted geometry, once the import has completed.
+  Use it together with projectId to load the asset in the viewer.
+  """
+  versionId: String
+  uploadDate: DateTime!
+  convertedLastUpdate: DateTime!
+  """
+  Holds any errors or info reported by the file importer
+  """
+  convertedMessage: String
+  """
+  Description provided alongside the upload, if any
+  """
+  description: String
+  performanceData: DigitalTwinAssetPerformanceData
+  """
+  Non fatal issues reported by the file importer
+  """
+  warnings: [String!]!
 }
 
 input GenerateFileUploadUrlInput {
