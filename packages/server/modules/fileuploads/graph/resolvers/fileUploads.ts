@@ -409,9 +409,6 @@ export default {
       return parent.convertedLastUpdate || parent.uploadDate
     }
   },
-  DigitalTwinAsset: {
-    description: (parent) => parent.metadata?.description ?? null
-  },
   Mutation: {
     fileUploadMutations: () => ({})
   },

@@ -190,10 +190,6 @@ type DigitalTwinAsset {
   Holds any errors or info reported by the file importer
   """
   convertedMessage: String
-  """
-  Description provided alongside the upload, if any
-  """
-  description: String
   performanceData: DigitalTwinAssetPerformanceData
   """
   Non fatal issues reported by the file importer

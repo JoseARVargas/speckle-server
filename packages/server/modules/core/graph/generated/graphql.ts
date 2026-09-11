@@ -1443,8 +1443,6 @@ export type DigitalTwinAsset = {
   convertedLastUpdate: Scalars['DateTime']['output'];
   /** Holds any errors or info reported by the file importer */
   convertedMessage?: Maybe<Scalars['String']['output']>;
-  /** Description provided alongside the upload, if any */
-  description?: Maybe<Scalars['String']['output']>;
   fileName: Scalars['String']['output'];
   fileSize?: Maybe<Scalars['Int']['output']>;
   fileType: Scalars['String']['output'];
@@ -8006,7 +8004,6 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
 export type DigitalTwinAssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DigitalTwinAsset'] = ResolversParentTypes['DigitalTwinAsset']> = {
   convertedLastUpdate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   convertedMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   fileName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   fileSize?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   fileType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
