@@ -1,0 +1,7 @@
+54-232-221-159.sslip.io {
+  reverse_proxy speckle-server:3000
+}
+
+minio-54-232-221-159.sslip.io {
+  reverse_proxy minio:9000
+}
