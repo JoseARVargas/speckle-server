@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Uploads one or more IFC files to a project on the digital twin Speckle
+# server and waits for each to finish converting. Usage:
+#   SPECKLE_PAT=... ./import-ifc-history.sh file1.ifc [file2.ifc ...]
 set -euo pipefail
 
 HOST="https://54-232-221-159.sslip.io"
@@ -6,12 +9,11 @@ PAT="${SPECKLE_PAT:?set SPECKLE_PAT to a Personal Access Token with streams:writ
 PROJECT_ID="a681fa9261"
 MODEL_ID="a389f6e767"
 
-FILES=(
-  "/c/dev/phd-digital-twin/storage/phd-sede/versions/v1_SEDE_PHD_RAJA.ifc"
-  "/c/dev/phd-digital-twin/storage/phd-sede/versions/ARCH-v2_SEDE_PHD_RAJA.ifc"
-  "/c/dev/phd-digital-twin/storage/phd-sede/versions/ARCH-v3_SEDE_PHD_RAJA.ifc"
-  "/c/dev/phd-digital-twin/storage/phd-sede/versions/ARCH-v4_SEDE_PHD_RAJA.ifc"
-)
+if [ "$#" -eq 0 ]; then
+  echo "Usage: SPECKLE_PAT=... $0 file1.ifc [file2.ifc ...]" >&2
+  exit 1
+fi
+FILES=("$@")
 
 gql() {
   curl -s "$HOST/graphql" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $PAT" -d "$1"
