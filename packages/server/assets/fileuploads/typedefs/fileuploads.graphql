@@ -141,6 +141,17 @@ enum DigitalTwinAssetSource {
   speckle
 }
 
+"""
+Simplified ISO 19650 suitability code for the information container this
+asset represents - the four states of a common data environment.
+"""
+enum DigitalTwinAssetSuitabilityStatus {
+  work_in_progress
+  shared
+  published
+  archived
+}
+
 type DigitalTwinAssetPerformanceData {
   """
   Total processing time in seconds, since job was picked up until it completed
@@ -167,6 +178,12 @@ type DigitalTwinAsset {
   id: String!
   projectId: String!
   modelId: String
+  """
+  Name of the model this asset's versions belong to - re-importing a file
+  into the same model adds a new version of this same asset rather than
+  creating an unrelated one.
+  """
+  modelName: String
   """
   The user that uploaded the source file
   """
@@ -195,6 +212,20 @@ type DigitalTwinAsset {
   Non fatal issues reported by the file importer
   """
   warnings: [String!]!
+  """
+  Discipline this information container belongs to (e.g. "Estrutural",
+  "Arquitetura", "Elétrico") - free text, not a fixed enum, since disciplines
+  vary by project/organization.
+  """
+  discipline: String
+  """
+  Simplified ISO 19650 suitability/status code for this revision.
+  """
+  suitabilityStatus: DigitalTwinAssetSuitabilityStatus
+  """
+  Revision code for this information container (e.g. "P01", "C02").
+  """
+  revision: String
 }
 
 input GenerateFileUploadUrlInput {
@@ -247,6 +278,17 @@ enum JobResultStatus {
   error
 }
 
+input UpdateDigitalTwinAssetMetadataInput {
+  projectId: String!
+  """
+  Id of the underlying file upload (DigitalTwinAsset.id)
+  """
+  id: String!
+  discipline: String
+  suitabilityStatus: DigitalTwinAssetSuitabilityStatus
+  revision: String
+}
+
 input FinishFileImportInput {
   projectId: String!
   """
@@ -283,6 +325,15 @@ type FileUploadMutations {
   Mostly for internal service usage.
   """
   finishFileImport(input: FinishFileImportInput!): Boolean!
+
+  """
+  Edit the ISO 19650-inspired classification fields (discipline, suitability
+  status, revision) of an already imported asset, without re-uploading it.
+  Only fields explicitly provided are changed.
+  """
+  updateDigitalTwinAssetMetadata(
+    input: UpdateDigitalTwinAssetMetadataInput!
+  ): DigitalTwinAsset!
 }
 
 extend type Mutation {

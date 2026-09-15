@@ -1443,17 +1443,33 @@ export type DigitalTwinAsset = {
   convertedLastUpdate: Scalars['DateTime']['output'];
   /** Holds any errors or info reported by the file importer */
   convertedMessage?: Maybe<Scalars['String']['output']>;
+  /**
+   * Discipline this information container belongs to (e.g. "Estrutural",
+   * "Arquitetura", "Elétrico") - free text, not a fixed enum, since disciplines
+   * vary by project/organization.
+   */
+  discipline?: Maybe<Scalars['String']['output']>;
   fileName: Scalars['String']['output'];
   fileSize?: Maybe<Scalars['Int']['output']>;
   fileType: Scalars['String']['output'];
   /** Id of the underlying file upload */
   id: Scalars['String']['output'];
   modelId?: Maybe<Scalars['String']['output']>;
+  /**
+   * Name of the model this asset's versions belong to - re-importing a file
+   * into the same model adds a new version of this same asset rather than
+   * creating an unrelated one.
+   */
+  modelName?: Maybe<Scalars['String']['output']>;
   performanceData?: Maybe<DigitalTwinAssetPerformanceData>;
   projectId: Scalars['String']['output'];
+  /** Revision code for this information container (e.g. "P01", "C02"). */
+  revision?: Maybe<Scalars['String']['output']>;
   /** Where the asset originates from */
   source: DigitalTwinAssetSource;
   status: DigitalTwinAssetStatus;
+  /** Simplified ISO 19650 suitability/status code for this revision. */
+  suitabilityStatus?: Maybe<DigitalTwinAssetSuitabilityStatus>;
   uploadDate: Scalars['DateTime']['output'];
   /** The user that uploaded the source file */
   userId: Scalars['String']['output'];
@@ -1496,6 +1512,18 @@ export const DigitalTwinAssetStatus = {
 } as const;
 
 export type DigitalTwinAssetStatus = typeof DigitalTwinAssetStatus[keyof typeof DigitalTwinAssetStatus];
+/**
+ * Simplified ISO 19650 suitability code for the information container this
+ * asset represents - the four states of a common data environment.
+ */
+export const DigitalTwinAssetSuitabilityStatus = {
+  Archived: 'archived',
+  Published: 'published',
+  Shared: 'shared',
+  WorkInProgress: 'work_in_progress'
+} as const;
+
+export type DigitalTwinAssetSuitabilityStatus = typeof DigitalTwinAssetSuitabilityStatus[keyof typeof DigitalTwinAssetSuitabilityStatus];
 export const DiscoverableStreamsSortType = {
   CreatedDate: 'CREATED_DATE',
   FavoritesCount: 'FAVORITES_COUNT'
@@ -1641,6 +1669,12 @@ export type FileUploadMutations = {
    * called to register the completed upload and create the blob metadata.
    */
   startFileImport: FileUpload;
+  /**
+   * Edit the ISO 19650-inspired classification fields (discipline, suitability
+   * status, revision) of an already imported asset, without re-uploading it.
+   * Only fields explicitly provided are changed.
+   */
+  updateDigitalTwinAssetMetadata: DigitalTwinAsset;
 };
 
 
@@ -1656,6 +1690,11 @@ export type FileUploadMutationsGenerateUploadUrlArgs = {
 
 export type FileUploadMutationsStartFileImportArgs = {
   input: StartFileImportInput;
+};
+
+
+export type FileUploadMutationsUpdateDigitalTwinAssetMetadataArgs = {
+  input: UpdateDigitalTwinAssetMetadataInput;
 };
 
 export type FinishFileImportInput = {
@@ -4980,6 +5019,15 @@ export type UpdateAutomateFunctionInput = {
   workspaceIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
+export type UpdateDigitalTwinAssetMetadataInput = {
+  discipline?: InputMaybe<Scalars['String']['input']>;
+  /** Id of the underlying file upload (DigitalTwinAsset.id) */
+  id: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
+  revision?: InputMaybe<Scalars['String']['input']>;
+  suitabilityStatus?: InputMaybe<DigitalTwinAssetSuitabilityStatus>;
+};
+
 export type UpdateModelInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
@@ -6655,6 +6703,7 @@ export type ResolversTypes = {
   DigitalTwinAssetPerformanceData: ResolverTypeWrapper<DigitalTwinAssetPerformanceData>;
   DigitalTwinAssetSource: DigitalTwinAssetSource;
   DigitalTwinAssetStatus: DigitalTwinAssetStatus;
+  DigitalTwinAssetSuitabilityStatus: DigitalTwinAssetSuitabilityStatus;
   DiscoverableStreamsSortType: DiscoverableStreamsSortType;
   DiscoverableStreamsSortingInput: DiscoverableStreamsSortingInput;
   EditCommentInput: EditCommentInput;
@@ -6832,6 +6881,7 @@ export type ResolversTypes = {
   TriggeredAutomationsStatus: ResolverTypeWrapper<TriggeredAutomationsStatusGraphQLReturn>;
   UpdateAccSyncItemInput: UpdateAccSyncItemInput;
   UpdateAutomateFunctionInput: UpdateAutomateFunctionInput;
+  UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
@@ -7232,6 +7282,7 @@ export type ResolversParentTypes = {
   TriggeredAutomationsStatus: TriggeredAutomationsStatusGraphQLReturn;
   UpdateAccSyncItemInput: UpdateAccSyncItemInput;
   UpdateAutomateFunctionInput: UpdateAutomateFunctionInput;
+  UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
@@ -8004,15 +8055,19 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
 export type DigitalTwinAssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DigitalTwinAsset'] = ResolversParentTypes['DigitalTwinAsset']> = {
   convertedLastUpdate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   convertedMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  discipline?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   fileName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   fileSize?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   fileType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   modelId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modelName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   performanceData?: Resolver<Maybe<ResolversTypes['DigitalTwinAssetPerformanceData']>, ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  revision?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   source?: Resolver<ResolversTypes['DigitalTwinAssetSource'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['DigitalTwinAssetStatus'], ParentType, ContextType>;
+  suitabilityStatus?: Resolver<Maybe<ResolversTypes['DigitalTwinAssetSuitabilityStatus']>, ParentType, ContextType>;
   uploadDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   userId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8100,6 +8155,7 @@ export type FileUploadMutationsResolvers<ContextType = GraphQLContext, ParentTyp
   finishFileImport?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FileUploadMutationsFinishFileImportArgs, 'input'>>;
   generateUploadUrl?: Resolver<ResolversTypes['GenerateFileUploadUrlOutput'], ParentType, ContextType, RequireFields<FileUploadMutationsGenerateUploadUrlArgs, 'input'>>;
   startFileImport?: Resolver<ResolversTypes['FileUpload'], ParentType, ContextType, RequireFields<FileUploadMutationsStartFileImportArgs, 'input'>>;
+  updateDigitalTwinAssetMetadata?: Resolver<ResolversTypes['DigitalTwinAsset'], ParentType, ContextType, RequireFields<FileUploadMutationsUpdateDigitalTwinAssetMetadataArgs, 'input'>>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 

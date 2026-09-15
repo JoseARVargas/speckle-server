@@ -17,6 +17,16 @@ type FileUploadPerformanceData = {
   parseDurationSeconds: number
 }
 
+/**
+ * ISO 19650 suitability code for the information container this upload
+ * produced, simplified to the four states of a common data environment.
+ */
+export type DigitalTwinAssetSuitabilityStatus =
+  | 'work_in_progress'
+  | 'shared'
+  | 'published'
+  | 'archived'
+
 export type FileUploadRecord = {
   id: string
   streamId: string
@@ -34,6 +44,9 @@ export type FileUploadRecord = {
   convertedCommitId: Nullable<string>
   metadata: Nullable<FileUploadRecordMetadata>
   performanceData: Nullable<FileUploadPerformanceData>
+  discipline: Nullable<string>
+  suitabilityStatus: Nullable<DigitalTwinAssetSuitabilityStatus>
+  revision: Nullable<string>
 }
 
 export type FileUploadRecordV2 = {
@@ -52,6 +65,9 @@ export type FileUploadRecordV2 = {
   convertedCommitId: Nullable<string>
   metadata: Nullable<FileUploadRecordMetadata>
   performanceData: Nullable<FileUploadPerformanceData>
+  discipline: Nullable<string>
+  suitabilityStatus: Nullable<DigitalTwinAssetSuitabilityStatus>
+  revision: Nullable<string>
 }
 
 export type FileUploadGraphQLReturn = FileUploadRecord | FileUploadRecordV2

@@ -1,4 +1,5 @@
 import type {
+  DigitalTwinAssetSuitabilityStatus,
   FileUploadRecord,
   FileUploadRecordMetadata,
   FileUploadRecordV2
@@ -13,6 +14,7 @@ export type DigitalTwinAsset = {
   id: string
   projectId: string
   modelId: string | null
+  modelName: string | null
   userId: string
   fileName: string
   fileType: string
@@ -30,6 +32,13 @@ export type DigitalTwinAsset = {
     parseDurationSeconds: number
   } | null
   warnings: string[]
+  /**
+   * ISO 19650-inspired information management fields - none of these affect
+   * conversion, they're editable classification metadata for the asset.
+   */
+  discipline: string | null
+  suitabilityStatus: DigitalTwinAssetSuitabilityStatus | null
+  revision: string | null
 }
 
 export type DigitalTwinAssetGraphQLReturn = DigitalTwinAsset
@@ -67,10 +76,17 @@ export const buildDigitalTwinAsset = ({
       ? jobResult.result.versionId
       : upload.convertedCommitId ?? null
 
+  // Only the (legacy-named) V1 record type declares branchName, but the
+  // physical column is populated for V2 uploads too (saveUploadFileFactoryV2
+  // writes the model's name into it for backwards compat) - same pattern as
+  // the projectId fallback above.
+  const modelName = 'branchName' in upload ? upload.branchName : null
+
   return {
     id: upload.id,
     projectId,
     modelId: upload.modelId,
+    modelName,
     userId: upload.userId,
     fileName: upload.fileName,
     fileType: upload.fileType,
@@ -88,7 +104,10 @@ export const buildDigitalTwinAsset = ({
         ? jobResult.warnings ?? []
         : jobResult?.status === 'error'
         ? [jobResult.reason]
-        : []
+        : [],
+    discipline: upload.discipline ?? null,
+    suitabilityStatus: upload.suitabilityStatus ?? null,
+    revision: upload.revision ?? null
   }
 }
 

@@ -326,6 +326,39 @@ const fileUploadMutations: Resolvers['FileUploadMutations'] = {
     })
 
     return true
+  },
+
+  async updateDigitalTwinAssetMetadata(_parent, args, ctx) {
+    const { projectId, id, discipline, suitabilityStatus, revision } = args.input
+    if (!ctx.userId) {
+      throw new ForbiddenError('No userId provided')
+    }
+
+    throwIfResourceAccessNotAllowed({
+      resourceId: projectId,
+      resourceType: TokenResourceIdentifierType.Project,
+      resourceAccessRules: ctx.resourceAccessRules
+    })
+
+    const canPublish = await ctx.authPolicies.project.canPublish({
+      userId: ctx.userId,
+      projectId
+    })
+    throwIfAuthNotOk(canPublish)
+
+    const projectDb = await getProjectDbClient({ projectId })
+    const updateFileUpload = updateFileUploadFactory({ db: projectDb })
+
+    const updated = await updateFileUpload({
+      id,
+      upload: {
+        ...(discipline !== undefined ? { discipline } : {}),
+        ...(suitabilityStatus !== undefined ? { suitabilityStatus } : {}),
+        ...(revision !== undefined ? { revision } : {})
+      }
+    })
+
+    return buildDigitalTwinAsset({ upload: updated })
   }
 }
 

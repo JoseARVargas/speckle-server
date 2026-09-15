@@ -58,7 +58,10 @@ describe('FileUploads @fileuploads', () => {
         durationSeconds: 10,
         downloadDurationSeconds: 4,
         parseDurationSeconds: 6
-      }
+      },
+      discipline: 'ST',
+      suitabilityStatus: 'shared' as const,
+      revision: 'P02'
     }
 
     const asset = buildDigitalTwinAsset({
@@ -84,7 +87,10 @@ describe('FileUploads @fileuploads', () => {
       fileType: 'ifc',
       source: 'speckle',
       versionId: 'version-123',
-      status: 'completed'
+      status: 'completed',
+      discipline: 'ST',
+      suitabilityStatus: 'shared',
+      revision: 'P02'
     })
     expect(asset.metadata).to.deep.equal({ description: 'Main building model' })
     expect(asset.performanceData).to.deep.equal({
@@ -112,7 +118,10 @@ describe('FileUploads @fileuploads', () => {
         convertedMessage: null,
         convertedCommitId: 'version-1',
         metadata: null,
-        performanceData: null
+        performanceData: null,
+        discipline: null,
+        suitabilityStatus: null,
+        revision: null
       },
       {
         id: 'blob-2',
@@ -130,7 +139,10 @@ describe('FileUploads @fileuploads', () => {
         convertedMessage: 'Boom',
         convertedCommitId: null,
         metadata: null,
-        performanceData: null
+        performanceData: null,
+        discipline: null,
+        suitabilityStatus: null,
+        revision: null
       }
     ]
 
