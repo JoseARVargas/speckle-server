@@ -280,11 +280,22 @@ const facilityMutations = {
         assetTypeId?: string | null
         spaceId?: string | null
         systemIds?: string[] | null
+        currentObjectId?: string | null
+        currentVersionId?: string | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { projectId, tagNumber, name, assetTypeId, spaceId, systemIds } = args.input
+    const {
+      projectId,
+      tagNumber,
+      name,
+      assetTypeId,
+      spaceId,
+      systemIds,
+      currentObjectId,
+      currentVersionId
+    } = args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
     const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
@@ -296,8 +307,8 @@ const facilityMutations = {
       name: name ?? null,
       assetTypeId: assetTypeId ?? null,
       spaceId: spaceId ?? null,
-      currentObjectId: null,
-      currentVersionId: null,
+      currentObjectId: currentObjectId ?? null,
+      currentVersionId: currentVersionId ?? null,
       createdAt: new Date(),
       updatedAt: new Date()
     })

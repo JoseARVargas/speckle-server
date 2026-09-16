@@ -1307,6 +1307,12 @@ export type CreateAccSyncItemInput = {
 
 export type CreateAssetInput = {
   assetTypeId?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * Set when creating an asset directly from a viewer selection that has no
+   * matching asset yet - see UpdateAssetInput.
+   */
+  currentObjectId?: InputMaybe<Scalars['String']['input']>;
+  currentVersionId?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['String']['input'];
   spaceId?: InputMaybe<Scalars['String']['input']>;

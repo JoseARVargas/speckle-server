@@ -321,6 +321,12 @@ input CreateAssetInput {
   assetTypeId: String
   spaceId: String
   systemIds: [String!]
+  """
+  Set when creating an asset directly from a viewer selection that has no
+  matching asset yet - see UpdateAssetInput.
+  """
+  currentObjectId: String
+  currentVersionId: String
 }
 
 input UpdateAssetInput {
