@@ -330,6 +330,12 @@ input UpdateAssetInput {
   assetTypeId: String
   spaceId: String
   systemIds: [String!]
+  """
+  Set by BIM reconciliation (matching this asset's tagNumber against a
+  loaded model version's elements) - not meant to be hand-edited.
+  """
+  currentObjectId: String
+  currentVersionId: String
 }
 
 type FacilityMutations {

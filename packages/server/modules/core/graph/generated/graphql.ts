@@ -5470,6 +5470,12 @@ export type UpdateAccSyncItemInput = {
 
 export type UpdateAssetInput = {
   assetTypeId?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * Set by BIM reconciliation (matching this asset's tagNumber against a
+   * loaded model version's elements) - not meant to be hand-edited.
+   */
+  currentObjectId?: InputMaybe<Scalars['String']['input']>;
+  currentVersionId?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;

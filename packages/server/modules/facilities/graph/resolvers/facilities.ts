@@ -317,11 +317,22 @@ const facilityMutations = {
         assetTypeId?: string | null
         spaceId?: string | null
         systemIds?: string[] | null
+        currentObjectId?: string | null
+        currentVersionId?: string | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { id, tagNumber, name, assetTypeId, spaceId, systemIds } = args.input
+    const {
+      id,
+      tagNumber,
+      name,
+      assetTypeId,
+      spaceId,
+      systemIds,
+      currentObjectId,
+      currentVersionId
+    } = args.input
     const asset = await getAssetByIdFactory({ db })({ id })
     if (!asset) throw new NotFoundError('Asset not found')
     await assertCanManageFacility(ctx, asset.projectId)
@@ -332,7 +343,9 @@ const facilityMutations = {
         ...(tagNumber !== undefined && tagNumber !== null ? { tagNumber } : {}),
         ...(name !== undefined ? { name } : {}),
         ...(assetTypeId !== undefined ? { assetTypeId } : {}),
-        ...(spaceId !== undefined ? { spaceId } : {})
+        ...(spaceId !== undefined ? { spaceId } : {}),
+        ...(currentObjectId !== undefined ? { currentObjectId } : {}),
+        ...(currentVersionId !== undefined ? { currentVersionId } : {})
       }
     })
     if (systemIds !== undefined) {
