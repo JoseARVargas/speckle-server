@@ -469,6 +469,128 @@ export type ArchiveCommentInput = {
   projectId: Scalars['String']['input'];
 };
 
+/**
+ * The COBie "Component" sheet - one physical asset instance, identified
+ * within its facility by a human-assigned tag number (not the IFC GUID,
+ * which the exporting tool may not keep stable across re-exports).
+ */
+export type Asset = {
+  __typename?: 'Asset';
+  assetType?: Maybe<AssetType>;
+  assetTypeId?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  /**
+   * Cache of where this asset currently resolves to in the model - refreshed
+   * whenever a new model version is reconciled against this asset's tag.
+   */
+  currentObjectId?: Maybe<Scalars['String']['output']>;
+  currentVersionId?: Maybe<Scalars['String']['output']>;
+  facilityId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name?: Maybe<Scalars['String']['output']>;
+  space?: Maybe<Space>;
+  spaceId?: Maybe<Scalars['String']['output']>;
+  systems: Array<AssetSystem>;
+  /**
+   * Stable identity within the facility - usually read from the linked BIM
+   * element's IfcTag/IfcName property. Unique per facility.
+   */
+  tagNumber: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type AssetCollection = {
+  __typename?: 'AssetCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<Asset>;
+  totalCount: Scalars['Int']['output'];
+};
+
+/**
+ * The COBie "System" sheet - a functional grouping of assets (e.g. "Sistema
+ * de Climatização 1"), scoped to one facility. An asset can belong to more
+ * than one system.
+ */
+export type AssetSystem = {
+  __typename?: 'AssetSystem';
+  assets: AssetCollection;
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  facilityId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+
+/**
+ * The COBie "System" sheet - a functional grouping of assets (e.g. "Sistema
+ * de Climatização 1"), scoped to one facility. An asset can belong to more
+ * than one system.
+ */
+export type AssetSystemAssetsArgs = {
+  input?: InputMaybe<GetFacilityAssetsInput>;
+};
+
+/**
+ * The COBie "Type" sheet - a shared, server-wide equipment catalog (e.g.
+ * "12,000 BTU split AC, Manufacturer X, Model Y"), reused across facilities.
+ * Only server admins can create or edit catalog entries.
+ */
+export type AssetType = {
+  __typename?: 'AssetType';
+  category?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  expectedLifeYears?: Maybe<Scalars['Int']['output']>;
+  /**
+   * Any other COBie Type attribute (warranty, dimensions, material, etc.) or
+   * custom attribute that doesn't have its own column.
+   */
+  extendedAttributes: Scalars['JSONObject']['output'];
+  id: Scalars['String']['output'];
+  manufacturer?: Maybe<Scalars['String']['output']>;
+  modelNumber?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  nature?: Maybe<AssetTypeNature>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type AssetTypeCollection = {
+  __typename?: 'AssetTypeCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<AssetType>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type AssetTypeMutations = {
+  __typename?: 'AssetTypeMutations';
+  create: AssetType;
+  delete: Scalars['Boolean']['output'];
+  update: AssetType;
+};
+
+
+export type AssetTypeMutationsCreateArgs = {
+  input: CreateAssetTypeInput;
+};
+
+
+export type AssetTypeMutationsDeleteArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type AssetTypeMutationsUpdateArgs = {
+  input: UpdateAssetTypeInput;
+};
+
+export const AssetTypeNature = {
+  Fixed: 'fixed',
+  Movable: 'movable'
+} as const;
+
+export type AssetTypeNature = typeof AssetTypeNature[keyof typeof AssetTypeNature];
 export type AuthStrategy = {
   __typename?: 'AuthStrategy';
   color?: Maybe<Scalars['String']['output']>;
@@ -1154,6 +1276,32 @@ export type CreateAccSyncItemInput = {
   projectId: Scalars['String']['input'];
 };
 
+export type CreateAssetInput = {
+  assetTypeId?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  projectId: Scalars['String']['input'];
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  systemIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  tagNumber: Scalars['String']['input'];
+};
+
+export type CreateAssetSystemInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
+};
+
+export type CreateAssetTypeInput = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  expectedLifeYears?: InputMaybe<Scalars['Int']['input']>;
+  extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
+  manufacturer?: InputMaybe<Scalars['String']['input']>;
+  modelNumber?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  nature?: InputMaybe<AssetTypeNature>;
+};
+
 export type CreateAutomateFunctionInput = {
   description: Scalars['String']['input'];
   /** Base64 encoded image data string */
@@ -1203,6 +1351,12 @@ export type CreateEmbedTokenReturn = {
   tokenMetadata: EmbedToken;
 };
 
+export type CreateFloorInput = {
+  elevationZ?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
+};
+
 export type CreateModelInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -1242,6 +1396,14 @@ export type CreateServerRegionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   key: Scalars['String']['input'];
   name: Scalars['String']['input'];
+};
+
+export type CreateSpaceInput = {
+  elevationZ?: InputMaybe<Scalars['Float']['input']>;
+  floorId?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
+  speckleObjectId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateUserEmailInput = {
@@ -1592,6 +1754,116 @@ export type ExtendedViewerResourcesRequest = {
   savedViewId?: Maybe<Scalars['ID']['output']>;
 };
 
+export type Facility = {
+  __typename?: 'Facility';
+  assets: AssetCollection;
+  createdAt: Scalars['DateTime']['output'];
+  floors: Array<Floor>;
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  projectId: Scalars['String']['output'];
+  spaces: Array<Space>;
+  systems: Array<AssetSystem>;
+  /**
+   * Which IFC property is read as an asset's tag number when linking it to a
+   * model element (e.g. "IfcTag", "IfcName", or a custom Pset property).
+   */
+  tagSourceProperty: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+
+export type FacilityAssetsArgs = {
+  input?: InputMaybe<GetFacilityAssetsInput>;
+};
+
+
+export type FacilitySpacesArgs = {
+  input?: InputMaybe<GetFacilitySpacesInput>;
+};
+
+export type FacilityMutations = {
+  __typename?: 'FacilityMutations';
+  createAsset: Asset;
+  createFloor: Floor;
+  createSpace: Space;
+  createSystem: AssetSystem;
+  deleteAsset: Scalars['Boolean']['output'];
+  deleteFloor: Scalars['Boolean']['output'];
+  deleteSpace: Scalars['Boolean']['output'];
+  deleteSystem: Scalars['Boolean']['output'];
+  update: Facility;
+  updateAsset: Asset;
+  updateFloor: Floor;
+  updateSpace: Space;
+  updateSystem: AssetSystem;
+};
+
+
+export type FacilityMutationsCreateAssetArgs = {
+  input: CreateAssetInput;
+};
+
+
+export type FacilityMutationsCreateFloorArgs = {
+  input: CreateFloorInput;
+};
+
+
+export type FacilityMutationsCreateSpaceArgs = {
+  input: CreateSpaceInput;
+};
+
+
+export type FacilityMutationsCreateSystemArgs = {
+  input: CreateAssetSystemInput;
+};
+
+
+export type FacilityMutationsDeleteAssetArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsDeleteFloorArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsDeleteSpaceArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsDeleteSystemArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsUpdateArgs = {
+  input: UpdateFacilityInput;
+};
+
+
+export type FacilityMutationsUpdateAssetArgs = {
+  input: UpdateAssetInput;
+};
+
+
+export type FacilityMutationsUpdateFloorArgs = {
+  input: UpdateFloorInput;
+};
+
+
+export type FacilityMutationsUpdateSpaceArgs = {
+  input: UpdateSpaceInput;
+};
+
+
+export type FacilityMutationsUpdateSystemArgs = {
+  input: UpdateAssetSystemInput;
+};
+
 export type FileImportResultInput = {
   /** Duration of the file download before parsing started in seconds */
   downloadDurationSeconds: Scalars['Float']['input'];
@@ -1710,6 +1982,18 @@ export type FinishFileImportInput = {
   warnings?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
+export type Floor = {
+  __typename?: 'Floor';
+  createdAt: Scalars['DateTime']['output'];
+  /** Real-world elevation in meters, when known. */
+  elevationZ?: Maybe<Scalars['Float']['output']>;
+  facilityId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  spaces: Array<Space>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 export type GendoAiRender = {
   __typename?: 'GendoAIRender';
   camera?: Maybe<Scalars['JSONObject']['output']>;
@@ -1761,6 +2045,18 @@ export type GetDigitalTwinAssetsInput = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   /** The maximum number of assets to return. */
   limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type GetFacilityAssetsInput = {
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  systemId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type GetFacilitySpacesInput = {
+  floorId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GetModelUploadsInput = {
@@ -2138,6 +2434,8 @@ export type Mutation = {
   appTokenCreate: Scalars['String']['output'];
   /** Update an existing third party application. **Note: This will invalidate all existing tokens, refresh tokens and access codes and will require existing users to re-authorize it.** */
   appUpdate: Scalars['Boolean']['output'];
+  /** Manage the shared AssetType catalog. Server-admin only. */
+  assetTypeMutations: AssetTypeMutations;
   automateFunctionRunStatusReport: Scalars['Boolean']['output'];
   automateMutations: AutomateMutations;
   /** @deprecated Part of the old API surface and will be removed in the future. Use ModelMutations.create instead. */
@@ -2193,6 +2491,11 @@ export type Mutation = {
    */
   commitsMove: Scalars['Boolean']['output'];
   dashboardMutations: DashboardMutations;
+  /**
+   * Manage a project's facility registry (floors, spaces, systems, assets).
+   * Requires publish access to the target project.
+   */
+  facilityMutations: FacilityMutations;
   fileUploadMutations: FileUploadMutations;
   /**
    * Delete a pending invite
@@ -2780,6 +3083,11 @@ export type Project = {
   /** Public project-level configuration for embedded viewer */
   embedOptions: ProjectEmbedOptions;
   embedTokens: EmbedTokenCollection;
+  /**
+   * The COBie-style facility registry for this project. Null until the first
+   * floor/space/system/asset is registered for it.
+   */
+  facility?: Maybe<Facility>;
   hasAccessToFeature: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   invitableCollaborators: WorkspaceCollaboratorCollection;
@@ -3671,6 +3979,8 @@ export type Query = {
    * @deprecated Part of the old API surface and will be removed in the future.
    */
   apps?: Maybe<Array<Maybe<ServerAppListItem>>>;
+  assetType?: Maybe<AssetType>;
+  assetTypes: AssetTypeCollection;
   /** If user is authenticated using an app token, this will describe the app */
   authenticatedAsApp?: Maybe<ServerAppListItem>;
   /** Get a single automate function by id. Error will be thrown if function is not found or inaccessible. */
@@ -3792,6 +4102,18 @@ export type QueryAdminUsersArgs = {
 
 export type QueryAppArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type QueryAssetTypeArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryAssetTypesArgs = {
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -4437,6 +4759,30 @@ export const SortDirection = {
 } as const;
 
 export type SortDirection = typeof SortDirection[keyof typeof SortDirection];
+export type Space = {
+  __typename?: 'Space';
+  assets: AssetCollection;
+  createdAt: Scalars['DateTime']['output'];
+  /**
+   * Real-world elevation in meters - always worth capturing even without a
+   * Floor, e.g. read from the linked IfcSpace element's geometry.
+   */
+  elevationZ?: Maybe<Scalars['Float']['output']>;
+  facilityId: Scalars['String']['output'];
+  floor?: Maybe<Floor>;
+  floorId?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  /** Id of the BIM element (e.g. an IfcSpace) this space is linked to, if any. */
+  speckleObjectId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+
+export type SpaceAssetsArgs = {
+  input?: InputMaybe<GetFacilityAssetsInput>;
+};
+
 export type StartFileImportInput = {
   /**
    * The etag is returned by the blob storage provider in the response body after a successful upload.
@@ -5007,6 +5353,33 @@ export type UpdateAccSyncItemInput = {
   status: AccSyncItemStatus;
 };
 
+export type UpdateAssetInput = {
+  assetTypeId?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  systemIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  tagNumber?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateAssetSystemInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateAssetTypeInput = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  expectedLifeYears?: InputMaybe<Scalars['Int']['input']>;
+  extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
+  id: Scalars['String']['input'];
+  manufacturer?: InputMaybe<Scalars['String']['input']>;
+  modelNumber?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  nature?: InputMaybe<AssetTypeNature>;
+};
+
 /** Any null values will be ignored */
 export type UpdateAutomateFunctionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
@@ -5026,6 +5399,18 @@ export type UpdateDigitalTwinAssetMetadataInput = {
   projectId: Scalars['String']['input'];
   revision?: InputMaybe<Scalars['String']['input']>;
   suitabilityStatus?: InputMaybe<DigitalTwinAssetSuitabilityStatus>;
+};
+
+export type UpdateFacilityInput = {
+  name?: InputMaybe<Scalars['String']['input']>;
+  projectId: Scalars['String']['input'];
+  tagSourceProperty?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateFloorInput = {
+  elevationZ?: InputMaybe<Scalars['Float']['input']>;
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateModelInput = {
@@ -5070,6 +5455,14 @@ export type UpdateServerRegionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   key: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateSpaceInput = {
+  elevationZ?: InputMaybe<Scalars['Float']['input']>;
+  floorId?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  speckleObjectId?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Only non-null values will be updated */
@@ -6599,6 +6992,13 @@ export type ResolversTypes = {
   AppUpdateInput: AppUpdateInput;
   ApproveWorkspaceJoinRequestInput: ApproveWorkspaceJoinRequestInput;
   ArchiveCommentInput: ArchiveCommentInput;
+  Asset: ResolverTypeWrapper<Asset>;
+  AssetCollection: ResolverTypeWrapper<AssetCollection>;
+  AssetSystem: ResolverTypeWrapper<AssetSystem>;
+  AssetType: ResolverTypeWrapper<AssetType>;
+  AssetTypeCollection: ResolverTypeWrapper<AssetTypeCollection>;
+  AssetTypeMutations: ResolverTypeWrapper<AssetTypeMutations>;
+  AssetTypeNature: AssetTypeNature;
   AuthStrategy: ResolverTypeWrapper<AuthStrategy>;
   AutomateAuthCodePayloadTest: AutomateAuthCodePayloadTest;
   AutomateAuthCodeResources: AutomateAuthCodeResources;
@@ -6665,16 +7065,21 @@ export type ResolversTypes = {
   CommitsMoveInput: CommitsMoveInput;
   CountOnlyCollection: ResolverTypeWrapper<CountOnlyCollection>;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
+  CreateAssetInput: CreateAssetInput;
+  CreateAssetSystemInput: CreateAssetSystemInput;
+  CreateAssetTypeInput: CreateAssetTypeInput;
   CreateAutomateFunctionInput: CreateAutomateFunctionInput;
   CreateAutomateFunctionWithoutVersionInput: CreateAutomateFunctionWithoutVersionInput;
   CreateCommentInput: CreateCommentInput;
   CreateCommentReplyInput: CreateCommentReplyInput;
   CreateDashboardTokenReturn: ResolverTypeWrapper<Omit<CreateDashboardTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversTypes['DashboardToken'] }>;
   CreateEmbedTokenReturn: ResolverTypeWrapper<Omit<CreateEmbedTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversTypes['EmbedToken'] }>;
+  CreateFloorInput: CreateFloorInput;
   CreateModelInput: CreateModelInput;
   CreateSavedViewGroupInput: CreateSavedViewGroupInput;
   CreateSavedViewInput: CreateSavedViewInput;
   CreateServerRegionInput: CreateServerRegionInput;
+  CreateSpaceInput: CreateSpaceInput;
   CreateUserEmailInput: CreateUserEmailInput;
   CreateVersionInput: CreateVersionInput;
   Currency: Currency;
@@ -6713,18 +7118,23 @@ export type ResolversTypes = {
   EmbedTokenCreateInput: EmbedTokenCreateInput;
   ExtendedViewerResources: ResolverTypeWrapper<ExtendedViewerResourcesGraphQLReturn>;
   ExtendedViewerResourcesRequest: ResolverTypeWrapper<ExtendedViewerResourcesRequest>;
+  Facility: ResolverTypeWrapper<Facility>;
+  FacilityMutations: ResolverTypeWrapper<FacilityMutations>;
   FileImportResultInput: FileImportResultInput;
   FileUpload: ResolverTypeWrapper<FileUploadGraphQLReturn>;
   FileUploadCollection: ResolverTypeWrapper<Omit<FileUploadCollection, 'items'> & { items: Array<ResolversTypes['FileUpload']> }>;
   FileUploadMutations: ResolverTypeWrapper<MutationsObjectGraphQLReturn>;
   FinishFileImportInput: FinishFileImportInput;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
+  Floor: ResolverTypeWrapper<Floor>;
   GendoAIRender: ResolverTypeWrapper<GendoAIRenderGraphQLReturn>;
   GendoAIRenderCollection: ResolverTypeWrapper<Omit<GendoAiRenderCollection, 'items'> & { items: Array<Maybe<ResolversTypes['GendoAIRender']>> }>;
   GendoAIRenderInput: GendoAiRenderInput;
   GenerateFileUploadUrlInput: GenerateFileUploadUrlInput;
   GenerateFileUploadUrlOutput: ResolverTypeWrapper<GenerateFileUploadUrlOutput>;
   GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
+  GetFacilityAssetsInput: GetFacilityAssetsInput;
+  GetFacilitySpacesInput: GetFacilitySpacesInput;
   GetModelUploadsInput: GetModelUploadsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
@@ -6859,6 +7269,7 @@ export type ResolversTypes = {
   SetPrimaryUserEmailInput: SetPrimaryUserEmailInput;
   SmartTextEditorValue: ResolverTypeWrapper<SmartTextEditorValueGraphQLReturn>;
   SortDirection: SortDirection;
+  Space: ResolverTypeWrapper<Space>;
   StartFileImportInput: StartFileImportInput;
   Stream: ResolverTypeWrapper<StreamGraphQLReturn>;
   StreamAccessRequest: ResolverTypeWrapper<StreamAccessRequestGraphQLReturn>;
@@ -6880,12 +7291,18 @@ export type ResolversTypes = {
   TokenResourceIdentifierType: TokenResourceIdentifierType;
   TriggeredAutomationsStatus: ResolverTypeWrapper<TriggeredAutomationsStatusGraphQLReturn>;
   UpdateAccSyncItemInput: UpdateAccSyncItemInput;
+  UpdateAssetInput: UpdateAssetInput;
+  UpdateAssetSystemInput: UpdateAssetSystemInput;
+  UpdateAssetTypeInput: UpdateAssetTypeInput;
   UpdateAutomateFunctionInput: UpdateAutomateFunctionInput;
   UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
+  UpdateFacilityInput: UpdateFacilityInput;
+  UpdateFloorInput: UpdateFloorInput;
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
   UpdateServerRegionInput: UpdateServerRegionInput;
+  UpdateSpaceInput: UpdateSpaceInput;
   UpdateVersionInput: UpdateVersionInput;
   UpgradePlanInput: UpgradePlanInput;
   User: ResolverTypeWrapper<UserGraphQLReturn>;
@@ -7030,6 +7447,12 @@ export type ResolversParentTypes = {
   AppUpdateInput: AppUpdateInput;
   ApproveWorkspaceJoinRequestInput: ApproveWorkspaceJoinRequestInput;
   ArchiveCommentInput: ArchiveCommentInput;
+  Asset: Asset;
+  AssetCollection: AssetCollection;
+  AssetSystem: AssetSystem;
+  AssetType: AssetType;
+  AssetTypeCollection: AssetTypeCollection;
+  AssetTypeMutations: AssetTypeMutations;
   AuthStrategy: AuthStrategy;
   AutomateAuthCodePayloadTest: AutomateAuthCodePayloadTest;
   AutomateAuthCodeResources: AutomateAuthCodeResources;
@@ -7092,16 +7515,21 @@ export type ResolversParentTypes = {
   CommitsMoveInput: CommitsMoveInput;
   CountOnlyCollection: CountOnlyCollection;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
+  CreateAssetInput: CreateAssetInput;
+  CreateAssetSystemInput: CreateAssetSystemInput;
+  CreateAssetTypeInput: CreateAssetTypeInput;
   CreateAutomateFunctionInput: CreateAutomateFunctionInput;
   CreateAutomateFunctionWithoutVersionInput: CreateAutomateFunctionWithoutVersionInput;
   CreateCommentInput: CreateCommentInput;
   CreateCommentReplyInput: CreateCommentReplyInput;
   CreateDashboardTokenReturn: Omit<CreateDashboardTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversParentTypes['DashboardToken'] };
   CreateEmbedTokenReturn: Omit<CreateEmbedTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversParentTypes['EmbedToken'] };
+  CreateFloorInput: CreateFloorInput;
   CreateModelInput: CreateModelInput;
   CreateSavedViewGroupInput: CreateSavedViewGroupInput;
   CreateSavedViewInput: CreateSavedViewInput;
   CreateServerRegionInput: CreateServerRegionInput;
+  CreateSpaceInput: CreateSpaceInput;
   CreateUserEmailInput: CreateUserEmailInput;
   CreateVersionInput: CreateVersionInput;
   CurrencyBasedPrices: Omit<CurrencyBasedPrices, 'gbp' | 'usd'> & { gbp: ResolversParentTypes['WorkspacePaidPlanPrices'], usd: ResolversParentTypes['WorkspacePaidPlanPrices'] };
@@ -7135,18 +7563,23 @@ export type ResolversParentTypes = {
   EmbedTokenCreateInput: EmbedTokenCreateInput;
   ExtendedViewerResources: ExtendedViewerResourcesGraphQLReturn;
   ExtendedViewerResourcesRequest: ExtendedViewerResourcesRequest;
+  Facility: Facility;
+  FacilityMutations: FacilityMutations;
   FileImportResultInput: FileImportResultInput;
   FileUpload: FileUploadGraphQLReturn;
   FileUploadCollection: Omit<FileUploadCollection, 'items'> & { items: Array<ResolversParentTypes['FileUpload']> };
   FileUploadMutations: MutationsObjectGraphQLReturn;
   FinishFileImportInput: FinishFileImportInput;
   Float: Scalars['Float']['output'];
+  Floor: Floor;
   GendoAIRender: GendoAIRenderGraphQLReturn;
   GendoAIRenderCollection: Omit<GendoAiRenderCollection, 'items'> & { items: Array<Maybe<ResolversParentTypes['GendoAIRender']>> };
   GendoAIRenderInput: GendoAiRenderInput;
   GenerateFileUploadUrlInput: GenerateFileUploadUrlInput;
   GenerateFileUploadUrlOutput: GenerateFileUploadUrlOutput;
   GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
+  GetFacilityAssetsInput: GetFacilityAssetsInput;
+  GetFacilitySpacesInput: GetFacilitySpacesInput;
   GetModelUploadsInput: GetModelUploadsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: Scalars['ID']['output'];
@@ -7262,6 +7695,7 @@ export type ResolversParentTypes = {
   ServerWorkspacesInfo: GraphQLEmptyReturn;
   SetPrimaryUserEmailInput: SetPrimaryUserEmailInput;
   SmartTextEditorValue: SmartTextEditorValueGraphQLReturn;
+  Space: Space;
   StartFileImportInput: StartFileImportInput;
   Stream: StreamGraphQLReturn;
   StreamAccessRequest: StreamAccessRequestGraphQLReturn;
@@ -7281,12 +7715,18 @@ export type ResolversParentTypes = {
   TokenResourceIdentifierInput: TokenResourceIdentifierInput;
   TriggeredAutomationsStatus: TriggeredAutomationsStatusGraphQLReturn;
   UpdateAccSyncItemInput: UpdateAccSyncItemInput;
+  UpdateAssetInput: UpdateAssetInput;
+  UpdateAssetSystemInput: UpdateAssetSystemInput;
+  UpdateAssetTypeInput: UpdateAssetTypeInput;
   UpdateAutomateFunctionInput: UpdateAutomateFunctionInput;
   UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
+  UpdateFacilityInput: UpdateFacilityInput;
+  UpdateFloorInput: UpdateFloorInput;
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
   UpdateServerRegionInput: UpdateServerRegionInput;
+  UpdateSpaceInput: UpdateSpaceInput;
   UpdateVersionInput: UpdateVersionInput;
   UpgradePlanInput: UpgradePlanInput;
   User: UserGraphQLReturn;
@@ -7622,6 +8062,70 @@ export type AppAuthorResolvers<ContextType = GraphQLContext, ParentType extends 
   avatar?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Asset'] = ResolversParentTypes['Asset']> = {
+  assetType?: Resolver<Maybe<ResolversTypes['AssetType']>, ParentType, ContextType>;
+  assetTypeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  currentObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  currentVersionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
+  spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
+  tagNumber?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AssetCollection'] = ResolversParentTypes['AssetCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['Asset']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetSystemResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AssetSystem'] = ResolversParentTypes['AssetSystem']> = {
+  assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<AssetSystemAssetsArgs>>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetTypeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AssetType'] = ResolversParentTypes['AssetType']> = {
+  category?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  expectedLifeYears?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  extendedAttributes?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  manufacturer?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modelNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  nature?: Resolver<Maybe<ResolversTypes['AssetTypeNature']>, ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetTypeCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AssetTypeCollection'] = ResolversParentTypes['AssetTypeCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['AssetType']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetTypeMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AssetTypeMutations'] = ResolversParentTypes['AssetTypeMutations']> = {
+  create?: Resolver<ResolversTypes['AssetType'], ParentType, ContextType, RequireFields<AssetTypeMutationsCreateArgs, 'input'>>;
+  delete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<AssetTypeMutationsDeleteArgs, 'id'>>;
+  update?: Resolver<ResolversTypes['AssetType'], ParentType, ContextType, RequireFields<AssetTypeMutationsUpdateArgs, 'input'>>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -8120,6 +8624,37 @@ export type ExtendedViewerResourcesRequestResolvers<ContextType = GraphQLContext
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Facility'] = ResolversParentTypes['Facility']> = {
+  assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<FacilityAssetsArgs>>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  floors?: Resolver<Array<ResolversTypes['Floor']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType, Partial<FacilitySpacesArgs>>;
+  systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
+  tagSourceProperty?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilityMutations'] = ResolversParentTypes['FacilityMutations']> = {
+  createAsset?: Resolver<ResolversTypes['Asset'], ParentType, ContextType, RequireFields<FacilityMutationsCreateAssetArgs, 'input'>>;
+  createFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsCreateFloorArgs, 'input'>>;
+  createSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsCreateSpaceArgs, 'input'>>;
+  createSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsCreateSystemArgs, 'input'>>;
+  deleteAsset?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteAssetArgs, 'id'>>;
+  deleteFloor?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteFloorArgs, 'id'>>;
+  deleteSpace?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSpaceArgs, 'id'>>;
+  deleteSystem?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSystemArgs, 'id'>>;
+  update?: Resolver<ResolversTypes['Facility'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateArgs, 'input'>>;
+  updateAsset?: Resolver<ResolversTypes['Asset'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateAssetArgs, 'input'>>;
+  updateFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateFloorArgs, 'input'>>;
+  updateSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSpaceArgs, 'input'>>;
+  updateSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSystemArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type FileUploadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FileUpload'] = ResolversParentTypes['FileUpload']> = {
   branchName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   convertedCommitId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8156,6 +8691,17 @@ export type FileUploadMutationsResolvers<ContextType = GraphQLContext, ParentTyp
   generateUploadUrl?: Resolver<ResolversTypes['GenerateFileUploadUrlOutput'], ParentType, ContextType, RequireFields<FileUploadMutationsGenerateUploadUrlArgs, 'input'>>;
   startFileImport?: Resolver<ResolversTypes['FileUpload'], ParentType, ContextType, RequireFields<FileUploadMutationsStartFileImportArgs, 'input'>>;
   updateDigitalTwinAssetMetadata?: Resolver<ResolversTypes['DigitalTwinAsset'], ParentType, ContextType, RequireFields<FileUploadMutationsUpdateDigitalTwinAssetMetadataArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FloorResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Floor'] = ResolversParentTypes['Floor']> = {
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  elevationZ?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -8336,6 +8882,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   appRevokeAccess?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationAppRevokeAccessArgs, 'appId'>>;
   appTokenCreate?: Resolver<ResolversTypes['String'], ParentType, ContextType, RequireFields<MutationAppTokenCreateArgs, 'token'>>;
   appUpdate?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationAppUpdateArgs, 'app'>>;
+  assetTypeMutations?: Resolver<ResolversTypes['AssetTypeMutations'], ParentType, ContextType>;
   automateFunctionRunStatusReport?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationAutomateFunctionRunStatusReportArgs, 'input'>>;
   automateMutations?: Resolver<ResolversTypes['AutomateMutations'], ParentType, ContextType>;
   branchCreate?: Resolver<ResolversTypes['String'], ParentType, ContextType, RequireFields<MutationBranchCreateArgs, 'branch'>>;
@@ -8355,6 +8902,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   commitsDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitsDeleteArgs, 'input'>>;
   commitsMove?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitsMoveArgs, 'input'>>;
   dashboardMutations?: Resolver<ResolversTypes['DashboardMutations'], ParentType, ContextType>;
+  facilityMutations?: Resolver<ResolversTypes['FacilityMutations'], ParentType, ContextType>;
   fileUploadMutations?: Resolver<ResolversTypes['FileUploadMutations'], ParentType, ContextType>;
   inviteDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteDeleteArgs, 'inviteId'>>;
   inviteResend?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteResendArgs, 'inviteId'>>;
@@ -8489,6 +9037,7 @@ export type ProjectResolvers<ContextType = GraphQLContext, ParentType extends Re
   digitalTwinAssets?: Resolver<ResolversTypes['DigitalTwinAssetCollection'], ParentType, ContextType, Partial<ProjectDigitalTwinAssetsArgs>>;
   embedOptions?: Resolver<ResolversTypes['ProjectEmbedOptions'], ParentType, ContextType>;
   embedTokens?: Resolver<ResolversTypes['EmbedTokenCollection'], ParentType, ContextType, Partial<ProjectEmbedTokensArgs>>;
+  facility?: Resolver<Maybe<ResolversTypes['Facility']>, ParentType, ContextType>;
   hasAccessToFeature?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<ProjectHasAccessToFeatureArgs, 'featureName'>>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   invitableCollaborators?: Resolver<ResolversTypes['WorkspaceCollaboratorCollection'], ParentType, ContextType, RequireFields<ProjectInvitableCollaboratorsArgs, 'limit'>>;
@@ -8752,6 +9301,8 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   adminUsers?: Resolver<Maybe<ResolversTypes['AdminUsersListCollection']>, ParentType, ContextType, RequireFields<QueryAdminUsersArgs, 'limit' | 'offset' | 'query'>>;
   app?: Resolver<Maybe<ResolversTypes['ServerApp']>, ParentType, ContextType, RequireFields<QueryAppArgs, 'id'>>;
   apps?: Resolver<Maybe<Array<Maybe<ResolversTypes['ServerAppListItem']>>>, ParentType, ContextType>;
+  assetType?: Resolver<Maybe<ResolversTypes['AssetType']>, ParentType, ContextType, RequireFields<QueryAssetTypeArgs, 'id'>>;
+  assetTypes?: Resolver<ResolversTypes['AssetTypeCollection'], ParentType, ContextType, RequireFields<QueryAssetTypesArgs, 'limit'>>;
   authenticatedAsApp?: Resolver<Maybe<ResolversTypes['ServerAppListItem']>, ParentType, ContextType>;
   automateFunction?: Resolver<ResolversTypes['AutomateFunction'], ParentType, ContextType, RequireFields<QueryAutomateFunctionArgs, 'id'>>;
   automateValidateAuthCode?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryAutomateValidateAuthCodeArgs, 'payload'>>;
@@ -9038,6 +9589,20 @@ export type SmartTextEditorValueResolvers<ContextType = GraphQLContext, ParentTy
   doc?: Resolver<Maybe<ResolversTypes['JSONObject']>, ParentType, ContextType>;
   type?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   version?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type SpaceResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Space'] = ResolversParentTypes['Space']> = {
+  assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<SpaceAssetsArgs>>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  elevationZ?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  floor?: Resolver<Maybe<ResolversTypes['Floor']>, ParentType, ContextType>;
+  floorId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  speckleObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -9706,6 +10271,12 @@ export type Resolvers<ContextType = GraphQLContext> = {
   AdminUsersListItem?: AdminUsersListItemResolvers<ContextType>;
   ApiToken?: ApiTokenResolvers<ContextType>;
   AppAuthor?: AppAuthorResolvers<ContextType>;
+  Asset?: AssetResolvers<ContextType>;
+  AssetCollection?: AssetCollectionResolvers<ContextType>;
+  AssetSystem?: AssetSystemResolvers<ContextType>;
+  AssetType?: AssetTypeResolvers<ContextType>;
+  AssetTypeCollection?: AssetTypeCollectionResolvers<ContextType>;
+  AssetTypeMutations?: AssetTypeMutationsResolvers<ContextType>;
   AuthStrategy?: AuthStrategyResolvers<ContextType>;
   AutomateFunction?: AutomateFunctionResolvers<ContextType>;
   AutomateFunctionCollection?: AutomateFunctionCollectionResolvers<ContextType>;
@@ -9762,9 +10333,12 @@ export type Resolvers<ContextType = GraphQLContext> = {
   EmbedTokenCollection?: EmbedTokenCollectionResolvers<ContextType>;
   ExtendedViewerResources?: ExtendedViewerResourcesResolvers<ContextType>;
   ExtendedViewerResourcesRequest?: ExtendedViewerResourcesRequestResolvers<ContextType>;
+  Facility?: FacilityResolvers<ContextType>;
+  FacilityMutations?: FacilityMutationsResolvers<ContextType>;
   FileUpload?: FileUploadResolvers<ContextType>;
   FileUploadCollection?: FileUploadCollectionResolvers<ContextType>;
   FileUploadMutations?: FileUploadMutationsResolvers<ContextType>;
+  Floor?: FloorResolvers<ContextType>;
   GendoAIRender?: GendoAiRenderResolvers<ContextType>;
   GendoAIRenderCollection?: GendoAiRenderCollectionResolvers<ContextType>;
   GenerateFileUploadUrlOutput?: GenerateFileUploadUrlOutputResolvers<ContextType>;
@@ -9846,6 +10420,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   ServerStats?: ServerStatsResolvers<ContextType>;
   ServerWorkspacesInfo?: ServerWorkspacesInfoResolvers<ContextType>;
   SmartTextEditorValue?: SmartTextEditorValueResolvers<ContextType>;
+  Space?: SpaceResolvers<ContextType>;
   Stream?: StreamResolvers<ContextType>;
   StreamAccessRequest?: StreamAccessRequestResolvers<ContextType>;
   StreamCollaborator?: StreamCollaboratorResolvers<ContextType>;

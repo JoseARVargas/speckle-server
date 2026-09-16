@@ -104,6 +104,7 @@ const getEnabledModuleNames = () => {
     'cross-server-sync',
     'dashboards',
     'emails',
+    'facilities',
     'fileuploads',
     'notifications',
     'previews',

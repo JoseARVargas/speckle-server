@@ -550,6 +550,81 @@ export const FileUploads = buildTableHelper('file_uploads', [
   'revision'
 ])
 
+export const Facilities = buildTableHelper('facilities', [
+  'id',
+  'projectId',
+  'name',
+  'tagSourceProperty',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Floors = buildTableHelper('floors', [
+  'id',
+  'projectId',
+  'facilityId',
+  'name',
+  'elevationZ',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Spaces = buildTableHelper('spaces', [
+  'id',
+  'projectId',
+  'facilityId',
+  'floorId',
+  'name',
+  'elevationZ',
+  'speckleObjectId',
+  'createdAt',
+  'updatedAt'
+])
+
+export const AssetTypes = buildTableHelper('asset_types', [
+  'id',
+  'name',
+  'category',
+  'manufacturer',
+  'modelNumber',
+  'nature',
+  'description',
+  'expectedLifeYears',
+  'extendedAttributes',
+  'createdBy',
+  'createdAt',
+  'updatedAt'
+])
+
+export const AssetSystems = buildTableHelper('asset_systems', [
+  'id',
+  'projectId',
+  'facilityId',
+  'name',
+  'description',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Assets = buildTableHelper('assets', [
+  'id',
+  'projectId',
+  'facilityId',
+  'tagNumber',
+  'name',
+  'assetTypeId',
+  'spaceId',
+  'currentObjectId',
+  'currentVersionId',
+  'createdAt',
+  'updatedAt'
+])
+
+export const AssetSystemMembers = buildTableHelper('asset_system_members', [
+  'assetId',
+  'systemId'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'
