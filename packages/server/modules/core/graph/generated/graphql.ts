@@ -4067,6 +4067,11 @@ export type Query = {
    * @deprecated Part of the old API surface and will be removed in the future.
    */
   apps?: Maybe<Array<Maybe<ServerAppListItem>>>;
+  /**
+   * Fetch a single asset directly, e.g. to refresh its simulated device
+   * state/telemetry without refetching the whole facility.
+   */
+  asset?: Maybe<Asset>;
   assetType?: Maybe<AssetType>;
   assetTypes: AssetTypeCollection;
   /** If user is authenticated using an app token, this will describe the app */
@@ -4189,6 +4194,11 @@ export type QueryAdminUsersArgs = {
 
 
 export type QueryAppArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryAssetArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -9447,6 +9457,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   adminUsers?: Resolver<Maybe<ResolversTypes['AdminUsersListCollection']>, ParentType, ContextType, RequireFields<QueryAdminUsersArgs, 'limit' | 'offset' | 'query'>>;
   app?: Resolver<Maybe<ResolversTypes['ServerApp']>, ParentType, ContextType, RequireFields<QueryAppArgs, 'id'>>;
   apps?: Resolver<Maybe<Array<Maybe<ResolversTypes['ServerAppListItem']>>>, ParentType, ContextType>;
+  asset?: Resolver<Maybe<ResolversTypes['Asset']>, ParentType, ContextType, RequireFields<QueryAssetArgs, 'id'>>;
   assetType?: Resolver<Maybe<ResolversTypes['AssetType']>, ParentType, ContextType, RequireFields<QueryAssetTypeArgs, 'id'>>;
   assetTypes?: Resolver<ResolversTypes['AssetTypeCollection'], ParentType, ContextType, RequireFields<QueryAssetTypesArgs, 'limit'>>;
   authenticatedAsApp?: Resolver<Maybe<ResolversTypes['ServerAppListItem']>, ParentType, ContextType>;

@@ -666,6 +666,10 @@ export default {
     async assetType(_parent: unknown, args: { id: string }) {
       const type = await getAssetTypeByIdFactory({ db })({ id: args.id })
       return type ?? null
+    },
+    async asset(_parent: unknown, args: { id: string }) {
+      const asset = await getAssetByIdFactory({ db })({ id: args.id })
+      return asset ?? null
     }
   },
 
