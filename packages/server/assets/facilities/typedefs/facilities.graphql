@@ -19,6 +19,11 @@ type Facility {
   model element (e.g. "IfcTag", "IfcName", or a custom Pset property).
   """
   tagSourceProperty: String!
+  """
+  R$/kWh used to turn simulated energy consumption into cost for this
+  facility's assets.
+  """
+  energyTariffPerKwh: Float!
   floors: [Floor!]!
   spaces(input: GetFacilitySpacesInput): [Space!]!
   systems: [AssetSystem!]!
@@ -179,8 +184,68 @@ type Asset {
   """
   currentObjectId: String
   currentVersionId: String
+  """
+  Live simulated device state - null until this asset has been turned on
+  or had a temperature set at least once.
+  """
+  deviceState: DeviceState
+  """
+  Simulated temperature readings, most recent first.
+  """
+  telemetryHistory(limit: Int = 50): [TelemetryReading!]!
+  """
+  Simulated energy/cost readings, most recent first.
+  """
+  energyHistory(limit: Int = 50): [EnergyReading!]!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+enum DevicePowerState {
+  on
+  off
+}
+
+"""
+Live simulated state of an asset's device - see the facilities module's
+simulation worker, which ticks this forward every few seconds once an
+asset has a state at all.
+"""
+type DeviceState {
+  assetId: String!
+  powerState: DevicePowerState!
+  setpoint: Float!
+  currentTemperature: Float!
+  ambientTemperature: Float!
+  nominalPowerKw: Float!
+  cumulativeKwh: Float!
+  cumulativeCost: Float!
+  updatedAt: DateTime!
+}
+
+type TelemetryReading {
+  ts: DateTime!
+  temperature: Float!
+  powerState: DevicePowerState!
+}
+
+type EnergyReading {
+  ts: DateTime!
+  powerKw: Float!
+  energyKwhInterval: Float!
+  cumulativeKwh: Float!
+  costInterval: Float!
+  cumulativeCost: Float!
+}
+
+input SetAssetPowerInput {
+  assetId: String!
+  powerState: DevicePowerState!
+}
+
+input SetAssetTemperatureInput {
+  assetId: String!
+  setpoint: Float!
 }
 
 type AssetCollection {
@@ -201,6 +266,7 @@ input UpdateFacilityInput {
   projectId: String!
   name: String
   tagSourceProperty: String
+  energyTariffPerKwh: Float
 }
 
 input CreateFloorInput {
@@ -279,6 +345,17 @@ type FacilityMutations {
   createAsset(input: CreateAssetInput!): Asset!
   updateAsset(input: UpdateAssetInput!): Asset!
   deleteAsset(id: String!): Boolean!
+
+  """
+  Turns an asset's simulated device on/off. Lazily creates its device state
+  with default values on first use.
+  """
+  setAssetPower(input: SetAssetPowerInput!): DeviceState!
+  """
+  Sets an asset's simulated setpoint temperature. Lazily creates its device
+  state with default values on first use.
+  """
+  setAssetTemperature(input: SetAssetTemperatureInput!): DeviceState!
 }
 
 extend type Mutation {

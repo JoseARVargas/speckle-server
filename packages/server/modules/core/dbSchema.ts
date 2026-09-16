@@ -555,6 +555,7 @@ export const Facilities = buildTableHelper('facilities', [
   'projectId',
   'name',
   'tagSourceProperty',
+  'energyTariffPerKwh',
   'createdAt',
   'updatedAt'
 ])
@@ -623,6 +624,50 @@ export const Assets = buildTableHelper('assets', [
 export const AssetSystemMembers = buildTableHelper('asset_system_members', [
   'assetId',
   'systemId'
+])
+
+export const DeviceStates = buildTableHelper('device_states', [
+  'assetId',
+  'projectId',
+  'powerState',
+  'setpoint',
+  'currentTemperature',
+  'ambientTemperature',
+  'nominalPowerKw',
+  'cumulativeKwh',
+  'cumulativeCost',
+  'updatedAt'
+])
+
+export const DeviceCommands = buildTableHelper('device_commands', [
+  'id',
+  'assetId',
+  'projectId',
+  'commandType',
+  'value',
+  'issuedBy',
+  'issuedAt'
+])
+
+export const TelemetryReadings = buildTableHelper('telemetry_readings', [
+  'id',
+  'assetId',
+  'projectId',
+  'ts',
+  'temperature',
+  'powerState'
+])
+
+export const EnergyReadings = buildTableHelper('energy_readings', [
+  'id',
+  'assetId',
+  'projectId',
+  'ts',
+  'powerKw',
+  'energyKwhInterval',
+  'cumulativeKwh',
+  'costInterval',
+  'cumulativeCost'
 ])
 
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [

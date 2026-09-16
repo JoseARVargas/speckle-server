@@ -7,6 +7,7 @@ export type FacilityRecord = {
   projectId: string
   name: string
   tagSourceProperty: string
+  energyTariffPerKwh: number
   createdAt: Date
   updatedAt: Date
 }
@@ -75,4 +76,52 @@ export type AssetRecord = {
 export type AssetSystemMemberRecord = {
   assetId: string
   systemId: string
+}
+
+export type DevicePowerState = 'on' | 'off'
+
+export type DeviceStateRecord = {
+  assetId: string
+  projectId: string
+  powerState: DevicePowerState
+  setpoint: number
+  currentTemperature: number
+  ambientTemperature: number
+  nominalPowerKw: number
+  cumulativeKwh: number
+  cumulativeCost: number
+  updatedAt: Date
+}
+
+export type DeviceCommandType = 'power_on' | 'power_off' | 'set_temperature'
+
+export type DeviceCommandRecord = {
+  id: string
+  assetId: string
+  projectId: string
+  commandType: DeviceCommandType
+  value: Nullable<number>
+  issuedBy: Nullable<string>
+  issuedAt: Date
+}
+
+export type TelemetryReadingRecord = {
+  id: string
+  assetId: string
+  projectId: string
+  ts: Date
+  temperature: number
+  powerState: DevicePowerState
+}
+
+export type EnergyReadingRecord = {
+  id: string
+  assetId: string
+  projectId: string
+  ts: Date
+  powerKw: number
+  energyKwhInterval: number
+  cumulativeKwh: number
+  costInterval: number
+  cumulativeCost: number
 }

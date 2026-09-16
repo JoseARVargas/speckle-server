@@ -24,6 +24,7 @@ export const ensureFacilityFactory =
       projectId: params.projectId,
       name: params.projectId,
       tagSourceProperty: 'IfcTag',
+      energyTariffPerKwh: 0.75,
       createdAt: new Date(),
       updatedAt: new Date()
     })

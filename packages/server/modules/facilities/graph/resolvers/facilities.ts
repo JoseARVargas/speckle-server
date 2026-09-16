@@ -39,6 +39,16 @@ import {
   deleteAssetFactory,
   setAssetSystemsFactory
 } from '@/modules/facilities/repositories/facilities'
+import {
+  getDeviceStateFactory,
+  listTelemetryReadingsFactory,
+  listEnergyReadingsFactory
+} from '@/modules/facilities/repositories/simulation'
+import {
+  setAssetPowerFactory,
+  setAssetTemperatureFactory
+} from '@/modules/facilities/services/simulation'
+import type { DevicePowerState } from '@/modules/facilities/helpers/types'
 
 /**
  * All facility-registry mutations take a projectId and are gated the same
@@ -69,11 +79,12 @@ const facilityMutations = {
         projectId: string
         name?: string | null
         tagSourceProperty?: string | null
+        energyTariffPerKwh?: number | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { projectId, name, tagSourceProperty } = args.input
+    const { projectId, name, tagSourceProperty, energyTariffPerKwh } = args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
     await ensureFacilityFactory({ db: projectDb })({ projectId })
@@ -87,6 +98,9 @@ const facilityMutations = {
         ...(name !== undefined && name !== null ? { name } : {}),
         ...(tagSourceProperty !== undefined && tagSourceProperty !== null
           ? { tagSourceProperty }
+          : {}),
+        ...(energyTariffPerKwh !== undefined && energyTariffPerKwh !== null
+          ? { energyTariffPerKwh }
           : {})
       }
     })
@@ -337,6 +351,42 @@ const facilityMutations = {
     const projectDb = await getProjectDbClient({ projectId: asset.projectId })
     await deleteAssetFactory({ db: projectDb })({ id: args.id })
     return true
+  },
+
+  async setAssetPower(
+    _parent: unknown,
+    args: { input: { assetId: string; powerState: DevicePowerState } },
+    ctx: GraphQLContext
+  ) {
+    const { assetId, powerState } = args.input
+    const asset = await getAssetByIdFactory({ db })({ id: assetId })
+    if (!asset) throw new NotFoundError('Asset not found')
+    await assertCanManageFacility(ctx, asset.projectId)
+    const projectDb = await getProjectDbClient({ projectId: asset.projectId })
+    return await setAssetPowerFactory({ db: projectDb })({
+      assetId,
+      projectId: asset.projectId,
+      powerState,
+      userId: ctx.userId ?? null
+    })
+  },
+
+  async setAssetTemperature(
+    _parent: unknown,
+    args: { input: { assetId: string; setpoint: number } },
+    ctx: GraphQLContext
+  ) {
+    const { assetId, setpoint } = args.input
+    const asset = await getAssetByIdFactory({ db })({ id: assetId })
+    if (!asset) throw new NotFoundError('Asset not found')
+    await assertCanManageFacility(ctx, asset.projectId)
+    const projectDb = await getProjectDbClient({ projectId: asset.projectId })
+    return await setAssetTemperatureFactory({ db: projectDb })({
+      assetId,
+      projectId: asset.projectId,
+      setpoint,
+      userId: ctx.userId ?? null
+    })
   }
 }
 
@@ -563,6 +613,33 @@ export default {
     async systems(parent: { id: string; projectId: string }) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
       return await listSystemsForAssetFactory({ db: projectDb })({ assetId: parent.id })
+    },
+    async deviceState(parent: { id: string; projectId: string }) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      const state = await getDeviceStateFactory({ db: projectDb })({
+        assetId: parent.id
+      })
+      return state ?? null
+    },
+    async telemetryHistory(
+      parent: { id: string; projectId: string },
+      args: { limit?: number | null }
+    ) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await listTelemetryReadingsFactory({ db: projectDb })({
+        assetId: parent.id,
+        limit: args.limit ?? 50
+      })
+    },
+    async energyHistory(
+      parent: { id: string; projectId: string },
+      args: { limit?: number | null }
+    ) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await listEnergyReadingsFactory({ db: projectDb })({
+        assetId: parent.id,
+        limit: args.limit ?? 50
+      })
     }
   },
 

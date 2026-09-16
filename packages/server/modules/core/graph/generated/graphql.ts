@@ -485,6 +485,13 @@ export type Asset = {
    */
   currentObjectId?: Maybe<Scalars['String']['output']>;
   currentVersionId?: Maybe<Scalars['String']['output']>;
+  /**
+   * Live simulated device state - null until this asset has been turned on
+   * or had a temperature set at least once.
+   */
+  deviceState?: Maybe<DeviceState>;
+  /** Simulated energy/cost readings, most recent first. */
+  energyHistory: Array<EnergyReading>;
   facilityId: Scalars['String']['output'];
   id: Scalars['String']['output'];
   name?: Maybe<Scalars['String']['output']>;
@@ -496,7 +503,29 @@ export type Asset = {
    * element's IfcTag/IfcName property. Unique per facility.
    */
   tagNumber: Scalars['String']['output'];
+  /** Simulated temperature readings, most recent first. */
+  telemetryHistory: Array<TelemetryReading>;
   updatedAt: Scalars['DateTime']['output'];
+};
+
+
+/**
+ * The COBie "Component" sheet - one physical asset instance, identified
+ * within its facility by a human-assigned tag number (not the IFC GUID,
+ * which the exporting tool may not keep stable across re-exports).
+ */
+export type AssetEnergyHistoryArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+/**
+ * The COBie "Component" sheet - one physical asset instance, identified
+ * within its facility by a human-assigned tag number (not the IFC GUID,
+ * which the exporting tool may not keep stable across re-exports).
+ */
+export type AssetTelemetryHistoryArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type AssetCollection = {
@@ -1596,6 +1625,30 @@ export type DenyWorkspaceJoinRequestInput = {
   workspaceId: Scalars['String']['input'];
 };
 
+export const DevicePowerState = {
+  Off: 'off',
+  On: 'on'
+} as const;
+
+export type DevicePowerState = typeof DevicePowerState[keyof typeof DevicePowerState];
+/**
+ * Live simulated state of an asset's device - see the facilities module's
+ * simulation worker, which ticks this forward every few seconds once an
+ * asset has a state at all.
+ */
+export type DeviceState = {
+  __typename?: 'DeviceState';
+  ambientTemperature: Scalars['Float']['output'];
+  assetId: Scalars['String']['output'];
+  cumulativeCost: Scalars['Float']['output'];
+  cumulativeKwh: Scalars['Float']['output'];
+  currentTemperature: Scalars['Float']['output'];
+  nominalPowerKw: Scalars['Float']['output'];
+  powerState: DevicePowerState;
+  setpoint: Scalars['Float']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 /**
  * A client facing view over a file import, describing the imported asset and where
  * its converted geometry can be loaded from.
@@ -1733,6 +1786,16 @@ export type EmbedTokenCreateInput = {
   resourceIdString: Scalars['String']['input'];
 };
 
+export type EnergyReading = {
+  __typename?: 'EnergyReading';
+  costInterval: Scalars['Float']['output'];
+  cumulativeCost: Scalars['Float']['output'];
+  cumulativeKwh: Scalars['Float']['output'];
+  energyKwhInterval: Scalars['Float']['output'];
+  powerKw: Scalars['Float']['output'];
+  ts: Scalars['DateTime']['output'];
+};
+
 export type ExtendedViewerResources = {
   __typename?: 'ExtendedViewerResources';
   /** The groups of viewer resources themselves */
@@ -1758,6 +1821,11 @@ export type Facility = {
   __typename?: 'Facility';
   assets: AssetCollection;
   createdAt: Scalars['DateTime']['output'];
+  /**
+   * R$/kWh used to turn simulated energy consumption into cost for this
+   * facility's assets.
+   */
+  energyTariffPerKwh: Scalars['Float']['output'];
   floors: Array<Floor>;
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
@@ -1792,6 +1860,16 @@ export type FacilityMutations = {
   deleteFloor: Scalars['Boolean']['output'];
   deleteSpace: Scalars['Boolean']['output'];
   deleteSystem: Scalars['Boolean']['output'];
+  /**
+   * Turns an asset's simulated device on/off. Lazily creates its device state
+   * with default values on first use.
+   */
+  setAssetPower: DeviceState;
+  /**
+   * Sets an asset's simulated setpoint temperature. Lazily creates its device
+   * state with default values on first use.
+   */
+  setAssetTemperature: DeviceState;
   update: Facility;
   updateAsset: Asset;
   updateFloor: Floor;
@@ -1837,6 +1915,16 @@ export type FacilityMutationsDeleteSpaceArgs = {
 
 export type FacilityMutationsDeleteSystemArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsSetAssetPowerArgs = {
+  input: SetAssetPowerInput;
+};
+
+
+export type FacilityMutationsSetAssetTemperatureArgs = {
+  input: SetAssetTemperatureInput;
 };
 
 
@@ -4734,6 +4822,16 @@ export const SessionPaymentStatus = {
 } as const;
 
 export type SessionPaymentStatus = typeof SessionPaymentStatus[keyof typeof SessionPaymentStatus];
+export type SetAssetPowerInput = {
+  assetId: Scalars['String']['input'];
+  powerState: DevicePowerState;
+};
+
+export type SetAssetTemperatureInput = {
+  assetId: Scalars['String']['input'];
+  setpoint: Scalars['Float']['input'];
+};
+
 export type SetPrimaryUserEmailInput = {
   id: Scalars['ID']['input'];
 };
@@ -5303,6 +5401,13 @@ export type SubscriptionWorkspaceUpdatedArgs = {
   workspaceSlug?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type TelemetryReading = {
+  __typename?: 'TelemetryReading';
+  powerState: DevicePowerState;
+  temperature: Scalars['Float']['output'];
+  ts: Scalars['DateTime']['output'];
+};
+
 export type TestAutomationRun = {
   __typename?: 'TestAutomationRun';
   automationRunId: Scalars['String']['output'];
@@ -5402,6 +5507,7 @@ export type UpdateDigitalTwinAssetMetadataInput = {
 };
 
 export type UpdateFacilityInput = {
+  energyTariffPerKwh?: InputMaybe<Scalars['Float']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['String']['input'];
   tagSourceProperty?: InputMaybe<Scalars['String']['input']>;
@@ -7103,6 +7209,8 @@ export type ResolversTypes = {
   DeleteUserEmailInput: DeleteUserEmailInput;
   DeleteVersionsInput: DeleteVersionsInput;
   DenyWorkspaceJoinRequestInput: DenyWorkspaceJoinRequestInput;
+  DevicePowerState: DevicePowerState;
+  DeviceState: ResolverTypeWrapper<DeviceState>;
   DigitalTwinAsset: ResolverTypeWrapper<DigitalTwinAssetGraphQLReturn>;
   DigitalTwinAssetCollection: ResolverTypeWrapper<Omit<DigitalTwinAssetCollection, 'items'> & { items: Array<ResolversTypes['DigitalTwinAsset']> }>;
   DigitalTwinAssetPerformanceData: ResolverTypeWrapper<DigitalTwinAssetPerformanceData>;
@@ -7116,6 +7224,7 @@ export type ResolversTypes = {
   EmbedToken: ResolverTypeWrapper<EmbedTokenGraphQLReturn>;
   EmbedTokenCollection: ResolverTypeWrapper<Omit<EmbedTokenCollection, 'items'> & { items: Array<ResolversTypes['EmbedToken']> }>;
   EmbedTokenCreateInput: EmbedTokenCreateInput;
+  EnergyReading: ResolverTypeWrapper<EnergyReading>;
   ExtendedViewerResources: ResolverTypeWrapper<ExtendedViewerResourcesGraphQLReturn>;
   ExtendedViewerResourcesRequest: ResolverTypeWrapper<ExtendedViewerResourcesRequest>;
   Facility: ResolverTypeWrapper<Facility>;
@@ -7266,6 +7375,8 @@ export type ResolversTypes = {
   ServerStats: ResolverTypeWrapper<GraphQLEmptyReturn>;
   ServerWorkspacesInfo: ResolverTypeWrapper<GraphQLEmptyReturn>;
   SessionPaymentStatus: SessionPaymentStatus;
+  SetAssetPowerInput: SetAssetPowerInput;
+  SetAssetTemperatureInput: SetAssetTemperatureInput;
   SetPrimaryUserEmailInput: SetPrimaryUserEmailInput;
   SmartTextEditorValue: ResolverTypeWrapper<SmartTextEditorValueGraphQLReturn>;
   SortDirection: SortDirection;
@@ -7283,6 +7394,7 @@ export type ResolversTypes = {
   StreamUpdatePermissionInput: StreamUpdatePermissionInput;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Subscription: ResolverTypeWrapper<{}>;
+  TelemetryReading: ResolverTypeWrapper<TelemetryReading>;
   TestAutomationRun: ResolverTypeWrapper<TestAutomationRun>;
   TestAutomationRunTrigger: ResolverTypeWrapper<TestAutomationRunTrigger>;
   TestAutomationRunTriggerPayload: ResolverTypeWrapper<TestAutomationRunTriggerPayload>;
@@ -7552,6 +7664,7 @@ export type ResolversParentTypes = {
   DeleteUserEmailInput: DeleteUserEmailInput;
   DeleteVersionsInput: DeleteVersionsInput;
   DenyWorkspaceJoinRequestInput: DenyWorkspaceJoinRequestInput;
+  DeviceState: DeviceState;
   DigitalTwinAsset: DigitalTwinAssetGraphQLReturn;
   DigitalTwinAssetCollection: Omit<DigitalTwinAssetCollection, 'items'> & { items: Array<ResolversParentTypes['DigitalTwinAsset']> };
   DigitalTwinAssetPerformanceData: DigitalTwinAssetPerformanceData;
@@ -7561,6 +7674,7 @@ export type ResolversParentTypes = {
   EmbedToken: EmbedTokenGraphQLReturn;
   EmbedTokenCollection: Omit<EmbedTokenCollection, 'items'> & { items: Array<ResolversParentTypes['EmbedToken']> };
   EmbedTokenCreateInput: EmbedTokenCreateInput;
+  EnergyReading: EnergyReading;
   ExtendedViewerResources: ExtendedViewerResourcesGraphQLReturn;
   ExtendedViewerResourcesRequest: ExtendedViewerResourcesRequest;
   Facility: Facility;
@@ -7693,6 +7807,8 @@ export type ResolversParentTypes = {
   ServerStatistics: GraphQLEmptyReturn;
   ServerStats: GraphQLEmptyReturn;
   ServerWorkspacesInfo: GraphQLEmptyReturn;
+  SetAssetPowerInput: SetAssetPowerInput;
+  SetAssetTemperatureInput: SetAssetTemperatureInput;
   SetPrimaryUserEmailInput: SetPrimaryUserEmailInput;
   SmartTextEditorValue: SmartTextEditorValueGraphQLReturn;
   Space: Space;
@@ -7708,6 +7824,7 @@ export type ResolversParentTypes = {
   StreamUpdatePermissionInput: StreamUpdatePermissionInput;
   String: Scalars['String']['output'];
   Subscription: {};
+  TelemetryReading: TelemetryReading;
   TestAutomationRun: TestAutomationRun;
   TestAutomationRunTrigger: TestAutomationRunTrigger;
   TestAutomationRunTriggerPayload: TestAutomationRunTriggerPayload;
@@ -8071,6 +8188,8 @@ export type AssetResolvers<ContextType = GraphQLContext, ParentType extends Reso
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   currentObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   currentVersionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  deviceState?: Resolver<Maybe<ResolversTypes['DeviceState']>, ParentType, ContextType>;
+  energyHistory?: Resolver<Array<ResolversTypes['EnergyReading']>, ParentType, ContextType, RequireFields<AssetEnergyHistoryArgs, 'limit'>>;
   facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8078,6 +8197,7 @@ export type AssetResolvers<ContextType = GraphQLContext, ParentType extends Reso
   spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
   tagNumber?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  telemetryHistory?: Resolver<Array<ResolversTypes['TelemetryReading']>, ParentType, ContextType, RequireFields<AssetTelemetryHistoryArgs, 'limit'>>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -8556,6 +8676,19 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
   name: 'DateTime';
 }
 
+export type DeviceStateResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DeviceState'] = ResolversParentTypes['DeviceState']> = {
+  ambientTemperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  assetId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  cumulativeCost?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  cumulativeKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  currentTemperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  nominalPowerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  powerState?: Resolver<ResolversTypes['DevicePowerState'], ParentType, ContextType>;
+  setpoint?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type DigitalTwinAssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DigitalTwinAsset'] = ResolversParentTypes['DigitalTwinAsset']> = {
   convertedLastUpdate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   convertedMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8611,6 +8744,16 @@ export type EmbedTokenCollectionResolvers<ContextType = GraphQLContext, ParentTy
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type EnergyReadingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EnergyReading'] = ResolversParentTypes['EnergyReading']> = {
+  costInterval?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  cumulativeCost?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  cumulativeKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  energyKwhInterval?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  powerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  ts?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type ExtendedViewerResourcesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ExtendedViewerResources'] = ResolversParentTypes['ExtendedViewerResources']> = {
   groups?: Resolver<Array<ResolversTypes['ViewerResourceGroup']>, ParentType, ContextType>;
   request?: Resolver<ResolversTypes['ExtendedViewerResourcesRequest'], ParentType, ContextType>;
@@ -8627,6 +8770,7 @@ export type ExtendedViewerResourcesRequestResolvers<ContextType = GraphQLContext
 export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Facility'] = ResolversParentTypes['Facility']> = {
   assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<FacilityAssetsArgs>>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  energyTariffPerKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   floors?: Resolver<Array<ResolversTypes['Floor']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -8647,6 +8791,8 @@ export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType 
   deleteFloor?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteFloorArgs, 'id'>>;
   deleteSpace?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSpaceArgs, 'id'>>;
   deleteSystem?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSystemArgs, 'id'>>;
+  setAssetPower?: Resolver<ResolversTypes['DeviceState'], ParentType, ContextType, RequireFields<FacilityMutationsSetAssetPowerArgs, 'input'>>;
+  setAssetTemperature?: Resolver<ResolversTypes['DeviceState'], ParentType, ContextType, RequireFields<FacilityMutationsSetAssetTemperatureArgs, 'input'>>;
   update?: Resolver<ResolversTypes['Facility'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateArgs, 'input'>>;
   updateAsset?: Resolver<ResolversTypes['Asset'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateAssetArgs, 'input'>>;
   updateFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateFloorArgs, 'input'>>;
@@ -9701,6 +9847,13 @@ export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType exten
   workspaceUpdated?: SubscriptionResolver<ResolversTypes['WorkspaceUpdatedMessage'], "workspaceUpdated", ParentType, ContextType, Partial<SubscriptionWorkspaceUpdatedArgs>>;
 };
 
+export type TelemetryReadingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['TelemetryReading'] = ResolversParentTypes['TelemetryReading']> = {
+  powerState?: Resolver<ResolversTypes['DevicePowerState'], ParentType, ContextType>;
+  temperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  ts?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type TestAutomationRunResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['TestAutomationRun'] = ResolversParentTypes['TestAutomationRun']> = {
   automationRunId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   functionRunId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -10326,11 +10479,13 @@ export type Resolvers<ContextType = GraphQLContext> = {
   DashboardToken?: DashboardTokenResolvers<ContextType>;
   DashboardTokenCollection?: DashboardTokenCollectionResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
+  DeviceState?: DeviceStateResolvers<ContextType>;
   DigitalTwinAsset?: DigitalTwinAssetResolvers<ContextType>;
   DigitalTwinAssetCollection?: DigitalTwinAssetCollectionResolvers<ContextType>;
   DigitalTwinAssetPerformanceData?: DigitalTwinAssetPerformanceDataResolvers<ContextType>;
   EmbedToken?: EmbedTokenResolvers<ContextType>;
   EmbedTokenCollection?: EmbedTokenCollectionResolvers<ContextType>;
+  EnergyReading?: EnergyReadingResolvers<ContextType>;
   ExtendedViewerResources?: ExtendedViewerResourcesResolvers<ContextType>;
   ExtendedViewerResourcesRequest?: ExtendedViewerResourcesRequestResolvers<ContextType>;
   Facility?: FacilityResolvers<ContextType>;
@@ -10426,6 +10581,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   StreamCollaborator?: StreamCollaboratorResolvers<ContextType>;
   StreamCollection?: StreamCollectionResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
+  TelemetryReading?: TelemetryReadingResolvers<ContextType>;
   TestAutomationRun?: TestAutomationRunResolvers<ContextType>;
   TestAutomationRunTrigger?: TestAutomationRunTriggerResolvers<ContextType>;
   TestAutomationRunTriggerPayload?: TestAutomationRunTriggerPayloadResolvers<ContextType>;
