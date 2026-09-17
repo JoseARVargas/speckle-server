@@ -108,3 +108,71 @@ export const listEnergyReadingsFactory =
       .where({ assetId: params.assetId })
       .orderBy('ts', 'desc')
       .limit(params.limit)
+
+// ---- facility-wide rollups (dashboard) --------------------------------
+
+export const getFacilityEnergyTotalsFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    projectId: string
+  }): Promise<{
+    assetsOn: number
+    cumulativeKwh: number
+    cumulativeCost: number
+  }> => {
+    const [sums] = await tables
+      .deviceStates(deps.db)
+      .where({ projectId: params.projectId })
+      .sum<{ cumulativeKwh: string | null; cumulativeCost: string | null }[]>({
+        cumulativeKwh: 'cumulativeKwh',
+        cumulativeCost: 'cumulativeCost'
+      })
+    const [{ count }] = await tables
+      .deviceStates(deps.db)
+      .where({ projectId: params.projectId, powerState: 'on' })
+      .count()
+    return {
+      assetsOn: parseInt(count + ''),
+      cumulativeKwh: Number(sums?.cumulativeKwh ?? 0),
+      cumulativeCost: Number(sums?.cumulativeCost ?? 0)
+    }
+  }
+
+/**
+ * Every asset ticks in lockstep (a single global setInterval - see
+ * runSimulationTickFactory), so grouping energy_readings by `ts` and
+ * summing gives one point per simulation tick for the whole facility.
+ * Returned oldest-first (ready to chart), limited to the most recent
+ * `limit` ticks.
+ */
+export const getFacilityEnergySeriesFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    projectId: string
+    limit: number
+  }): Promise<
+    { ts: Date; powerKw: number; energyKwhInterval: number; costInterval: number }[]
+  > => {
+    const rows = await tables
+      .energyReadings(deps.db)
+      .where({ projectId: params.projectId })
+      .groupBy('ts')
+      .orderBy('ts', 'desc')
+      .limit(params.limit)
+      .select<
+        { ts: Date; powerKw: string; energyKwhInterval: string; costInterval: string }[]
+      >(
+        'ts',
+        deps.db.raw('SUM("powerKw") as "powerKw"'),
+        deps.db.raw('SUM("energyKwhInterval") as "energyKwhInterval"'),
+        deps.db.raw('SUM("costInterval") as "costInterval"')
+      )
+    return rows
+      .map((r) => ({
+        ts: r.ts,
+        powerKw: Number(r.powerKw),
+        energyKwhInterval: Number(r.energyKwhInterval),
+        costInterval: Number(r.costInterval)
+      }))
+      .sort((a, b) => a.ts.getTime() - b.ts.getTime())
+  }

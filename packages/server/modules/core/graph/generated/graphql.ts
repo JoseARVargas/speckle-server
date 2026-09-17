@@ -1828,6 +1828,11 @@ export type Facility = {
   assets: AssetCollection;
   createdAt: Scalars['DateTime']['output'];
   /**
+   * Facility-wide rollup of the simulated energy data (consumption, cost,
+   * power draw) - see FacilityDashboard.
+   */
+  dashboard: FacilityDashboard;
+  /**
    * R$/kWh used to turn simulated energy consumption into cost for this
    * facility's assets.
    */
@@ -1854,6 +1859,35 @@ export type FacilityAssetsArgs = {
 
 export type FacilitySpacesArgs = {
   input?: InputMaybe<GetFacilitySpacesInput>;
+};
+
+export type FacilityDashboard = {
+  __typename?: 'FacilityDashboard';
+  assetsOn: Scalars['Int']['output'];
+  bySystem: Array<FacilitySystemBreakdown>;
+  cumulativeCost: Scalars['Float']['output'];
+  cumulativeKwh: Scalars['Float']['output'];
+  /**
+   * Total simulated instantaneous power draw at the most recent simulation
+   * tick, summed across every asset with a device state.
+   */
+  currentPowerKw: Scalars['Float']['output'];
+  /** Facility-wide power/energy/cost per simulation tick, oldest first. */
+  series: Array<FacilityEnergyPoint>;
+  totalAssets: Scalars['Int']['output'];
+};
+
+
+export type FacilityDashboardSeriesArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FacilityEnergyPoint = {
+  __typename?: 'FacilityEnergyPoint';
+  costInterval: Scalars['Float']['output'];
+  energyKwhInterval: Scalars['Float']['output'];
+  powerKw: Scalars['Float']['output'];
+  ts: Scalars['DateTime']['output'];
 };
 
 export type FacilityMutations = {
@@ -1956,6 +1990,19 @@ export type FacilityMutationsUpdateSpaceArgs = {
 
 export type FacilityMutationsUpdateSystemArgs = {
   input: UpdateAssetSystemInput;
+};
+
+/**
+ * Per-System rollup of simulated energy/cost, for ranking which systems
+ * consume the most.
+ */
+export type FacilitySystemBreakdown = {
+  __typename?: 'FacilitySystemBreakdown';
+  assetCount: Scalars['Int']['output'];
+  cumulativeCost: Scalars['Float']['output'];
+  cumulativeKwh: Scalars['Float']['output'];
+  systemId: Scalars['String']['output'];
+  systemName: Scalars['String']['output'];
 };
 
 export type FileImportResultInput = {
@@ -7250,7 +7297,10 @@ export type ResolversTypes = {
   ExtendedViewerResources: ResolverTypeWrapper<ExtendedViewerResourcesGraphQLReturn>;
   ExtendedViewerResourcesRequest: ResolverTypeWrapper<ExtendedViewerResourcesRequest>;
   Facility: ResolverTypeWrapper<Facility>;
+  FacilityDashboard: ResolverTypeWrapper<FacilityDashboard>;
+  FacilityEnergyPoint: ResolverTypeWrapper<FacilityEnergyPoint>;
   FacilityMutations: ResolverTypeWrapper<FacilityMutations>;
+  FacilitySystemBreakdown: ResolverTypeWrapper<FacilitySystemBreakdown>;
   FileImportResultInput: FileImportResultInput;
   FileUpload: ResolverTypeWrapper<FileUploadGraphQLReturn>;
   FileUploadCollection: ResolverTypeWrapper<Omit<FileUploadCollection, 'items'> & { items: Array<ResolversTypes['FileUpload']> }>;
@@ -7700,7 +7750,10 @@ export type ResolversParentTypes = {
   ExtendedViewerResources: ExtendedViewerResourcesGraphQLReturn;
   ExtendedViewerResourcesRequest: ExtendedViewerResourcesRequest;
   Facility: Facility;
+  FacilityDashboard: FacilityDashboard;
+  FacilityEnergyPoint: FacilityEnergyPoint;
   FacilityMutations: FacilityMutations;
+  FacilitySystemBreakdown: FacilitySystemBreakdown;
   FileImportResultInput: FileImportResultInput;
   FileUpload: FileUploadGraphQLReturn;
   FileUploadCollection: Omit<FileUploadCollection, 'items'> & { items: Array<ResolversParentTypes['FileUpload']> };
@@ -8792,6 +8845,7 @@ export type ExtendedViewerResourcesRequestResolvers<ContextType = GraphQLContext
 export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Facility'] = ResolversParentTypes['Facility']> = {
   assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<FacilityAssetsArgs>>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  dashboard?: Resolver<ResolversTypes['FacilityDashboard'], ParentType, ContextType>;
   energyTariffPerKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   floors?: Resolver<Array<ResolversTypes['Floor']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -8801,6 +8855,25 @@ export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends R
   systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
   tagSourceProperty?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FacilityDashboardResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilityDashboard'] = ResolversParentTypes['FacilityDashboard']> = {
+  assetsOn?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  bySystem?: Resolver<Array<ResolversTypes['FacilitySystemBreakdown']>, ParentType, ContextType>;
+  cumulativeCost?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  cumulativeKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  currentPowerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  series?: Resolver<Array<ResolversTypes['FacilityEnergyPoint']>, ParentType, ContextType, RequireFields<FacilityDashboardSeriesArgs, 'limit'>>;
+  totalAssets?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FacilityEnergyPointResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilityEnergyPoint'] = ResolversParentTypes['FacilityEnergyPoint']> = {
+  costInterval?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  energyKwhInterval?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  powerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  ts?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -8820,6 +8893,15 @@ export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType 
   updateFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateFloorArgs, 'input'>>;
   updateSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSpaceArgs, 'input'>>;
   updateSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSystemArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FacilitySystemBreakdownResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilitySystemBreakdown'] = ResolversParentTypes['FacilitySystemBreakdown']> = {
+  assetCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  cumulativeCost?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  cumulativeKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  systemId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  systemName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -10512,7 +10594,10 @@ export type Resolvers<ContextType = GraphQLContext> = {
   ExtendedViewerResources?: ExtendedViewerResourcesResolvers<ContextType>;
   ExtendedViewerResourcesRequest?: ExtendedViewerResourcesRequestResolvers<ContextType>;
   Facility?: FacilityResolvers<ContextType>;
+  FacilityDashboard?: FacilityDashboardResolvers<ContextType>;
+  FacilityEnergyPoint?: FacilityEnergyPointResolvers<ContextType>;
   FacilityMutations?: FacilityMutationsResolvers<ContextType>;
+  FacilitySystemBreakdown?: FacilitySystemBreakdownResolvers<ContextType>;
   FileUpload?: FileUploadResolvers<ContextType>;
   FileUploadCollection?: FileUploadCollectionResolvers<ContextType>;
   FileUploadMutations?: FileUploadMutationsResolvers<ContextType>;

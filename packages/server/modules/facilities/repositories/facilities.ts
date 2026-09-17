@@ -5,7 +5,8 @@ import {
   AssetTypes,
   AssetSystems,
   Assets,
-  AssetSystemMembers
+  AssetSystemMembers,
+  DeviceStates
 } from '@/modules/core/dbSchema'
 import type {
   FacilityRecord,
@@ -308,6 +309,69 @@ export const updateAssetFactory =
 
 export const deleteAssetFactory = (deps: { db: Knex }) => (params: { id: string }) =>
   tables.assets(deps.db).where({ id: params.id }).del()
+
+/**
+ * Per-system rollup of simulated energy for the dashboard - how much of a
+ * facility's consumption/cost is attributable to each System sheet, plus
+ * how many assets it currently has. Left-joins device_states since not
+ * every asset has been turned on yet.
+ */
+export const getSystemEnergyBreakdownFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    facilityId: string
+  }): Promise<
+    {
+      systemId: string
+      systemName: string
+      assetCount: number
+      cumulativeKwh: number
+      cumulativeCost: number
+    }[]
+  > => {
+    const rows = await tables
+      .assetSystems(deps.db)
+      .where(`${AssetSystems.name}.facilityId`, params.facilityId)
+      .join(
+        AssetSystemMembers.name,
+        `${AssetSystemMembers.name}.systemId`,
+        `${AssetSystems.name}.id`
+      )
+      .leftJoin(
+        DeviceStates.name,
+        `${DeviceStates.name}.assetId`,
+        `${AssetSystemMembers.name}.assetId`
+      )
+      .groupBy(`${AssetSystems.name}.id`, `${AssetSystems.name}.name`)
+      .select<
+        {
+          systemId: string
+          systemName: string
+          assetCount: string
+          cumulativeKwh: string
+          cumulativeCost: string
+        }[]
+      >(
+        `${AssetSystems.name}.id as systemId`,
+        `${AssetSystems.name}.name as systemName`,
+        deps.db.raw(
+          `COUNT(DISTINCT "${AssetSystemMembers.name}"."assetId") as "assetCount"`
+        ),
+        deps.db.raw(
+          `COALESCE(SUM("${DeviceStates.name}"."cumulativeKwh"), 0) as "cumulativeKwh"`
+        ),
+        deps.db.raw(
+          `COALESCE(SUM("${DeviceStates.name}"."cumulativeCost"), 0) as "cumulativeCost"`
+        )
+      )
+    return rows.map((r) => ({
+      systemId: r.systemId,
+      systemName: r.systemName,
+      assetCount: parseInt(r.assetCount),
+      cumulativeKwh: Number(r.cumulativeKwh),
+      cumulativeCost: Number(r.cumulativeCost)
+    }))
+  }
 
 // ---- asset <-> system membership -------------------------------------------
 

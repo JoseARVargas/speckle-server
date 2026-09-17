@@ -28,8 +28,49 @@ type Facility {
   spaces(input: GetFacilitySpacesInput): [Space!]!
   systems: [AssetSystem!]!
   assets(input: GetFacilityAssetsInput): AssetCollection!
+  """
+  Facility-wide rollup of the simulated energy data (consumption, cost,
+  power draw) - see FacilityDashboard.
+  """
+  dashboard: FacilityDashboard!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type FacilityEnergyPoint {
+  ts: DateTime!
+  powerKw: Float!
+  energyKwhInterval: Float!
+  costInterval: Float!
+}
+
+"""
+Per-System rollup of simulated energy/cost, for ranking which systems
+consume the most.
+"""
+type FacilitySystemBreakdown {
+  systemId: String!
+  systemName: String!
+  assetCount: Int!
+  cumulativeKwh: Float!
+  cumulativeCost: Float!
+}
+
+type FacilityDashboard {
+  totalAssets: Int!
+  assetsOn: Int!
+  """
+  Total simulated instantaneous power draw at the most recent simulation
+  tick, summed across every asset with a device state.
+  """
+  currentPowerKw: Float!
+  cumulativeKwh: Float!
+  cumulativeCost: Float!
+  bySystem: [FacilitySystemBreakdown!]!
+  """
+  Facility-wide power/energy/cost per simulation tick, oldest first.
+  """
+  series(limit: Int = 120): [FacilityEnergyPoint!]!
 }
 
 type Floor {

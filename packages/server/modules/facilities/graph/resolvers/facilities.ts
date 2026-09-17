@@ -37,12 +37,15 @@ import {
   insertAssetFactory,
   updateAssetFactory,
   deleteAssetFactory,
-  setAssetSystemsFactory
+  setAssetSystemsFactory,
+  getSystemEnergyBreakdownFactory
 } from '@/modules/facilities/repositories/facilities'
 import {
   getDeviceStateFactory,
   listTelemetryReadingsFactory,
-  listEnergyReadingsFactory
+  listEnergyReadingsFactory,
+  getFacilityEnergyTotalsFactory,
+  getFacilityEnergySeriesFactory
 } from '@/modules/facilities/repositories/simulation'
 import {
   setAssetPowerFactory,
@@ -540,6 +543,47 @@ export default {
         totalCount,
         cursor: items.length ? items[items.length - 1].id : null
       }
+    },
+    async dashboard(parent: { id: string; projectId: string }) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      const [totals, totalAssets, latestTick] = await Promise.all([
+        getFacilityEnergyTotalsFactory({ db: projectDb })({
+          projectId: parent.projectId
+        }),
+        countAssetsFactory({ db: projectDb })({ facilityId: parent.id }),
+        getFacilityEnergySeriesFactory({ db: projectDb })({
+          projectId: parent.projectId,
+          limit: 1
+        })
+      ])
+      return {
+        facilityId: parent.id,
+        projectId: parent.projectId,
+        totalAssets,
+        assetsOn: totals.assetsOn,
+        currentPowerKw: latestTick[0]?.powerKw ?? 0,
+        cumulativeKwh: totals.cumulativeKwh,
+        cumulativeCost: totals.cumulativeCost
+      }
+    }
+  },
+
+  FacilityDashboard: {
+    async bySystem(parent: { facilityId: string; projectId: string }) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await getSystemEnergyBreakdownFactory({ db: projectDb })({
+        facilityId: parent.facilityId
+      })
+    },
+    async series(
+      parent: { facilityId: string; projectId: string },
+      args: { limit?: number | null }
+    ) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await getFacilityEnergySeriesFactory({ db: projectDb })({
+        projectId: parent.projectId,
+        limit: args.limit ?? 120
+      })
     }
   },
 
