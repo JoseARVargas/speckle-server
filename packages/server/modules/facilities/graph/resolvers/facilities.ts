@@ -1,6 +1,6 @@
 import { db } from '@/db/knex'
 import { getProjectDbClient } from '@/modules/multiregion/utils/dbSelector'
-import { ForbiddenError, NotFoundError } from '@/modules/shared/errors'
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/modules/shared/errors'
 import { throwIfAuthNotOk } from '@/modules/shared/helpers/errorHelper'
 import { throwIfResourceAccessNotAllowed } from '@/modules/core/helpers/token'
 import { TokenResourceIdentifierType } from '@/modules/core/domain/tokens/types'
@@ -72,6 +72,23 @@ async function assertCanManageFacility(ctx: GraphQLContext, projectId: string) {
     projectId
   })
   throwIfAuthNotOk(canPublish)
+}
+
+/**
+ * Server-side twin of the UI gate that hides power/temperature controls for
+ * non-device types (furniture, structural elements, ...) - stops someone
+ * from turning "on" a piece of furniture by calling the mutation directly.
+ * An asset with no type, or a type that hasn't set isControllableDevice,
+ * stays controllable (defaults to true).
+ */
+async function assertAssetIsControllable(asset: { assetTypeId: string | null }) {
+  if (!asset.assetTypeId) return
+  const assetType = await getAssetTypeByIdFactory({ db })({ id: asset.assetTypeId })
+  if (assetType?.isControllableDevice === false) {
+    throw new BadRequestError(
+      `Assets of type "${assetType.name}" are not controllable devices`
+    )
+  }
 }
 
 const facilityMutations = {
@@ -285,6 +302,11 @@ const facilityMutations = {
         systemIds?: string[] | null
         currentObjectId?: string | null
         currentVersionId?: string | null
+        installDate?: Date | null
+        warrantyStartDate?: Date | null
+        serialNumber?: string | null
+        barCode?: string | null
+        extendedAttributes?: Record<string, unknown> | null
       }
     },
     ctx: GraphQLContext
@@ -297,7 +319,12 @@ const facilityMutations = {
       spaceId,
       systemIds,
       currentObjectId,
-      currentVersionId
+      currentVersionId,
+      installDate,
+      warrantyStartDate,
+      serialNumber,
+      barCode,
+      extendedAttributes
     } = args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
@@ -312,6 +339,11 @@ const facilityMutations = {
       spaceId: spaceId ?? null,
       currentObjectId: currentObjectId ?? null,
       currentVersionId: currentVersionId ?? null,
+      installDate: installDate ?? null,
+      warrantyStartDate: warrantyStartDate ?? null,
+      serialNumber: serialNumber ?? null,
+      barCode: barCode ?? null,
+      extendedAttributes: extendedAttributes ?? {},
       createdAt: new Date(),
       updatedAt: new Date()
     })
@@ -333,6 +365,11 @@ const facilityMutations = {
         systemIds?: string[] | null
         currentObjectId?: string | null
         currentVersionId?: string | null
+        installDate?: Date | null
+        warrantyStartDate?: Date | null
+        serialNumber?: string | null
+        barCode?: string | null
+        extendedAttributes?: Record<string, unknown> | null
       }
     },
     ctx: GraphQLContext
@@ -345,7 +382,12 @@ const facilityMutations = {
       spaceId,
       systemIds,
       currentObjectId,
-      currentVersionId
+      currentVersionId,
+      installDate,
+      warrantyStartDate,
+      serialNumber,
+      barCode,
+      extendedAttributes
     } = args.input
     const asset = await getAssetByIdFactory({ db })({ id })
     if (!asset) throw new NotFoundError('Asset not found')
@@ -359,7 +401,14 @@ const facilityMutations = {
         ...(assetTypeId !== undefined ? { assetTypeId } : {}),
         ...(spaceId !== undefined ? { spaceId } : {}),
         ...(currentObjectId !== undefined ? { currentObjectId } : {}),
-        ...(currentVersionId !== undefined ? { currentVersionId } : {})
+        ...(currentVersionId !== undefined ? { currentVersionId } : {}),
+        ...(installDate !== undefined ? { installDate } : {}),
+        ...(warrantyStartDate !== undefined ? { warrantyStartDate } : {}),
+        ...(serialNumber !== undefined ? { serialNumber } : {}),
+        ...(barCode !== undefined ? { barCode } : {}),
+        ...(extendedAttributes !== undefined && extendedAttributes !== null
+          ? { extendedAttributes }
+          : {})
       }
     })
     if (systemIds !== undefined) {
@@ -389,6 +438,7 @@ const facilityMutations = {
     const asset = await getAssetByIdFactory({ db })({ id: assetId })
     if (!asset) throw new NotFoundError('Asset not found')
     await assertCanManageFacility(ctx, asset.projectId)
+    await assertAssetIsControllable(asset)
     const projectDb = await getProjectDbClient({ projectId: asset.projectId })
     return await setAssetPowerFactory({ db: projectDb })({
       assetId,
@@ -407,6 +457,7 @@ const facilityMutations = {
     const asset = await getAssetByIdFactory({ db })({ id: assetId })
     if (!asset) throw new NotFoundError('Asset not found')
     await assertCanManageFacility(ctx, asset.projectId)
+    await assertAssetIsControllable(asset)
     const projectDb = await getProjectDbClient({ projectId: asset.projectId })
     return await setAssetTemperatureFactory({ db: projectDb })({
       assetId,
@@ -430,6 +481,8 @@ const assetTypeMutations = {
         description?: string | null
         expectedLifeYears?: number | null
         extendedAttributes?: Record<string, unknown> | null
+        ifcClass?: string | null
+        isControllableDevice?: boolean | null
       }
     },
     ctx: GraphQLContext
@@ -445,6 +498,8 @@ const assetTypeMutations = {
       description: input.description ?? null,
       expectedLifeYears: input.expectedLifeYears ?? null,
       extendedAttributes: input.extendedAttributes ?? {},
+      ifcClass: input.ifcClass ?? null,
+      isControllableDevice: input.isControllableDevice ?? null,
       createdBy: ctx.userId ?? null,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -464,6 +519,8 @@ const assetTypeMutations = {
         description?: string | null
         expectedLifeYears?: number | null
         extendedAttributes?: Record<string, unknown> | null
+        ifcClass?: string | null
+        isControllableDevice?: boolean | null
       }
     }
   ) {

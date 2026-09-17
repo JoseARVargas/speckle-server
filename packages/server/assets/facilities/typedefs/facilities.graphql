@@ -134,6 +134,17 @@ type AssetType {
   custom attribute that doesn't have its own column.
   """
   extendedAttributes: JSONObject!
+  """
+  Soft classification base (e.g. "IfcAirTerminal", "IfcFurnishingElement")
+  - a free-text hint, not an enforced IFC schema.
+  """
+  ifcClass: String
+  """
+  Whether assets of this type get power/temperature simulation controls
+  (an AC unit does, a piece of furniture doesn't). Defaults to true when
+  unset.
+  """
+  isControllableDevice: Boolean
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -163,6 +174,8 @@ input CreateAssetTypeInput {
   description: String
   expectedLifeYears: Int
   extendedAttributes: JSONObject
+  ifcClass: String
+  isControllableDevice: Boolean
 }
 
 input UpdateAssetTypeInput {
@@ -175,6 +188,8 @@ input UpdateAssetTypeInput {
   description: String
   expectedLifeYears: Int
   extendedAttributes: JSONObject
+  ifcClass: String
+  isControllableDevice: Boolean
 }
 
 type AssetTypeMutations {
@@ -230,6 +245,18 @@ type Asset {
   """
   currentObjectId: String
   currentVersionId: String
+  """
+  COBie Component sheet attributes.
+  """
+  installDate: DateTime
+  warrantyStartDate: DateTime
+  serialNumber: String
+  barCode: String
+  """
+  Any other Component attribute (AssetIdentifier, ExtSystem, custom
+  fields, ...) that doesn't have its own column.
+  """
+  extendedAttributes: JSONObject!
   """
   Live simulated device state - null until this asset has been turned on
   or had a temperature set at least once.
@@ -368,6 +395,11 @@ input CreateAssetInput {
   """
   currentObjectId: String
   currentVersionId: String
+  installDate: DateTime
+  warrantyStartDate: DateTime
+  serialNumber: String
+  barCode: String
+  extendedAttributes: JSONObject
 }
 
 input UpdateAssetInput {
@@ -383,6 +415,11 @@ input UpdateAssetInput {
   """
   currentObjectId: String
   currentVersionId: String
+  installDate: DateTime
+  warrantyStartDate: DateTime
+  serialNumber: String
+  barCode: String
+  extendedAttributes: JSONObject
 }
 
 type FacilityMutations {

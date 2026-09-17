@@ -44,6 +44,17 @@ export type AssetTypeRecord = {
   description: Nullable<string>
   expectedLifeYears: Nullable<number>
   extendedAttributes: Record<string, unknown>
+  /**
+   * Soft classification base (e.g. "IfcAirTerminal", "IfcFurnishingElement")
+   * - free text, not an enforced IFC schema.
+   */
+  ifcClass: Nullable<string>
+  /**
+   * Gates whether assets of this type get power/temperature simulation
+   * controls (e.g. false for furniture/structural types). Null is treated
+   * as true so existing types keep working unchanged.
+   */
+  isControllableDevice: Nullable<boolean>
   createdBy: Nullable<string>
   createdAt: Date
   updatedAt: Date
@@ -69,6 +80,11 @@ export type AssetRecord = {
   spaceId: Nullable<string>
   currentObjectId: Nullable<string>
   currentVersionId: Nullable<string>
+  installDate: Nullable<Date>
+  warrantyStartDate: Nullable<Date>
+  serialNumber: Nullable<string>
+  barCode: Nullable<string>
+  extendedAttributes: Record<string, unknown>
   createdAt: Date
   updatedAt: Date
 }

@@ -478,6 +478,7 @@ export type Asset = {
   __typename?: 'Asset';
   assetType?: Maybe<AssetType>;
   assetTypeId?: Maybe<Scalars['String']['output']>;
+  barCode?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
   /**
    * Cache of where this asset currently resolves to in the model - refreshed
@@ -492,9 +493,17 @@ export type Asset = {
   deviceState?: Maybe<DeviceState>;
   /** Simulated energy/cost readings, most recent first. */
   energyHistory: Array<EnergyReading>;
+  /**
+   * Any other Component attribute (AssetIdentifier, ExtSystem, custom
+   * fields, ...) that doesn't have its own column.
+   */
+  extendedAttributes: Scalars['JSONObject']['output'];
   facilityId: Scalars['String']['output'];
   id: Scalars['String']['output'];
+  /** COBie Component sheet attributes. */
+  installDate?: Maybe<Scalars['DateTime']['output']>;
   name?: Maybe<Scalars['String']['output']>;
+  serialNumber?: Maybe<Scalars['String']['output']>;
   space?: Maybe<Space>;
   spaceId?: Maybe<Scalars['String']['output']>;
   systems: Array<AssetSystem>;
@@ -506,6 +515,7 @@ export type Asset = {
   /** Simulated temperature readings, most recent first. */
   telemetryHistory: Array<TelemetryReading>;
   updatedAt: Scalars['DateTime']['output'];
+  warrantyStartDate?: Maybe<Scalars['DateTime']['output']>;
 };
 
 
@@ -578,6 +588,17 @@ export type AssetType = {
    */
   extendedAttributes: Scalars['JSONObject']['output'];
   id: Scalars['String']['output'];
+  /**
+   * Soft classification base (e.g. "IfcAirTerminal", "IfcFurnishingElement")
+   * - a free-text hint, not an enforced IFC schema.
+   */
+  ifcClass?: Maybe<Scalars['String']['output']>;
+  /**
+   * Whether assets of this type get power/temperature simulation controls
+   * (an AC unit does, a piece of furniture doesn't). Defaults to true when
+   * unset.
+   */
+  isControllableDevice?: Maybe<Scalars['Boolean']['output']>;
   manufacturer?: Maybe<Scalars['String']['output']>;
   modelNumber?: Maybe<Scalars['String']['output']>;
   name: Scalars['String']['output'];
@@ -1307,17 +1328,22 @@ export type CreateAccSyncItemInput = {
 
 export type CreateAssetInput = {
   assetTypeId?: InputMaybe<Scalars['String']['input']>;
+  barCode?: InputMaybe<Scalars['String']['input']>;
   /**
    * Set when creating an asset directly from a viewer selection that has no
    * matching asset yet - see UpdateAssetInput.
    */
   currentObjectId?: InputMaybe<Scalars['String']['input']>;
   currentVersionId?: InputMaybe<Scalars['String']['input']>;
+  extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
+  installDate?: InputMaybe<Scalars['DateTime']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['String']['input'];
+  serialNumber?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;
   systemIds?: InputMaybe<Array<Scalars['String']['input']>>;
   tagNumber: Scalars['String']['input'];
+  warrantyStartDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type CreateAssetSystemInput = {
@@ -1331,6 +1357,8 @@ export type CreateAssetTypeInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   expectedLifeYears?: InputMaybe<Scalars['Int']['input']>;
   extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
+  ifcClass?: InputMaybe<Scalars['String']['input']>;
+  isControllableDevice?: InputMaybe<Scalars['Boolean']['input']>;
   manufacturer?: InputMaybe<Scalars['String']['input']>;
   modelNumber?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -5523,17 +5551,22 @@ export type UpdateAccSyncItemInput = {
 
 export type UpdateAssetInput = {
   assetTypeId?: InputMaybe<Scalars['String']['input']>;
+  barCode?: InputMaybe<Scalars['String']['input']>;
   /**
    * Set by BIM reconciliation (matching this asset's tagNumber against a
    * loaded model version's elements) - not meant to be hand-edited.
    */
   currentObjectId?: InputMaybe<Scalars['String']['input']>;
   currentVersionId?: InputMaybe<Scalars['String']['input']>;
+  extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
   id: Scalars['String']['input'];
+  installDate?: InputMaybe<Scalars['DateTime']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  serialNumber?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;
   systemIds?: InputMaybe<Array<Scalars['String']['input']>>;
   tagNumber?: InputMaybe<Scalars['String']['input']>;
+  warrantyStartDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type UpdateAssetSystemInput = {
@@ -5548,6 +5581,8 @@ export type UpdateAssetTypeInput = {
   expectedLifeYears?: InputMaybe<Scalars['Int']['input']>;
   extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
   id: Scalars['String']['input'];
+  ifcClass?: InputMaybe<Scalars['String']['input']>;
+  isControllableDevice?: InputMaybe<Scalars['Boolean']['input']>;
   manufacturer?: InputMaybe<Scalars['String']['input']>;
   modelNumber?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
@@ -8260,20 +8295,25 @@ export type AppAuthorResolvers<ContextType = GraphQLContext, ParentType extends 
 export type AssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Asset'] = ResolversParentTypes['Asset']> = {
   assetType?: Resolver<Maybe<ResolversTypes['AssetType']>, ParentType, ContextType>;
   assetTypeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  barCode?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   currentObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   currentVersionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   deviceState?: Resolver<Maybe<ResolversTypes['DeviceState']>, ParentType, ContextType>;
   energyHistory?: Resolver<Array<ResolversTypes['EnergyReading']>, ParentType, ContextType, RequireFields<AssetEnergyHistoryArgs, 'limit'>>;
+  extendedAttributes?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
   facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  installDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  serialNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
   spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
   tagNumber?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   telemetryHistory?: Resolver<Array<ResolversTypes['TelemetryReading']>, ParentType, ContextType, RequireFields<AssetTelemetryHistoryArgs, 'limit'>>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  warrantyStartDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -8302,6 +8342,8 @@ export type AssetTypeResolvers<ContextType = GraphQLContext, ParentType extends 
   expectedLifeYears?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   extendedAttributes?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ifcClass?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  isControllableDevice?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   manufacturer?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modelNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

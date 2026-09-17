@@ -592,6 +592,8 @@ export const AssetTypes = buildTableHelper('asset_types', [
   'description',
   'expectedLifeYears',
   'extendedAttributes',
+  'ifcClass',
+  'isControllableDevice',
   'createdBy',
   'createdAt',
   'updatedAt'
@@ -617,6 +619,11 @@ export const Assets = buildTableHelper('assets', [
   'spaceId',
   'currentObjectId',
   'currentVersionId',
+  'installDate',
+  'warrantyStartDate',
+  'serialNumber',
+  'barCode',
+  'extendedAttributes',
   'createdAt',
   'updatedAt'
 ])
