@@ -677,6 +677,24 @@ export const EnergyReadings = buildTableHelper('energy_readings', [
   'cumulativeCost'
 ])
 
+export const MaintenanceOrders = buildTableHelper('maintenance_orders', [
+  'id',
+  'projectId',
+  'facilityId',
+  'assetId',
+  'title',
+  'description',
+  'type',
+  'status',
+  'priority',
+  'reportedBy',
+  'assignedTo',
+  'dueDate',
+  'completedAt',
+  'createdAt',
+  'updatedAt'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'

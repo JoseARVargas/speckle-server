@@ -56,9 +56,11 @@ import type { DevicePowerState } from '@/modules/facilities/helpers/types'
 /**
  * All facility-registry mutations take a projectId and are gated the same
  * way file import mutations are: needs a user, needs token access to this
- * specific project, needs publish rights on it.
+ * specific project, needs publish rights on it. Exported since the
+ * maintenance-orders resolver (a separate file, auto-merged by the module
+ * loader) reuses the exact same gate.
  */
-async function assertCanManageFacility(ctx: GraphQLContext, projectId: string) {
+export async function assertCanManageFacility(ctx: GraphQLContext, projectId: string) {
   if (!ctx.userId) {
     throw new ForbiddenError('No userId provided')
   }

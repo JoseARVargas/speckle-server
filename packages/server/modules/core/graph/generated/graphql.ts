@@ -1420,6 +1420,17 @@ export type CreateFloorInput = {
   projectId: Scalars['String']['input'];
 };
 
+export type CreateMaintenanceOrderInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  assignedTo?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  dueDate?: InputMaybe<Scalars['DateTime']['input']>;
+  priority?: InputMaybe<MaintenanceOrderPriority>;
+  projectId: Scalars['String']['input'];
+  title: Scalars['String']['input'];
+  type: MaintenanceOrderType;
+};
+
 export type CreateModelInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -1867,6 +1878,7 @@ export type Facility = {
   energyTariffPerKwh: Scalars['Float']['output'];
   floors: Array<Floor>;
   id: Scalars['String']['output'];
+  maintenanceOrders: MaintenanceOrderCollection;
   name: Scalars['String']['output'];
   projectId: Scalars['String']['output'];
   spaces: Array<Space>;
@@ -1882,6 +1894,11 @@ export type Facility = {
 
 export type FacilityAssetsArgs = {
   input?: InputMaybe<GetFacilityAssetsInput>;
+};
+
+
+export type FacilityMaintenanceOrdersArgs = {
+  input?: InputMaybe<GetMaintenanceOrdersInput>;
 };
 
 
@@ -2228,6 +2245,14 @@ export type GetFacilitySpacesInput = {
   floorId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type GetMaintenanceOrdersInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<MaintenanceOrderStatus>;
+  type?: InputMaybe<MaintenanceOrderType>;
+};
+
 export type GetModelUploadsInput = {
   /** The cursor for pagination. */
   cursor?: InputMaybe<Scalars['String']['input']>;
@@ -2434,6 +2459,78 @@ export type LimitedWorkspaceJoinRequestCollection = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type MaintenanceMutations = {
+  __typename?: 'MaintenanceMutations';
+  create: MaintenanceOrder;
+  delete: Scalars['Boolean']['output'];
+  update: MaintenanceOrder;
+};
+
+
+export type MaintenanceMutationsCreateArgs = {
+  input: CreateMaintenanceOrderInput;
+};
+
+
+export type MaintenanceMutationsDeleteArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MaintenanceMutationsUpdateArgs = {
+  input: UpdateMaintenanceOrderInput;
+};
+
+export type MaintenanceOrder = {
+  __typename?: 'MaintenanceOrder';
+  /** Null for a facility-wide order not tied to one registered asset. */
+  asset?: Maybe<Asset>;
+  assetId?: Maybe<Scalars['String']['output']>;
+  /** Free text for now - there's no team/assignee directory in this app yet. */
+  assignedTo?: Maybe<Scalars['String']['output']>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  dueDate?: Maybe<Scalars['DateTime']['output']>;
+  facilityId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  priority?: Maybe<MaintenanceOrderPriority>;
+  reportedBy?: Maybe<Scalars['String']['output']>;
+  status: MaintenanceOrderStatus;
+  title: Scalars['String']['output'];
+  type: MaintenanceOrderType;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type MaintenanceOrderCollection = {
+  __typename?: 'MaintenanceOrderCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<MaintenanceOrder>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export const MaintenanceOrderPriority = {
+  High: 'high',
+  Low: 'low',
+  Medium: 'medium',
+  Urgent: 'urgent'
+} as const;
+
+export type MaintenanceOrderPriority = typeof MaintenanceOrderPriority[keyof typeof MaintenanceOrderPriority];
+export const MaintenanceOrderStatus = {
+  Cancelled: 'cancelled',
+  Done: 'done',
+  InProgress: 'in_progress',
+  Open: 'open'
+} as const;
+
+export type MaintenanceOrderStatus = typeof MaintenanceOrderStatus[keyof typeof MaintenanceOrderStatus];
+export const MaintenanceOrderType = {
+  Corrective: 'corrective',
+  Preventive: 'preventive'
+} as const;
+
+export type MaintenanceOrderType = typeof MaintenanceOrderType[keyof typeof MaintenanceOrderType];
 export type MarkCommentViewedInput = {
   commentId: Scalars['String']['input'];
   projectId: Scalars['String']['input'];
@@ -2676,6 +2773,11 @@ export type Mutation = {
    * Note: The required scope to invoke this is not given out to app or personal access tokens
    */
   inviteResend: Scalars['Boolean']['output'];
+  /**
+   * Manage a project's maintenance/work orders. Requires publish access to
+   * the target project.
+   */
+  maintenanceMutations: MaintenanceMutations;
   modelMutations: ModelMutations;
   /** @deprecated Part of the old API surface and will be removed in the future. */
   objectCreate: Array<Scalars['String']['output']>;
@@ -5623,6 +5725,18 @@ export type UpdateFloorInput = {
   name?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdateMaintenanceOrderInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  assignedTo?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  dueDate?: InputMaybe<Scalars['DateTime']['input']>;
+  id: Scalars['String']['input'];
+  priority?: InputMaybe<MaintenanceOrderPriority>;
+  status?: InputMaybe<MaintenanceOrderStatus>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<MaintenanceOrderType>;
+};
+
 export type UpdateModelInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
@@ -7285,6 +7399,7 @@ export type ResolversTypes = {
   CreateDashboardTokenReturn: ResolverTypeWrapper<Omit<CreateDashboardTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversTypes['DashboardToken'] }>;
   CreateEmbedTokenReturn: ResolverTypeWrapper<Omit<CreateEmbedTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversTypes['EmbedToken'] }>;
   CreateFloorInput: CreateFloorInput;
+  CreateMaintenanceOrderInput: CreateMaintenanceOrderInput;
   CreateModelInput: CreateModelInput;
   CreateSavedViewGroupInput: CreateSavedViewGroupInput;
   CreateSavedViewInput: CreateSavedViewInput;
@@ -7351,6 +7466,7 @@ export type ResolversTypes = {
   GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
   GetFacilityAssetsInput: GetFacilityAssetsInput;
   GetFacilitySpacesInput: GetFacilitySpacesInput;
+  GetMaintenanceOrdersInput: GetMaintenanceOrdersInput;
   GetModelUploadsInput: GetModelUploadsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
@@ -7366,6 +7482,12 @@ export type ResolversTypes = {
   LimitedWorkspaceCollaboratorCollection: ResolverTypeWrapper<Omit<LimitedWorkspaceCollaboratorCollection, 'items'> & { items: Array<ResolversTypes['LimitedWorkspaceCollaborator']> }>;
   LimitedWorkspaceJoinRequest: ResolverTypeWrapper<LimitedWorkspaceJoinRequestGraphQLReturn>;
   LimitedWorkspaceJoinRequestCollection: ResolverTypeWrapper<Omit<LimitedWorkspaceJoinRequestCollection, 'items'> & { items: Array<ResolversTypes['LimitedWorkspaceJoinRequest']> }>;
+  MaintenanceMutations: ResolverTypeWrapper<MaintenanceMutations>;
+  MaintenanceOrder: ResolverTypeWrapper<MaintenanceOrder>;
+  MaintenanceOrderCollection: ResolverTypeWrapper<MaintenanceOrderCollection>;
+  MaintenanceOrderPriority: MaintenanceOrderPriority;
+  MaintenanceOrderStatus: MaintenanceOrderStatus;
+  MaintenanceOrderType: MaintenanceOrderType;
   MarkCommentViewedInput: MarkCommentViewedInput;
   MarkReceivedVersionInput: MarkReceivedVersionInput;
   Model: ResolverTypeWrapper<ModelGraphQLReturn>;
@@ -7517,6 +7639,7 @@ export type ResolversTypes = {
   UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
   UpdateFacilityInput: UpdateFacilityInput;
   UpdateFloorInput: UpdateFloorInput;
+  UpdateMaintenanceOrderInput: UpdateMaintenanceOrderInput;
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
@@ -7744,6 +7867,7 @@ export type ResolversParentTypes = {
   CreateDashboardTokenReturn: Omit<CreateDashboardTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversParentTypes['DashboardToken'] };
   CreateEmbedTokenReturn: Omit<CreateEmbedTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversParentTypes['EmbedToken'] };
   CreateFloorInput: CreateFloorInput;
+  CreateMaintenanceOrderInput: CreateMaintenanceOrderInput;
   CreateModelInput: CreateModelInput;
   CreateSavedViewGroupInput: CreateSavedViewGroupInput;
   CreateSavedViewInput: CreateSavedViewInput;
@@ -7804,6 +7928,7 @@ export type ResolversParentTypes = {
   GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
   GetFacilityAssetsInput: GetFacilityAssetsInput;
   GetFacilitySpacesInput: GetFacilitySpacesInput;
+  GetMaintenanceOrdersInput: GetMaintenanceOrdersInput;
   GetModelUploadsInput: GetModelUploadsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: Scalars['ID']['output'];
@@ -7818,6 +7943,9 @@ export type ResolversParentTypes = {
   LimitedWorkspaceCollaboratorCollection: Omit<LimitedWorkspaceCollaboratorCollection, 'items'> & { items: Array<ResolversParentTypes['LimitedWorkspaceCollaborator']> };
   LimitedWorkspaceJoinRequest: LimitedWorkspaceJoinRequestGraphQLReturn;
   LimitedWorkspaceJoinRequestCollection: Omit<LimitedWorkspaceJoinRequestCollection, 'items'> & { items: Array<ResolversParentTypes['LimitedWorkspaceJoinRequest']> };
+  MaintenanceMutations: MaintenanceMutations;
+  MaintenanceOrder: MaintenanceOrder;
+  MaintenanceOrderCollection: MaintenanceOrderCollection;
   MarkCommentViewedInput: MarkCommentViewedInput;
   MarkReceivedVersionInput: MarkReceivedVersionInput;
   Model: ModelGraphQLReturn;
@@ -7949,6 +8077,7 @@ export type ResolversParentTypes = {
   UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
   UpdateFacilityInput: UpdateFacilityInput;
   UpdateFloorInput: UpdateFloorInput;
+  UpdateMaintenanceOrderInput: UpdateMaintenanceOrderInput;
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
@@ -8891,6 +9020,7 @@ export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends R
   energyTariffPerKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   floors?: Resolver<Array<ResolversTypes['Floor']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  maintenanceOrders?: Resolver<ResolversTypes['MaintenanceOrderCollection'], ParentType, ContextType, Partial<FacilityMaintenanceOrdersArgs>>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType, Partial<FacilitySpacesArgs>>;
@@ -9098,6 +9228,39 @@ export type LimitedWorkspaceJoinRequestCollectionResolvers<ContextType = GraphQL
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type MaintenanceMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['MaintenanceMutations'] = ResolversParentTypes['MaintenanceMutations']> = {
+  create?: Resolver<ResolversTypes['MaintenanceOrder'], ParentType, ContextType, RequireFields<MaintenanceMutationsCreateArgs, 'input'>>;
+  delete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MaintenanceMutationsDeleteArgs, 'id'>>;
+  update?: Resolver<ResolversTypes['MaintenanceOrder'], ParentType, ContextType, RequireFields<MaintenanceMutationsUpdateArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type MaintenanceOrderResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['MaintenanceOrder'] = ResolversParentTypes['MaintenanceOrder']> = {
+  asset?: Resolver<Maybe<ResolversTypes['Asset']>, ParentType, ContextType>;
+  assetId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  assignedTo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  completedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  dueDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  priority?: Resolver<Maybe<ResolversTypes['MaintenanceOrderPriority']>, ParentType, ContextType>;
+  reportedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['MaintenanceOrderStatus'], ParentType, ContextType>;
+  title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['MaintenanceOrderType'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type MaintenanceOrderCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['MaintenanceOrderCollection'] = ResolversParentTypes['MaintenanceOrderCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['MaintenanceOrder']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type ModelResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Model'] = ResolversParentTypes['Model']> = {
   accSyncItem?: Resolver<Maybe<ResolversTypes['AccSyncItem']>, ParentType, ContextType>;
   author?: Resolver<Maybe<ResolversTypes['LimitedUser']>, ParentType, ContextType>;
@@ -9198,6 +9361,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   fileUploadMutations?: Resolver<ResolversTypes['FileUploadMutations'], ParentType, ContextType>;
   inviteDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteDeleteArgs, 'inviteId'>>;
   inviteResend?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteResendArgs, 'inviteId'>>;
+  maintenanceMutations?: Resolver<ResolversTypes['MaintenanceMutations'], ParentType, ContextType>;
   modelMutations?: Resolver<ResolversTypes['ModelMutations'], ParentType, ContextType>;
   objectCreate?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType, RequireFields<MutationObjectCreateArgs, 'objectInput'>>;
   projectMutations?: Resolver<ResolversTypes['ProjectMutations'], ParentType, ContextType>;
@@ -10655,6 +10819,9 @@ export type Resolvers<ContextType = GraphQLContext> = {
   LimitedWorkspaceCollaboratorCollection?: LimitedWorkspaceCollaboratorCollectionResolvers<ContextType>;
   LimitedWorkspaceJoinRequest?: LimitedWorkspaceJoinRequestResolvers<ContextType>;
   LimitedWorkspaceJoinRequestCollection?: LimitedWorkspaceJoinRequestCollectionResolvers<ContextType>;
+  MaintenanceMutations?: MaintenanceMutationsResolvers<ContextType>;
+  MaintenanceOrder?: MaintenanceOrderResolvers<ContextType>;
+  MaintenanceOrderCollection?: MaintenanceOrderCollectionResolvers<ContextType>;
   Model?: ModelResolvers<ContextType>;
   ModelCollection?: ModelCollectionResolvers<ContextType>;
   ModelMutations?: ModelMutationsResolvers<ContextType>;

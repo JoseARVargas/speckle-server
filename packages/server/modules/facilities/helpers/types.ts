@@ -130,6 +130,28 @@ export type TelemetryReadingRecord = {
   powerState: DevicePowerState
 }
 
+export type MaintenanceOrderType = 'corrective' | 'preventive'
+export type MaintenanceOrderStatus = 'open' | 'in_progress' | 'done' | 'cancelled'
+export type MaintenanceOrderPriority = 'low' | 'medium' | 'high' | 'urgent'
+
+export type MaintenanceOrderRecord = {
+  id: string
+  projectId: string
+  facilityId: string
+  assetId: Nullable<string>
+  title: string
+  description: Nullable<string>
+  type: MaintenanceOrderType
+  status: MaintenanceOrderStatus
+  priority: Nullable<MaintenanceOrderPriority>
+  reportedBy: Nullable<string>
+  assignedTo: Nullable<string>
+  dueDate: Nullable<Date>
+  completedAt: Nullable<Date>
+  createdAt: Date
+  updatedAt: Date
+}
+
 export type EnergyReadingRecord = {
   id: string
   assetId: string
