@@ -1,0 +1,462 @@
+# COBie-inspired asset registry: Facility (1:1 with this Project) -> Floor ->
+# Space, with Asset (COBie "Component") optionally linked to a Space and to
+# one or more AssetSystems, and optionally typed by an AssetType drawn from
+# the server-wide catalog.
+extend type Project {
+  """
+  The COBie-style facility registry for this project. Null until the first
+  floor/space/system/asset is registered for it.
+  """
+  facility: Facility
+}
+
+type Facility {
+  id: String!
+  projectId: String!
+  name: String!
+  """
+  Which IFC property is read as an asset's tag number when linking it to a
+  model element (e.g. "IfcTag", "IfcName", or a custom Pset property).
+  """
+  tagSourceProperty: String!
+  """
+  R$/kWh used to turn simulated energy consumption into cost for this
+  facility's assets.
+  """
+  energyTariffPerKwh: Float!
+  floors: [Floor!]!
+  spaces(input: GetFacilitySpacesInput): [Space!]!
+  systems: [AssetSystem!]!
+  assets(input: GetFacilityAssetsInput): AssetCollection!
+  """
+  Facility-wide rollup of the simulated energy data (consumption, cost,
+  power draw) - see FacilityDashboard.
+  """
+  dashboard: FacilityDashboard!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type FacilityEnergyPoint {
+  ts: DateTime!
+  powerKw: Float!
+  energyKwhInterval: Float!
+  costInterval: Float!
+}
+
+"""
+Per-System rollup of simulated energy/cost, for ranking which systems
+consume the most.
+"""
+type FacilitySystemBreakdown {
+  systemId: String!
+  systemName: String!
+  assetCount: Int!
+  cumulativeKwh: Float!
+  cumulativeCost: Float!
+}
+
+type FacilityDashboard {
+  totalAssets: Int!
+  assetsOn: Int!
+  """
+  Total simulated instantaneous power draw at the most recent simulation
+  tick, summed across every asset with a device state.
+  """
+  currentPowerKw: Float!
+  cumulativeKwh: Float!
+  cumulativeCost: Float!
+  bySystem: [FacilitySystemBreakdown!]!
+  """
+  Facility-wide power/energy/cost per simulation tick, oldest first.
+  """
+  series(limit: Int = 120): [FacilityEnergyPoint!]!
+}
+
+type Floor {
+  id: String!
+  facilityId: String!
+  name: String!
+  """
+  Real-world elevation in meters, when known.
+  """
+  elevationZ: Float
+  spaces: [Space!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Space {
+  id: String!
+  facilityId: String!
+  floorId: String
+  floor: Floor
+  name: String!
+  """
+  Real-world elevation in meters - always worth capturing even without a
+  Floor, e.g. read from the linked IfcSpace element's geometry.
+  """
+  elevationZ: Float
+  """
+  Id of the BIM element (e.g. an IfcSpace) this space is linked to, if any.
+  """
+  speckleObjectId: String
+  assets(input: GetFacilityAssetsInput): AssetCollection!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input GetFacilitySpacesInput {
+  floorId: String
+}
+
+enum AssetTypeNature {
+  fixed
+  movable
+}
+
+"""
+The COBie "Type" sheet - a shared, server-wide equipment catalog (e.g.
+"12,000 BTU split AC, Manufacturer X, Model Y"), reused across facilities.
+Only server admins can create or edit catalog entries.
+"""
+type AssetType {
+  id: String!
+  name: String!
+  category: String
+  manufacturer: String
+  modelNumber: String
+  nature: AssetTypeNature
+  description: String
+  expectedLifeYears: Int
+  """
+  Any other COBie Type attribute (warranty, dimensions, material, etc.) or
+  custom attribute that doesn't have its own column.
+  """
+  extendedAttributes: JSONObject!
+  """
+  Soft classification base (e.g. "IfcAirTerminal", "IfcFurnishingElement")
+  - a free-text hint, not an enforced IFC schema.
+  """
+  ifcClass: String
+  """
+  Whether assets of this type get power/temperature simulation controls
+  (an AC unit does, a piece of furniture doesn't). Defaults to true when
+  unset.
+  """
+  isControllableDevice: Boolean
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AssetTypeCollection {
+  totalCount: Int!
+  cursor: String
+  items: [AssetType!]!
+}
+
+extend type Query {
+  assetTypes(limit: Int = 25, cursor: String, search: String): AssetTypeCollection!
+  assetType(id: String!): AssetType
+  """
+  Fetch a single asset directly, e.g. to refresh its simulated device
+  state/telemetry without refetching the whole facility.
+  """
+  asset(id: String!): Asset
+}
+
+input CreateAssetTypeInput {
+  name: String!
+  category: String
+  manufacturer: String
+  modelNumber: String
+  nature: AssetTypeNature
+  description: String
+  expectedLifeYears: Int
+  extendedAttributes: JSONObject
+  ifcClass: String
+  isControllableDevice: Boolean
+}
+
+input UpdateAssetTypeInput {
+  id: String!
+  name: String
+  category: String
+  manufacturer: String
+  modelNumber: String
+  nature: AssetTypeNature
+  description: String
+  expectedLifeYears: Int
+  extendedAttributes: JSONObject
+  ifcClass: String
+  isControllableDevice: Boolean
+}
+
+type AssetTypeMutations {
+  create(input: CreateAssetTypeInput!): AssetType!
+  update(input: UpdateAssetTypeInput!): AssetType!
+  delete(id: String!): Boolean!
+}
+
+extend type Mutation {
+  """
+  Manage the shared AssetType catalog. Server-admin only.
+  """
+  assetTypeMutations: AssetTypeMutations! @hasServerRole(role: SERVER_ADMIN)
+}
+
+"""
+The COBie "System" sheet - a functional grouping of assets (e.g. "Sistema
+de Climatização 1"), scoped to one facility. An asset can belong to more
+than one system.
+"""
+type AssetSystem {
+  id: String!
+  facilityId: String!
+  name: String!
+  description: String
+  assets(input: GetFacilityAssetsInput): AssetCollection!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+The COBie "Component" sheet - one physical asset instance, identified
+within its facility by a human-assigned tag number (not the IFC GUID,
+which the exporting tool may not keep stable across re-exports).
+"""
+type Asset {
+  id: String!
+  facilityId: String!
+  """
+  Stable identity within the facility - usually read from the linked BIM
+  element's IfcTag/IfcName property. Unique per facility.
+  """
+  tagNumber: String!
+  name: String
+  assetTypeId: String
+  assetType: AssetType
+  spaceId: String
+  space: Space
+  systems: [AssetSystem!]!
+  """
+  Cache of where this asset currently resolves to in the model - refreshed
+  whenever a new model version is reconciled against this asset's tag.
+  """
+  currentObjectId: String
+  currentVersionId: String
+  """
+  COBie Component sheet attributes.
+  """
+  installDate: DateTime
+  warrantyStartDate: DateTime
+  serialNumber: String
+  barCode: String
+  """
+  Any other Component attribute (AssetIdentifier, ExtSystem, custom
+  fields, ...) that doesn't have its own column.
+  """
+  extendedAttributes: JSONObject!
+  """
+  Live simulated device state - null until this asset has been turned on
+  or had a temperature set at least once.
+  """
+  deviceState: DeviceState
+  """
+  Simulated temperature readings, most recent first.
+  """
+  telemetryHistory(limit: Int = 50): [TelemetryReading!]!
+  """
+  Simulated energy/cost readings, most recent first.
+  """
+  energyHistory(limit: Int = 50): [EnergyReading!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum DevicePowerState {
+  on
+  off
+}
+
+"""
+Live simulated state of an asset's device - see the facilities module's
+simulation worker, which ticks this forward every few seconds once an
+asset has a state at all.
+"""
+type DeviceState {
+  assetId: String!
+  powerState: DevicePowerState!
+  setpoint: Float!
+  currentTemperature: Float!
+  ambientTemperature: Float!
+  nominalPowerKw: Float!
+  cumulativeKwh: Float!
+  cumulativeCost: Float!
+  updatedAt: DateTime!
+}
+
+type TelemetryReading {
+  ts: DateTime!
+  temperature: Float!
+  powerState: DevicePowerState!
+}
+
+type EnergyReading {
+  ts: DateTime!
+  powerKw: Float!
+  energyKwhInterval: Float!
+  cumulativeKwh: Float!
+  costInterval: Float!
+  cumulativeCost: Float!
+}
+
+input SetAssetPowerInput {
+  assetId: String!
+  powerState: DevicePowerState!
+}
+
+input SetAssetTemperatureInput {
+  assetId: String!
+  setpoint: Float!
+}
+
+type AssetCollection {
+  totalCount: Int!
+  cursor: String
+  items: [Asset!]!
+}
+
+input GetFacilityAssetsInput {
+  limit: Int = 25
+  cursor: String
+  spaceId: String
+  systemId: String
+  search: String
+}
+
+input UpdateFacilityInput {
+  projectId: String!
+  name: String
+  tagSourceProperty: String
+  energyTariffPerKwh: Float
+}
+
+input CreateFloorInput {
+  projectId: String!
+  name: String!
+  elevationZ: Float
+}
+
+input UpdateFloorInput {
+  id: String!
+  name: String
+  elevationZ: Float
+}
+
+input CreateSpaceInput {
+  projectId: String!
+  name: String!
+  floorId: String
+  elevationZ: Float
+  speckleObjectId: String
+}
+
+input UpdateSpaceInput {
+  id: String!
+  name: String
+  floorId: String
+  elevationZ: Float
+  speckleObjectId: String
+}
+
+input CreateAssetSystemInput {
+  projectId: String!
+  name: String!
+  description: String
+}
+
+input UpdateAssetSystemInput {
+  id: String!
+  name: String
+  description: String
+}
+
+input CreateAssetInput {
+  projectId: String!
+  tagNumber: String!
+  name: String
+  assetTypeId: String
+  spaceId: String
+  systemIds: [String!]
+  """
+  Set when creating an asset directly from a viewer selection that has no
+  matching asset yet - see UpdateAssetInput.
+  """
+  currentObjectId: String
+  currentVersionId: String
+  installDate: DateTime
+  warrantyStartDate: DateTime
+  serialNumber: String
+  barCode: String
+  extendedAttributes: JSONObject
+}
+
+input UpdateAssetInput {
+  id: String!
+  tagNumber: String
+  name: String
+  assetTypeId: String
+  spaceId: String
+  systemIds: [String!]
+  """
+  Set by BIM reconciliation (matching this asset's tagNumber against a
+  loaded model version's elements) - not meant to be hand-edited.
+  """
+  currentObjectId: String
+  currentVersionId: String
+  installDate: DateTime
+  warrantyStartDate: DateTime
+  serialNumber: String
+  barCode: String
+  extendedAttributes: JSONObject
+}
+
+type FacilityMutations {
+  update(input: UpdateFacilityInput!): Facility!
+
+  createFloor(input: CreateFloorInput!): Floor!
+  updateFloor(input: UpdateFloorInput!): Floor!
+  deleteFloor(id: String!): Boolean!
+
+  createSpace(input: CreateSpaceInput!): Space!
+  updateSpace(input: UpdateSpaceInput!): Space!
+  deleteSpace(id: String!): Boolean!
+
+  createSystem(input: CreateAssetSystemInput!): AssetSystem!
+  updateSystem(input: UpdateAssetSystemInput!): AssetSystem!
+  deleteSystem(id: String!): Boolean!
+
+  createAsset(input: CreateAssetInput!): Asset!
+  updateAsset(input: UpdateAssetInput!): Asset!
+  deleteAsset(id: String!): Boolean!
+
+  """
+  Turns an asset's simulated device on/off. Lazily creates its device state
+  with default values on first use.
+  """
+  setAssetPower(input: SetAssetPowerInput!): DeviceState!
+  """
+  Sets an asset's simulated setpoint temperature. Lazily creates its device
+  state with default values on first use.
+  """
+  setAssetTemperature(input: SetAssetTemperatureInput!): DeviceState!
+}
+
+extend type Mutation {
+  """
+  Manage a project's facility registry (floors, spaces, systems, assets).
+  Requires publish access to the target project.
+  """
+  facilityMutations: FacilityMutations! @hasServerRole(role: SERVER_GUEST)
+}

@@ -544,7 +544,155 @@ export const FileUploads = buildTableHelper('file_uploads', [
   'convertedLastUpdate',
   'convertedMessage',
   'convertedCommitId',
-  'performanceData'
+  'performanceData',
+  'discipline',
+  'suitabilityStatus',
+  'revision'
+])
+
+export const Facilities = buildTableHelper('facilities', [
+  'id',
+  'projectId',
+  'name',
+  'tagSourceProperty',
+  'energyTariffPerKwh',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Floors = buildTableHelper('floors', [
+  'id',
+  'projectId',
+  'facilityId',
+  'name',
+  'elevationZ',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Spaces = buildTableHelper('spaces', [
+  'id',
+  'projectId',
+  'facilityId',
+  'floorId',
+  'name',
+  'elevationZ',
+  'speckleObjectId',
+  'createdAt',
+  'updatedAt'
+])
+
+export const AssetTypes = buildTableHelper('asset_types', [
+  'id',
+  'name',
+  'category',
+  'manufacturer',
+  'modelNumber',
+  'nature',
+  'description',
+  'expectedLifeYears',
+  'extendedAttributes',
+  'ifcClass',
+  'isControllableDevice',
+  'createdBy',
+  'createdAt',
+  'updatedAt'
+])
+
+export const AssetSystems = buildTableHelper('asset_systems', [
+  'id',
+  'projectId',
+  'facilityId',
+  'name',
+  'description',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Assets = buildTableHelper('assets', [
+  'id',
+  'projectId',
+  'facilityId',
+  'tagNumber',
+  'name',
+  'assetTypeId',
+  'spaceId',
+  'currentObjectId',
+  'currentVersionId',
+  'installDate',
+  'warrantyStartDate',
+  'serialNumber',
+  'barCode',
+  'extendedAttributes',
+  'createdAt',
+  'updatedAt'
+])
+
+export const AssetSystemMembers = buildTableHelper('asset_system_members', [
+  'assetId',
+  'systemId'
+])
+
+export const DeviceStates = buildTableHelper('device_states', [
+  'assetId',
+  'projectId',
+  'powerState',
+  'setpoint',
+  'currentTemperature',
+  'ambientTemperature',
+  'nominalPowerKw',
+  'cumulativeKwh',
+  'cumulativeCost',
+  'updatedAt'
+])
+
+export const DeviceCommands = buildTableHelper('device_commands', [
+  'id',
+  'assetId',
+  'projectId',
+  'commandType',
+  'value',
+  'issuedBy',
+  'issuedAt'
+])
+
+export const TelemetryReadings = buildTableHelper('telemetry_readings', [
+  'id',
+  'assetId',
+  'projectId',
+  'ts',
+  'temperature',
+  'powerState'
+])
+
+export const EnergyReadings = buildTableHelper('energy_readings', [
+  'id',
+  'assetId',
+  'projectId',
+  'ts',
+  'powerKw',
+  'energyKwhInterval',
+  'cumulativeKwh',
+  'costInterval',
+  'cumulativeCost'
+])
+
+export const MaintenanceOrders = buildTableHelper('maintenance_orders', [
+  'id',
+  'projectId',
+  'facilityId',
+  'assetId',
+  'title',
+  'description',
+  'type',
+  'status',
+  'priority',
+  'reportedBy',
+  'assignedTo',
+  'dueDate',
+  'completedAt',
+  'createdAt',
+  'updatedAt'
 ])
 
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [

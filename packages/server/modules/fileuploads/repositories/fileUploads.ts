@@ -12,7 +12,10 @@ import type {
   GetModelUploadsBaseArgs,
   GetModelUploadsTotalCount,
   UpdateFileStatus,
-  FailPendingUploadedFiles
+  FailPendingUploadedFiles,
+  GetProjectUploadsBaseArgs,
+  GetProjectUploadsItems,
+  GetProjectUploadsTotalCount
 } from '@/modules/fileuploads/domain/operations'
 import type {
   FileUploadRecord,
@@ -350,6 +353,42 @@ export const getModelUploadsTotalCountFactory =
   (deps: { db: Knex }): GetModelUploadsTotalCount =>
   async (params) => {
     const q = getModelUploadsBaseQueryFactory(deps)(params)
+    const [{ count }] = await q.count()
+    return parseInt(count + '')
+  }
+
+const getProjectUploadsBaseQueryFactory =
+  (deps: { db: Knex }) => (params: GetProjectUploadsBaseArgs) => {
+    const { projectId } = params
+    return tables.fileUploads(deps.db).where(FileUploads.col.streamId, projectId)
+  }
+
+export const getProjectUploadsItemsFactory =
+  (deps: { db: Knex }): GetProjectUploadsItems =>
+  async (params) => {
+    const limit = clamp(params.limit || 0, 0, 100)
+    const { applyCursorSortAndFilter, resolveNewCursor } = getCursorTools()
+
+    const q = getProjectUploadsBaseQueryFactory(deps)(params).limit(limit)
+
+    applyCursorSortAndFilter({
+      query: q,
+      cursor: params.cursor
+    })
+
+    const rows = await q
+    const newCursor = resolveNewCursor(rows)
+
+    return {
+      items: rows,
+      cursor: newCursor
+    }
+  }
+
+export const getProjectUploadsTotalCountFactory =
+  (deps: { db: Knex }): GetProjectUploadsTotalCount =>
+  async (params) => {
+    const q = getProjectUploadsBaseQueryFactory(deps)(params)
     const [{ count }] = await q.count()
     return parseInt(count + '')
   }
