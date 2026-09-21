@@ -70,6 +70,14 @@ extend type Facility {
   sensors(input: GetSensorsInput): SensorCollection!
 }
 
+extend type Query {
+  """
+  Fetch a single sensor directly, e.g. to load its reading history without
+  refetching the whole facility's sensor list.
+  """
+  sensor(id: String!): Sensor
+}
+
 input CreateSensorInput {
   projectId: String!
   name: String!

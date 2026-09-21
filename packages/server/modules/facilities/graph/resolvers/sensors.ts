@@ -149,6 +149,13 @@ const sensorMutations = {
 }
 
 export default {
+  Query: {
+    async sensor(_parent: unknown, args: { id: string }) {
+      const sensor = await getSensorByIdFactory({ db })({ id: args.id })
+      return sensor ?? null
+    }
+  },
+
   Facility: {
     async sensors(
       parent: { id: string; projectId: string },
