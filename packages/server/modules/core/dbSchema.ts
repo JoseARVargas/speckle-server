@@ -712,6 +712,34 @@ export const FacilityDocuments = buildTableHelper('facility_documents', [
   'updatedAt'
 ])
 
+export const Sensors = buildTableHelper('sensors', [
+  'id',
+  'projectId',
+  'facilityId',
+  'assetId',
+  'spaceId',
+  'name',
+  'type',
+  'unit',
+  'manufacturer',
+  'model',
+  'serialNumber',
+  'status',
+  'apiKeyHash',
+  'lastReadingValue',
+  'lastReadingAt',
+  'createdAt',
+  'updatedAt'
+])
+
+export const SensorReadings = buildTableHelper('sensor_readings', [
+  'id',
+  'sensorId',
+  'projectId',
+  'ts',
+  'value'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'

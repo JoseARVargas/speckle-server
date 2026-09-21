@@ -172,6 +172,45 @@ export type FacilityDocumentRecord = {
   updatedAt: Date
 }
 
+export type SensorType =
+  | 'temperature'
+  | 'humidity'
+  | 'co2'
+  | 'occupancy'
+  | 'power'
+  | 'pressure'
+  | 'other'
+export type SensorStatus = 'active' | 'inactive'
+
+export type SensorRecord = {
+  id: string
+  projectId: string
+  facilityId: string
+  assetId: Nullable<string>
+  spaceId: Nullable<string>
+  name: string
+  type: SensorType
+  unit: Nullable<string>
+  manufacturer: Nullable<string>
+  model: Nullable<string>
+  serialNumber: Nullable<string>
+  status: SensorStatus
+  /** bcrypt hash of the device API key - never exposed over GraphQL. */
+  apiKeyHash: string
+  lastReadingValue: Nullable<number>
+  lastReadingAt: Nullable<Date>
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type SensorReadingRecord = {
+  id: number
+  sensorId: string
+  projectId: string
+  ts: Date
+  value: number
+}
+
 export type EnergyReadingRecord = {
   id: string
   assetId: string

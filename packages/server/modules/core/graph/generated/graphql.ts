@@ -1484,6 +1484,18 @@ export type CreateSavedViewInput = {
   visibility?: InputMaybe<SavedViewVisibility>;
 };
 
+export type CreateSensorInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  manufacturer?: InputMaybe<Scalars['String']['input']>;
+  model?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
+  serialNumber?: InputMaybe<Scalars['String']['input']>;
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  type: SensorType;
+  unit?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type CreateServerRegionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   key: Scalars['String']['input'];
@@ -1931,6 +1943,7 @@ export type Facility = {
   maintenanceOrders: MaintenanceOrderCollection;
   name: Scalars['String']['output'];
   projectId: Scalars['String']['output'];
+  sensors: SensorCollection;
   spaces: Array<Space>;
   systems: Array<AssetSystem>;
   /**
@@ -1954,6 +1967,11 @@ export type FacilityDocumentsArgs = {
 
 export type FacilityMaintenanceOrdersArgs = {
   input?: InputMaybe<GetMaintenanceOrdersInput>;
+};
+
+
+export type FacilitySensorsArgs = {
+  input?: InputMaybe<GetSensorsInput>;
 };
 
 
@@ -2351,6 +2369,15 @@ export type GetModelUploadsInput = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   /** The maximum number of uploads to return. */
   limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type GetSensorsInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<SensorStatus>;
+  type?: InputMaybe<SensorType>;
 };
 
 export type GetUngroupedViewGroupInput = {
@@ -2883,6 +2910,16 @@ export type Mutation = {
   /** (Re-)send the account verification e-mail */
   requestVerification: Scalars['Boolean']['output'];
   requestVerificationByEmail: Scalars['Boolean']['output'];
+  /**
+   * Manage a project's sensors (registration/metadata only). Requires
+   * publish access to the target project. Ingesting readings is a separate
+   * REST endpoint, authenticated with the sensor's own API key instead of a
+   * user session:
+   * POST {serverUrl}/api/facilities/sensors/{projectId}/{sensorId}/readings
+   * body: { "apiKey": "...", "value": 21.5, "ts": "2026-01-01T00:00:00Z" }
+   * ("ts" optional, defaults to now)
+   */
+  sensorMutations: SensorMutations;
   serverInfoMutations: ServerInfoMutations;
   serverInfoUpdate?: Maybe<Scalars['Boolean']['output']>;
   /** Note: The required scope to invoke this is not given out to app or personal access tokens */
@@ -4906,6 +4943,110 @@ export type Scope = {
   name: Scalars['String']['output'];
 };
 
+export type Sensor = {
+  __typename?: 'Sensor';
+  asset?: Maybe<Asset>;
+  assetId?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  facilityId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  lastReadingAt?: Maybe<Scalars['DateTime']['output']>;
+  /**
+   * Denormalized from the most recent reading, so the UI can show a current
+   * value without querying reading history.
+   */
+  lastReadingValue?: Maybe<Scalars['Float']['output']>;
+  manufacturer?: Maybe<Scalars['String']['output']>;
+  model?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  /** Reading history, most recent first. */
+  readings: Array<SensorReading>;
+  serialNumber?: Maybe<Scalars['String']['output']>;
+  space?: Maybe<Space>;
+  spaceId?: Maybe<Scalars['String']['output']>;
+  status: SensorStatus;
+  type: SensorType;
+  unit?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+
+export type SensorReadingsArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type SensorCollection = {
+  __typename?: 'SensorCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<Sensor>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type SensorMutations = {
+  __typename?: 'SensorMutations';
+  create: SensorWithApiKey;
+  delete: Scalars['Boolean']['output'];
+  /**
+   * Invalidates the current API key and issues a new one - use if a key is
+   * lost or a device is retired/compromised.
+   */
+  regenerateApiKey: SensorWithApiKey;
+  update: Sensor;
+};
+
+
+export type SensorMutationsCreateArgs = {
+  input: CreateSensorInput;
+};
+
+
+export type SensorMutationsDeleteArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type SensorMutationsRegenerateApiKeyArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type SensorMutationsUpdateArgs = {
+  input: UpdateSensorInput;
+};
+
+export type SensorReading = {
+  __typename?: 'SensorReading';
+  ts: Scalars['DateTime']['output'];
+  value: Scalars['Float']['output'];
+};
+
+export const SensorStatus = {
+  Active: 'active',
+  Inactive: 'inactive'
+} as const;
+
+export type SensorStatus = typeof SensorStatus[keyof typeof SensorStatus];
+export const SensorType = {
+  Co2: 'co2',
+  Humidity: 'humidity',
+  Occupancy: 'occupancy',
+  Other: 'other',
+  Power: 'power',
+  Pressure: 'pressure',
+  Temperature: 'temperature'
+} as const;
+
+export type SensorType = typeof SensorType[keyof typeof SensorType];
+/**
+ * Returned only at creation (or explicit key regeneration) - the raw API key
+ * is never retrievable again afterwards, only its hash is stored.
+ */
+export type SensorWithApiKey = {
+  __typename?: 'SensorWithApiKey';
+  apiKey: Scalars['String']['output'];
+  sensor: Sensor;
+};
+
 export type ServerApp = {
   __typename?: 'ServerApp';
   author?: Maybe<AppAuthor>;
@@ -5880,6 +6021,19 @@ export type UpdateSavedViewInput = {
   viewerState?: InputMaybe<Scalars['JSONObject']['input']>;
   /** Optionally change visibility of the view */
   visibility?: InputMaybe<SavedViewVisibility>;
+};
+
+export type UpdateSensorInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  manufacturer?: InputMaybe<Scalars['String']['input']>;
+  model?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  serialNumber?: InputMaybe<Scalars['String']['input']>;
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<SensorStatus>;
+  type?: InputMaybe<SensorType>;
+  unit?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateServerRegionInput = {
@@ -7511,6 +7665,7 @@ export type ResolversTypes = {
   CreateModelInput: CreateModelInput;
   CreateSavedViewGroupInput: CreateSavedViewGroupInput;
   CreateSavedViewInput: CreateSavedViewInput;
+  CreateSensorInput: CreateSensorInput;
   CreateServerRegionInput: CreateServerRegionInput;
   CreateSpaceInput: CreateSpaceInput;
   CreateUserEmailInput: CreateUserEmailInput;
@@ -7581,6 +7736,7 @@ export type ResolversTypes = {
   GetFacilitySpacesInput: GetFacilitySpacesInput;
   GetMaintenanceOrdersInput: GetMaintenanceOrdersInput;
   GetModelUploadsInput: GetModelUploadsInput;
+  GetSensorsInput: GetSensorsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
@@ -7698,6 +7854,13 @@ export type ResolversTypes = {
   SavedViewVisibility: SavedViewVisibility;
   SavedViewsLoadSettings: SavedViewsLoadSettings;
   Scope: ResolverTypeWrapper<Scope>;
+  Sensor: ResolverTypeWrapper<Sensor>;
+  SensorCollection: ResolverTypeWrapper<SensorCollection>;
+  SensorMutations: ResolverTypeWrapper<SensorMutations>;
+  SensorReading: ResolverTypeWrapper<SensorReading>;
+  SensorStatus: SensorStatus;
+  SensorType: SensorType;
+  SensorWithApiKey: ResolverTypeWrapper<SensorWithApiKey>;
   ServerApp: ResolverTypeWrapper<ServerAppGraphQLReturn>;
   ServerAppListItem: ResolverTypeWrapper<ServerAppListItemGraphQLReturn>;
   ServerAutomateInfo: ResolverTypeWrapper<ServerAutomateInfo>;
@@ -7757,6 +7920,7 @@ export type ResolversTypes = {
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
+  UpdateSensorInput: UpdateSensorInput;
   UpdateServerRegionInput: UpdateServerRegionInput;
   UpdateSpaceInput: UpdateSpaceInput;
   UpdateVersionInput: UpdateVersionInput;
@@ -7986,6 +8150,7 @@ export type ResolversParentTypes = {
   CreateModelInput: CreateModelInput;
   CreateSavedViewGroupInput: CreateSavedViewGroupInput;
   CreateSavedViewInput: CreateSavedViewInput;
+  CreateSensorInput: CreateSensorInput;
   CreateServerRegionInput: CreateServerRegionInput;
   CreateSpaceInput: CreateSpaceInput;
   CreateUserEmailInput: CreateUserEmailInput;
@@ -8049,6 +8214,7 @@ export type ResolversParentTypes = {
   GetFacilitySpacesInput: GetFacilitySpacesInput;
   GetMaintenanceOrdersInput: GetMaintenanceOrdersInput;
   GetModelUploadsInput: GetModelUploadsInput;
+  GetSensorsInput: GetSensorsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
@@ -8147,6 +8313,11 @@ export type ResolversParentTypes = {
   SavedViewPermissionChecks: SavedViewPermissionChecksGraphQLReturn;
   SavedViewsLoadSettings: SavedViewsLoadSettings;
   Scope: Scope;
+  Sensor: Sensor;
+  SensorCollection: SensorCollection;
+  SensorMutations: SensorMutations;
+  SensorReading: SensorReading;
+  SensorWithApiKey: SensorWithApiKey;
   ServerApp: ServerAppGraphQLReturn;
   ServerAppListItem: ServerAppListItemGraphQLReturn;
   ServerAutomateInfo: ServerAutomateInfo;
@@ -8201,6 +8372,7 @@ export type ResolversParentTypes = {
   UpdateModelInput: UpdateModelInput;
   UpdateSavedViewGroupInput: UpdateSavedViewGroupInput;
   UpdateSavedViewInput: UpdateSavedViewInput;
+  UpdateSensorInput: UpdateSensorInput;
   UpdateServerRegionInput: UpdateServerRegionInput;
   UpdateSpaceInput: UpdateSpaceInput;
   UpdateVersionInput: UpdateVersionInput;
@@ -9151,6 +9323,7 @@ export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends R
   maintenanceOrders?: Resolver<ResolversTypes['MaintenanceOrderCollection'], ParentType, ContextType, Partial<FacilityMaintenanceOrdersArgs>>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sensors?: Resolver<ResolversTypes['SensorCollection'], ParentType, ContextType, Partial<FacilitySensorsArgs>>;
   spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType, Partial<FacilitySpacesArgs>>;
   systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
   tagSourceProperty?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9522,6 +9695,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   projectMutations?: Resolver<ResolversTypes['ProjectMutations'], ParentType, ContextType>;
   requestVerification?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   requestVerificationByEmail?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRequestVerificationByEmailArgs, 'email'>>;
+  sensorMutations?: Resolver<ResolversTypes['SensorMutations'], ParentType, ContextType>;
   serverInfoMutations?: Resolver<ResolversTypes['ServerInfoMutations'], ParentType, ContextType>;
   serverInfoUpdate?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationServerInfoUpdateArgs, 'info'>>;
   serverInviteBatchCreate?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationServerInviteBatchCreateArgs, 'input'>>;
@@ -10057,6 +10231,55 @@ export type SavedViewPermissionChecksResolvers<ContextType = GraphQLContext, Par
 export type ScopeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Scope'] = ResolversParentTypes['Scope']> = {
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type SensorResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Sensor'] = ResolversParentTypes['Sensor']> = {
+  asset?: Resolver<Maybe<ResolversTypes['Asset']>, ParentType, ContextType>;
+  assetId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  lastReadingAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  lastReadingValue?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  manufacturer?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  model?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  readings?: Resolver<Array<ResolversTypes['SensorReading']>, ParentType, ContextType, RequireFields<SensorReadingsArgs, 'limit'>>;
+  serialNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
+  spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['SensorStatus'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['SensorType'], ParentType, ContextType>;
+  unit?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type SensorCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SensorCollection'] = ResolversParentTypes['SensorCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['Sensor']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type SensorMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SensorMutations'] = ResolversParentTypes['SensorMutations']> = {
+  create?: Resolver<ResolversTypes['SensorWithApiKey'], ParentType, ContextType, RequireFields<SensorMutationsCreateArgs, 'input'>>;
+  delete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<SensorMutationsDeleteArgs, 'id'>>;
+  regenerateApiKey?: Resolver<ResolversTypes['SensorWithApiKey'], ParentType, ContextType, RequireFields<SensorMutationsRegenerateApiKeyArgs, 'id'>>;
+  update?: Resolver<ResolversTypes['Sensor'], ParentType, ContextType, RequireFields<SensorMutationsUpdateArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type SensorReadingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SensorReading'] = ResolversParentTypes['SensorReading']> = {
+  ts?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  value?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type SensorWithApiKeyResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SensorWithApiKey'] = ResolversParentTypes['SensorWithApiKey']> = {
+  apiKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sensor?: Resolver<ResolversTypes['Sensor'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -11034,6 +11257,11 @@ export type Resolvers<ContextType = GraphQLContext> = {
   SavedViewMutations?: SavedViewMutationsResolvers<ContextType>;
   SavedViewPermissionChecks?: SavedViewPermissionChecksResolvers<ContextType>;
   Scope?: ScopeResolvers<ContextType>;
+  Sensor?: SensorResolvers<ContextType>;
+  SensorCollection?: SensorCollectionResolvers<ContextType>;
+  SensorMutations?: SensorMutationsResolvers<ContextType>;
+  SensorReading?: SensorReadingResolvers<ContextType>;
+  SensorWithApiKey?: SensorWithApiKeyResolvers<ContextType>;
   ServerApp?: ServerAppResolvers<ContextType>;
   ServerAppListItem?: ServerAppListItemResolvers<ContextType>;
   ServerAutomateInfo?: ServerAutomateInfoResolvers<ContextType>;
