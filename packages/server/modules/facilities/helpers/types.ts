@@ -152,6 +152,26 @@ export type MaintenanceOrderRecord = {
   updatedAt: Date
 }
 
+export type DocumentCategory = 'drawing' | 'manual' | 'art' | 'other'
+
+export type FacilityDocumentRecord = {
+  id: string
+  projectId: string
+  facilityId: string
+  assetId: Nullable<string>
+  spaceId: Nullable<string>
+  title: string
+  category: Nullable<DocumentCategory>
+  description: Nullable<string>
+  /** References Speckle's own blob storage - see modules/blobstorage. */
+  blobId: string
+  fileName: string
+  fileSize: Nullable<number>
+  uploadedBy: Nullable<string>
+  createdAt: Date
+  updatedAt: Date
+}
+
 export type EnergyReadingRecord = {
   id: string
   assetId: string

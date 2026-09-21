@@ -1414,6 +1414,24 @@ export type CreateEmbedTokenReturn = {
   tokenMetadata: EmbedToken;
 };
 
+export type CreateFacilityDocumentInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * The file must already be uploaded to Speckle's blob storage (POST
+   * /api/stream/{projectId}/blob) before calling this - this only records
+   * the resulting blobId/fileName/fileSize alongside facility-specific
+   * metadata.
+   */
+  blobId: Scalars['String']['input'];
+  category?: InputMaybe<DocumentCategory>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  fileName: Scalars['String']['input'];
+  fileSize?: InputMaybe<Scalars['Int']['input']>;
+  projectId: Scalars['String']['input'];
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
+};
+
 export type CreateFloorInput = {
   elevationZ?: InputMaybe<Scalars['Float']['input']>;
   name: Scalars['String']['input'];
@@ -1795,6 +1813,37 @@ export type DiscoverableStreamsSortingInput = {
   type: DiscoverableStreamsSortType;
 };
 
+export const DocumentCategory = {
+  Art: 'art',
+  Drawing: 'drawing',
+  Manual: 'manual',
+  Other: 'other'
+} as const;
+
+export type DocumentCategory = typeof DocumentCategory[keyof typeof DocumentCategory];
+export type DocumentMutations = {
+  __typename?: 'DocumentMutations';
+  create: FacilityDocument;
+  /** Deletes the metadata row and the underlying blob from storage. */
+  delete: Scalars['Boolean']['output'];
+  update: FacilityDocument;
+};
+
+
+export type DocumentMutationsCreateArgs = {
+  input: CreateFacilityDocumentInput;
+};
+
+
+export type DocumentMutationsDeleteArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type DocumentMutationsUpdateArgs = {
+  input: UpdateFacilityDocumentInput;
+};
+
 export type EditCommentInput = {
   commentId: Scalars['String']['input'];
   content: CommentContentInput;
@@ -1871,6 +1920,7 @@ export type Facility = {
    * power draw) - see FacilityDashboard.
    */
   dashboard: FacilityDashboard;
+  documents: FacilityDocumentCollection;
   /**
    * R$/kWh used to turn simulated energy consumption into cost for this
    * facility's assets.
@@ -1894,6 +1944,11 @@ export type Facility = {
 
 export type FacilityAssetsArgs = {
   input?: InputMaybe<GetFacilityAssetsInput>;
+};
+
+
+export type FacilityDocumentsArgs = {
+  input?: InputMaybe<GetFacilityDocumentsInput>;
 };
 
 
@@ -1925,6 +1980,36 @@ export type FacilityDashboard = {
 
 export type FacilityDashboardSeriesArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FacilityDocument = {
+  __typename?: 'FacilityDocument';
+  asset?: Maybe<Asset>;
+  assetId?: Maybe<Scalars['String']['output']>;
+  /**
+   * Id of the underlying blob - fetch/download it via
+   * GET {serverUrl}/api/stream/{projectId}/blob/{blobId}.
+   */
+  blobId: Scalars['String']['output'];
+  category?: Maybe<DocumentCategory>;
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  facilityId: Scalars['String']['output'];
+  fileName: Scalars['String']['output'];
+  fileSize?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['String']['output'];
+  space?: Maybe<Space>;
+  spaceId?: Maybe<Scalars['String']['output']>;
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  uploadedBy?: Maybe<Scalars['String']['output']>;
+};
+
+export type FacilityDocumentCollection = {
+  __typename?: 'FacilityDocumentCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<FacilityDocument>;
+  totalCount: Scalars['Int']['output'];
 };
 
 export type FacilityEnergyPoint = {
@@ -2239,6 +2324,14 @@ export type GetFacilityAssetsInput = {
   search?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;
   systemId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type GetFacilityDocumentsInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<DocumentCategory>;
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  spaceId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GetFacilitySpacesInput = {
@@ -2757,6 +2850,11 @@ export type Mutation = {
    */
   commitsMove: Scalars['Boolean']['output'];
   dashboardMutations: DashboardMutations;
+  /**
+   * Manage a project's facility documents. Requires publish access to the
+   * target project.
+   */
+  documentMutations: DocumentMutations;
   /**
    * Manage a project's facility registry (floors, spaces, systems, assets).
    * Requires publish access to the target project.
@@ -5712,6 +5810,15 @@ export type UpdateDigitalTwinAssetMetadataInput = {
   suitabilityStatus?: InputMaybe<DigitalTwinAssetSuitabilityStatus>;
 };
 
+export type UpdateFacilityDocumentInput = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<DocumentCategory>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  spaceId?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type UpdateFacilityInput = {
   energyTariffPerKwh?: InputMaybe<Scalars['Float']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
@@ -7398,6 +7505,7 @@ export type ResolversTypes = {
   CreateCommentReplyInput: CreateCommentReplyInput;
   CreateDashboardTokenReturn: ResolverTypeWrapper<Omit<CreateDashboardTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversTypes['DashboardToken'] }>;
   CreateEmbedTokenReturn: ResolverTypeWrapper<Omit<CreateEmbedTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversTypes['EmbedToken'] }>;
+  CreateFacilityDocumentInput: CreateFacilityDocumentInput;
   CreateFloorInput: CreateFloorInput;
   CreateMaintenanceOrderInput: CreateMaintenanceOrderInput;
   CreateModelInput: CreateModelInput;
@@ -7438,6 +7546,8 @@ export type ResolversTypes = {
   DigitalTwinAssetSuitabilityStatus: DigitalTwinAssetSuitabilityStatus;
   DiscoverableStreamsSortType: DiscoverableStreamsSortType;
   DiscoverableStreamsSortingInput: DiscoverableStreamsSortingInput;
+  DocumentCategory: DocumentCategory;
+  DocumentMutations: ResolverTypeWrapper<DocumentMutations>;
   EditCommentInput: EditCommentInput;
   EmailVerificationRequestInput: EmailVerificationRequestInput;
   EmbedToken: ResolverTypeWrapper<EmbedTokenGraphQLReturn>;
@@ -7448,6 +7558,8 @@ export type ResolversTypes = {
   ExtendedViewerResourcesRequest: ResolverTypeWrapper<ExtendedViewerResourcesRequest>;
   Facility: ResolverTypeWrapper<Facility>;
   FacilityDashboard: ResolverTypeWrapper<FacilityDashboard>;
+  FacilityDocument: ResolverTypeWrapper<FacilityDocument>;
+  FacilityDocumentCollection: ResolverTypeWrapper<FacilityDocumentCollection>;
   FacilityEnergyPoint: ResolverTypeWrapper<FacilityEnergyPoint>;
   FacilityMutations: ResolverTypeWrapper<FacilityMutations>;
   FacilitySystemBreakdown: ResolverTypeWrapper<FacilitySystemBreakdown>;
@@ -7465,6 +7577,7 @@ export type ResolversTypes = {
   GenerateFileUploadUrlOutput: ResolverTypeWrapper<GenerateFileUploadUrlOutput>;
   GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
   GetFacilityAssetsInput: GetFacilityAssetsInput;
+  GetFacilityDocumentsInput: GetFacilityDocumentsInput;
   GetFacilitySpacesInput: GetFacilitySpacesInput;
   GetMaintenanceOrdersInput: GetMaintenanceOrdersInput;
   GetModelUploadsInput: GetModelUploadsInput;
@@ -7637,6 +7750,7 @@ export type ResolversTypes = {
   UpdateAssetTypeInput: UpdateAssetTypeInput;
   UpdateAutomateFunctionInput: UpdateAutomateFunctionInput;
   UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
+  UpdateFacilityDocumentInput: UpdateFacilityDocumentInput;
   UpdateFacilityInput: UpdateFacilityInput;
   UpdateFloorInput: UpdateFloorInput;
   UpdateMaintenanceOrderInput: UpdateMaintenanceOrderInput;
@@ -7866,6 +7980,7 @@ export type ResolversParentTypes = {
   CreateCommentReplyInput: CreateCommentReplyInput;
   CreateDashboardTokenReturn: Omit<CreateDashboardTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversParentTypes['DashboardToken'] };
   CreateEmbedTokenReturn: Omit<CreateEmbedTokenReturn, 'tokenMetadata'> & { tokenMetadata: ResolversParentTypes['EmbedToken'] };
+  CreateFacilityDocumentInput: CreateFacilityDocumentInput;
   CreateFloorInput: CreateFloorInput;
   CreateMaintenanceOrderInput: CreateMaintenanceOrderInput;
   CreateModelInput: CreateModelInput;
@@ -7900,6 +8015,7 @@ export type ResolversParentTypes = {
   DigitalTwinAssetCollection: Omit<DigitalTwinAssetCollection, 'items'> & { items: Array<ResolversParentTypes['DigitalTwinAsset']> };
   DigitalTwinAssetPerformanceData: DigitalTwinAssetPerformanceData;
   DiscoverableStreamsSortingInput: DiscoverableStreamsSortingInput;
+  DocumentMutations: DocumentMutations;
   EditCommentInput: EditCommentInput;
   EmailVerificationRequestInput: EmailVerificationRequestInput;
   EmbedToken: EmbedTokenGraphQLReturn;
@@ -7910,6 +8026,8 @@ export type ResolversParentTypes = {
   ExtendedViewerResourcesRequest: ExtendedViewerResourcesRequest;
   Facility: Facility;
   FacilityDashboard: FacilityDashboard;
+  FacilityDocument: FacilityDocument;
+  FacilityDocumentCollection: FacilityDocumentCollection;
   FacilityEnergyPoint: FacilityEnergyPoint;
   FacilityMutations: FacilityMutations;
   FacilitySystemBreakdown: FacilitySystemBreakdown;
@@ -7927,6 +8045,7 @@ export type ResolversParentTypes = {
   GenerateFileUploadUrlOutput: GenerateFileUploadUrlOutput;
   GetDigitalTwinAssetsInput: GetDigitalTwinAssetsInput;
   GetFacilityAssetsInput: GetFacilityAssetsInput;
+  GetFacilityDocumentsInput: GetFacilityDocumentsInput;
   GetFacilitySpacesInput: GetFacilitySpacesInput;
   GetMaintenanceOrdersInput: GetMaintenanceOrdersInput;
   GetModelUploadsInput: GetModelUploadsInput;
@@ -8075,6 +8194,7 @@ export type ResolversParentTypes = {
   UpdateAssetTypeInput: UpdateAssetTypeInput;
   UpdateAutomateFunctionInput: UpdateAutomateFunctionInput;
   UpdateDigitalTwinAssetMetadataInput: UpdateDigitalTwinAssetMetadataInput;
+  UpdateFacilityDocumentInput: UpdateFacilityDocumentInput;
   UpdateFacilityInput: UpdateFacilityInput;
   UpdateFloorInput: UpdateFloorInput;
   UpdateMaintenanceOrderInput: UpdateMaintenanceOrderInput;
@@ -8972,6 +9092,13 @@ export type DigitalTwinAssetPerformanceDataResolvers<ContextType = GraphQLContex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type DocumentMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DocumentMutations'] = ResolversParentTypes['DocumentMutations']> = {
+  create?: Resolver<ResolversTypes['FacilityDocument'], ParentType, ContextType, RequireFields<DocumentMutationsCreateArgs, 'input'>>;
+  delete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<DocumentMutationsDeleteArgs, 'id'>>;
+  update?: Resolver<ResolversTypes['FacilityDocument'], ParentType, ContextType, RequireFields<DocumentMutationsUpdateArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type EmbedTokenResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EmbedToken'] = ResolversParentTypes['EmbedToken']> = {
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   lastUsed?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
@@ -9017,6 +9144,7 @@ export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends R
   assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<FacilityAssetsArgs>>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   dashboard?: Resolver<ResolversTypes['FacilityDashboard'], ParentType, ContextType>;
+  documents?: Resolver<ResolversTypes['FacilityDocumentCollection'], ParentType, ContextType, Partial<FacilityDocumentsArgs>>;
   energyTariffPerKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   floors?: Resolver<Array<ResolversTypes['Floor']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9038,6 +9166,32 @@ export type FacilityDashboardResolvers<ContextType = GraphQLContext, ParentType 
   currentPowerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   series?: Resolver<Array<ResolversTypes['FacilityEnergyPoint']>, ParentType, ContextType, RequireFields<FacilityDashboardSeriesArgs, 'limit'>>;
   totalAssets?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FacilityDocumentResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilityDocument'] = ResolversParentTypes['FacilityDocument']> = {
+  asset?: Resolver<Maybe<ResolversTypes['Asset']>, ParentType, ContextType>;
+  assetId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  blobId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  category?: Resolver<Maybe<ResolversTypes['DocumentCategory']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  fileName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  fileSize?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
+  spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  uploadedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type FacilityDocumentCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilityDocumentCollection'] = ResolversParentTypes['FacilityDocumentCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['FacilityDocument']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -9357,6 +9511,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   commitsDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitsDeleteArgs, 'input'>>;
   commitsMove?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitsMoveArgs, 'input'>>;
   dashboardMutations?: Resolver<ResolversTypes['DashboardMutations'], ParentType, ContextType>;
+  documentMutations?: Resolver<ResolversTypes['DocumentMutations'], ParentType, ContextType>;
   facilityMutations?: Resolver<ResolversTypes['FacilityMutations'], ParentType, ContextType>;
   fileUploadMutations?: Resolver<ResolversTypes['FileUploadMutations'], ParentType, ContextType>;
   inviteDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteDeleteArgs, 'inviteId'>>;
@@ -10794,6 +10949,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   DigitalTwinAsset?: DigitalTwinAssetResolvers<ContextType>;
   DigitalTwinAssetCollection?: DigitalTwinAssetCollectionResolvers<ContextType>;
   DigitalTwinAssetPerformanceData?: DigitalTwinAssetPerformanceDataResolvers<ContextType>;
+  DocumentMutations?: DocumentMutationsResolvers<ContextType>;
   EmbedToken?: EmbedTokenResolvers<ContextType>;
   EmbedTokenCollection?: EmbedTokenCollectionResolvers<ContextType>;
   EnergyReading?: EnergyReadingResolvers<ContextType>;
@@ -10801,6 +10957,8 @@ export type Resolvers<ContextType = GraphQLContext> = {
   ExtendedViewerResourcesRequest?: ExtendedViewerResourcesRequestResolvers<ContextType>;
   Facility?: FacilityResolvers<ContextType>;
   FacilityDashboard?: FacilityDashboardResolvers<ContextType>;
+  FacilityDocument?: FacilityDocumentResolvers<ContextType>;
+  FacilityDocumentCollection?: FacilityDocumentCollectionResolvers<ContextType>;
   FacilityEnergyPoint?: FacilityEnergyPointResolvers<ContextType>;
   FacilityMutations?: FacilityMutationsResolvers<ContextType>;
   FacilitySystemBreakdown?: FacilitySystemBreakdownResolvers<ContextType>;

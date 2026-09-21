@@ -695,6 +695,23 @@ export const MaintenanceOrders = buildTableHelper('maintenance_orders', [
   'updatedAt'
 ])
 
+export const FacilityDocuments = buildTableHelper('facility_documents', [
+  'id',
+  'projectId',
+  'facilityId',
+  'assetId',
+  'spaceId',
+  'title',
+  'category',
+  'description',
+  'blobId',
+  'fileName',
+  'fileSize',
+  'uploadedBy',
+  'createdAt',
+  'updatedAt'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'
