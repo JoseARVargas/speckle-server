@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import cryptoRandomString from 'crypto-random-string'
 import { z } from 'zod'
 import type { Knex } from 'knex'
@@ -32,7 +31,10 @@ Each input item is one metric's current statistical state for one device: a tren
 
 Write for a facilities technician who is not a data scientist: plain language, no statistics jargon (don't say "z-score" or "regression" in the output), and ground the interpretation in what the underlying physical fault plausibly is (e.g. sustained high compressor duty with rising current can mean refrigerant loss or a dirty filter; a shrinking startup current spike suggests a worn starting capacitor). If every signal is stable/info, say so plainly and don't invent a problem. Pick one dominant issue to lead with if there are several - don't just list every signal back.
 
-The report's own severity should reflect the worst signal severity present, unless the combination of signals suggests otherwise.`
+The report's own severity should reflect the worst signal severity present, unless the combination of signals suggests otherwise.
+
+Respond with ONLY a single JSON object, no markdown fences, no other text, matching exactly this shape:
+{"summary": string, "recommendation": string, "severity": "info" | "warning" | "critical"}`
 
 function formatSignals(
   signals: DeviceHealthSignalRecord[],
@@ -102,11 +104,11 @@ export const generateMaintenanceReportFactory =
     }
 
     const client = new Anthropic({ apiKey: deps.anthropicApiKey })
-    /* eslint-disable camelcase -- these are the Anthropic SDK's own wire-format param names */
-    const response = await client.messages.parse({
+    /* eslint-disable camelcase -- this is the Anthropic SDK's own wire-format param name */
+    const response = await client.messages.create({
       model: 'claude-opus-5',
       max_tokens: 1024,
-      output_config: { effort: 'low', format: zodOutputFormat(ReportSchema) },
+      output_config: { effort: 'low' },
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -117,7 +119,13 @@ export const generateMaintenanceReportFactory =
     })
     /* eslint-enable camelcase */
 
-    if (!response.parsed_output) {
+    const textBlock = response.content.find(
+      (b): b is Anthropic.TextBlock => b.type === 'text'
+    )
+    const parsed = textBlock
+      ? ReportSchema.safeParse(tryParseJson(textBlock.text))
+      : null
+    if (!parsed?.success) {
       throw new BadRequestError(
         'The maintenance report model did not return a valid report'
       )
@@ -128,12 +136,25 @@ export const generateMaintenanceReportFactory =
       projectId: params.projectId,
       facilityId: params.facilityId,
       assetId: params.assetId,
-      summary: response.parsed_output.summary,
-      recommendation: response.parsed_output.recommendation,
-      severity: response.parsed_output.severity,
+      summary: parsed.data.summary,
+      recommendation: parsed.data.recommendation,
+      severity: parsed.data.severity,
       signalsSnapshot: JSON.parse(promptInput === '[]' ? '[]' : promptInput),
       generatedAt: new Date(),
       generatedBy: params.userId
     }
     return await insertMaintenanceReportFactory({ db: deps.db })(report)
   }
+
+/** The model is instructed to return bare JSON, but strips a markdown fence if it adds one anyway. */
+function tryParseJson(text: string): unknown {
+  const stripped = text
+    .trim()
+    .replace(/^```(?:json)?\s*/, '')
+    .replace(/\s*```$/, '')
+  try {
+    return JSON.parse(stripped)
+  } catch {
+    return null
+  }
+}
