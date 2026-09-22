@@ -139,7 +139,12 @@ export const generateMaintenanceReportFactory =
       summary: parsed.data.summary,
       recommendation: parsed.data.recommendation,
       severity: parsed.data.severity,
-      signalsSnapshot: JSON.parse(promptInput === '[]' ? '[]' : promptInput),
+      // Passed as a JSON string, not a parsed object/array - node-postgres
+      // serializes a plain JS array using Postgres array-literal syntax
+      // ("{...}") for a jsonb column instead of JSON text, which Postgres
+      // then rejects. `promptInput` is already valid JSON text (see
+      // formatSignals), so no parse/reparse round trip is needed here.
+      signalsSnapshot: promptInput,
       generatedAt: new Date(),
       generatedBy: params.userId
     }
