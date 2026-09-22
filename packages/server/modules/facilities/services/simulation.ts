@@ -10,6 +10,7 @@ import {
   updateDeviceStateFactory
 } from '@/modules/facilities/repositories/simulation'
 import { getFacilityByProjectIdFactory } from '@/modules/facilities/repositories/facilities'
+import { runHealthDetectionFactory } from '@/modules/facilities/services/health'
 import type {
   DeviceCommandType,
   DevicePowerState
@@ -28,6 +29,12 @@ const CYCLING_BAND_DEGREES = 1
 // Single-phase line voltage assumed for deriving simulated amperage from
 // simulated power draw - matches what a real PZEM-004T would be wired at.
 const VOLTAGE_V = 220
+// How long after power-on the compressor's inrush current spike decays back
+// to its steady-state value.
+const STARTUP_WINDOW_SECONDS = 45
+// A healthy unit's starting current is roughly this multiple of its
+// steady-state draw.
+const STARTUP_PEAK_MULTIPLIER = 3
 // A real remote (IR) gives no direct acknowledgement - the UI only ever
 // finds out a command took effect once telemetry reflects it. Delaying the
 // command's application here (rather than applying it synchronously) keeps
@@ -65,7 +72,14 @@ export const runSimulationTickFactory =
       const isOn = state.powerState === 'on'
       const target = isOn ? state.setpoint : state.ambientTemperature
       const timeConstant = isOn ? ON_TIME_CONSTANT_SECONDS : OFF_TIME_CONSTANT_SECONDS
-      const convergence = 1 - Math.exp(-TICK_SECONDS / timeConstant)
+      // A degraded unit (low refrigerant, dirty filter, ...) removes heat
+      // less effectively per tick - modeled as a slower convergence toward
+      // setpoint while running. That alone also keeps compressorDuty pinned
+      // at 1 for longer below, since the room stays "far from setpoint"
+      // longer - no separate duty adjustment needed.
+      const convergence =
+        (1 - Math.exp(-TICK_SECONDS / timeConstant)) *
+        (isOn ? 1 - state.degradationRate * 0.85 : 1)
       const nextTemperature =
         state.currentTemperature +
         (target - state.currentTemperature) * convergence +
@@ -81,10 +95,35 @@ export const runSimulationTickFactory =
           distance > CYCLING_BAND_DEGREES ? 1 : 0.2 + Math.random() * 0.15
       }
       const powerKw = state.nominalPowerKw * compressorDuty
-      // Reported amperage gets its own noise on top of the (noise-free)
-      // power used for energy accounting, so the accumulated kWh stays
-      // clean while the live reading still looks like a real sensor.
-      const currentA = isOn ? ((powerKw * 1000) / VOLTAGE_V) * (1 + jitter(0.02)) : 0
+
+      // Reported amperage gets its own noise/spike on top of the
+      // (noise-free) power used for energy accounting, so the accumulated
+      // kWh stays clean while the live reading still looks like a real
+      // sensor.
+      let currentA = 0
+      if (isOn) {
+        const baseCurrentA = (powerKw * 1000) / VOLTAGE_V
+        // Inrush current spike right after power-on, decaying linearly back
+        // to the steady-state value - a worn starting capacitor
+        // (startupCurrentDecay) shrinks how high that peak reaches.
+        const secondsSincePowerOn = state.poweredOnAt
+          ? (now.getTime() - state.poweredOnAt.getTime()) / 1000
+          : Infinity
+        let startupMultiplier = 1
+        if (secondsSincePowerOn < STARTUP_WINDOW_SECONDS) {
+          const peak =
+            1 + (STARTUP_PEAK_MULTIPLIER - 1) * (1 - state.startupCurrentDecay)
+          const progress = secondsSincePowerOn / STARTUP_WINDOW_SECONDS
+          startupMultiplier = peak - (peak - 1) * progress
+        }
+        // A degraded electrical contact shows up as noisier readings, not a
+        // shifted mean - only the noise spread scales with
+        // noiseAmplification, never the underlying value.
+        currentA =
+          baseCurrentA *
+          startupMultiplier *
+          (1 + jitter(0.02 * state.noiseAmplification))
+      }
 
       const energyKwhInterval = powerKw * (TICK_SECONDS / 3600)
       const cumulativeKwh = state.cumulativeKwh + energyKwhInterval
@@ -120,6 +159,10 @@ export const runSimulationTickFactory =
         cumulativeKwh,
         costInterval,
         cumulativeCost
+      })
+      await runHealthDetectionFactory(deps)({
+        assetId: state.assetId,
+        projectId: state.projectId
       })
     }
   }
@@ -169,7 +212,12 @@ export const setAssetPowerFactory =
     await sleep(randomDelay())
     return await updateDeviceStateFactory(deps)({
       assetId: params.assetId,
-      update: { powerState: params.powerState }
+      update: {
+        powerState: params.powerState,
+        // Marks the moment power was actually applied (post-latency) - the
+        // startup current spike in the tick counts from here.
+        poweredOnAt: params.powerState === 'on' ? new Date() : null
+      }
     })
   }
 
@@ -198,5 +246,44 @@ export const setAssetTemperatureFactory =
     return await updateDeviceStateFactory(deps)({
       assetId: params.assetId,
       update: { setpoint: params.setpoint }
+    })
+  }
+
+// ---- fault injection (predictive maintenance testing) ---------------------
+
+/**
+ * Sets a device's fault-injection knobs (see runSimulationTickFactory for
+ * how each one distorts the physics) - takes effect on the next tick, no
+ * command latency, since this represents a hardware condition rather than a
+ * user-issued control action.
+ */
+export const setDeviceFaultProfileFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    assetId: string
+    projectId: string
+    degradationRate?: number | null
+    startupCurrentDecay?: number | null
+    noiseAmplification?: number | null
+  }) => {
+    await ensureDeviceStateFactory(deps)({
+      assetId: params.assetId,
+      projectId: params.projectId
+    })
+    return await updateDeviceStateFactory(deps)({
+      assetId: params.assetId,
+      update: {
+        ...(params.degradationRate !== undefined && params.degradationRate !== null
+          ? { degradationRate: params.degradationRate }
+          : {}),
+        ...(params.startupCurrentDecay !== undefined &&
+        params.startupCurrentDecay !== null
+          ? { startupCurrentDecay: params.startupCurrentDecay }
+          : {}),
+        ...(params.noiseAmplification !== undefined &&
+        params.noiseAmplification !== null
+          ? { noiseAmplification: params.noiseAmplification }
+          : {})
+      }
     })
   }

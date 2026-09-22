@@ -499,9 +499,11 @@ export type Asset = {
    */
   extendedAttributes: Scalars['JSONObject']['output'];
   facilityId: Scalars['String']['output'];
+  healthSignals: Array<DeviceHealthSignal>;
   id: Scalars['String']['output'];
   /** COBie Component sheet attributes. */
   installDate?: Maybe<Scalars['DateTime']['output']>;
+  maintenanceReports: Array<MaintenanceReport>;
   name?: Maybe<Scalars['String']['output']>;
   serialNumber?: Maybe<Scalars['String']['output']>;
   space?: Maybe<Space>;
@@ -525,6 +527,16 @@ export type Asset = {
  * which the exporting tool may not keep stable across re-exports).
  */
 export type AssetEnergyHistoryArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+/**
+ * The COBie "Component" sheet - one physical asset instance, identified
+ * within its facility by a human-assigned tag number (not the IFC GUID,
+ * which the exporting tool may not keep stable across re-exports).
+ */
+export type AssetMaintenanceReportsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -1700,6 +1712,26 @@ export type DenyWorkspaceJoinRequestInput = {
   workspaceId: Scalars['String']['input'];
 };
 
+/**
+ * Current statistical state of one metric for one device - a moving
+ * baseline/z-score and trend regression over its recent telemetry, recomputed
+ * every simulation tick. One signal per (asset, metric).
+ */
+export type DeviceHealthSignal = {
+  __typename?: 'DeviceHealthSignal';
+  assetId: Scalars['String']['output'];
+  metric: HealthMetric;
+  severity: HealthSeverity;
+  /**
+   * When the current severity started (unchanged across ticks as long as the
+   * severity stays the same, so this reads as "warning since 14:32").
+   */
+  since: Scalars['DateTime']['output'];
+  trend: HealthTrend;
+  updatedAt: Scalars['DateTime']['output'];
+  zScore: Scalars['Float']['output'];
+};
+
 export const DevicePowerState = {
   Off: 'off',
   On: 'on'
@@ -1725,9 +1757,16 @@ export type DeviceState = {
   /** Simulated instantaneous current draw, as a real PZEM-004T would report. */
   currentA: Scalars['Float']['output'];
   currentTemperature: Scalars['Float']['output'];
+  /**
+   * Fault-injection knobs for predictive-maintenance testing - see
+   * HealthMutations.setDeviceFaultProfile. 0 on every field means "healthy".
+   */
+  degradationRate: Scalars['Float']['output'];
+  noiseAmplification: Scalars['Float']['output'];
   nominalPowerKw: Scalars['Float']['output'];
   powerState: DevicePowerState;
   setpoint: Scalars['Float']['output'];
+  startupCurrentDecay: Scalars['Float']['output'];
   updatedAt: Scalars['DateTime']['output'];
 };
 
@@ -1946,8 +1985,15 @@ export type Facility = {
    */
   energyTariffPerKwh: Scalars['Float']['output'];
   floors: Array<Floor>;
+  /** Every device's signals across the facility, most severe first. */
+  healthSignals: Array<DeviceHealthSignal>;
   id: Scalars['String']['output'];
   maintenanceOrders: MaintenanceOrderCollection;
+  /**
+   * Facility-wide reports only (assetId is null on every result here) - see
+   * Asset.maintenanceReports for a single device's reports.
+   */
+  maintenanceReports: Array<MaintenanceReport>;
   name: Scalars['String']['output'];
   projectId: Scalars['String']['output'];
   sensors: SensorCollection;
@@ -1974,6 +2020,11 @@ export type FacilityDocumentsArgs = {
 
 export type FacilityMaintenanceOrdersArgs = {
   input?: InputMaybe<GetMaintenanceOrdersInput>;
+};
+
+
+export type FacilityMaintenanceReportsArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -2392,6 +2443,52 @@ export type GetUngroupedViewGroupInput = {
   resourceIdString: Scalars['String']['input'];
 };
 
+export const HealthMetric = {
+  CompressorDuty: 'compressorDuty',
+  CurrentA: 'currentA',
+  PowerKw: 'powerKw'
+} as const;
+
+export type HealthMetric = typeof HealthMetric[keyof typeof HealthMetric];
+export type HealthMutations = {
+  __typename?: 'HealthMutations';
+  /**
+   * Generates a report for one device (assetId set) or the whole facility
+   * (assetId omitted) from its current health signals.
+   */
+  generateMaintenanceReport: MaintenanceReport;
+  /**
+   * For testing the detection layer - injects (or clears, by passing 0/1
+   * defaults) a simulated hardware fault into a device.
+   */
+  setDeviceFaultProfile: DeviceState;
+};
+
+
+export type HealthMutationsGenerateMaintenanceReportArgs = {
+  assetId?: InputMaybe<Scalars['String']['input']>;
+  projectId: Scalars['String']['input'];
+};
+
+
+export type HealthMutationsSetDeviceFaultProfileArgs = {
+  input: SetDeviceFaultProfileInput;
+};
+
+export const HealthSeverity = {
+  Critical: 'critical',
+  Info: 'info',
+  Warning: 'warning'
+} as const;
+
+export type HealthSeverity = typeof HealthSeverity[keyof typeof HealthSeverity];
+export const HealthTrend = {
+  Falling: 'falling',
+  Rising: 'rising',
+  Stable: 'stable'
+} as const;
+
+export type HealthTrend = typeof HealthTrend[keyof typeof HealthTrend];
 export type InvitableCollaboratorsFilter = {
   search?: InputMaybe<Scalars['String']['input']>;
 };
@@ -2658,6 +2755,25 @@ export const MaintenanceOrderType = {
 } as const;
 
 export type MaintenanceOrderType = typeof MaintenanceOrderType[keyof typeof MaintenanceOrderType];
+/**
+ * An AI-generated report interpreting a device's (or a whole facility's)
+ * current health signals - never given raw telemetry, only the structured
+ * signals themselves.
+ */
+export type MaintenanceReport = {
+  __typename?: 'MaintenanceReport';
+  asset?: Maybe<Asset>;
+  /** Null for a facility-wide report aggregating every device. */
+  assetId?: Maybe<Scalars['String']['output']>;
+  facilityId: Scalars['String']['output'];
+  generatedAt: Scalars['DateTime']['output'];
+  generatedBy?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  recommendation: Scalars['String']['output'];
+  severity: HealthSeverity;
+  summary: Scalars['String']['output'];
+};
+
 export type MarkCommentViewedInput = {
   commentId: Scalars['String']['input'];
   projectId: Scalars['String']['input'];
@@ -2895,6 +3011,7 @@ export type Mutation = {
    */
   facilityMutations: FacilityMutations;
   fileUploadMutations: FileUploadMutations;
+  healthMutations: HealthMutations;
   /**
    * Delete a pending invite
    * Note: The required scope to invoke this is not given out to app or personal access tokens
@@ -5279,6 +5396,26 @@ export type SetAssetPowerInput = {
 export type SetAssetTemperatureInput = {
   assetId: Scalars['String']['input'];
   setpoint: Scalars['Float']['input'];
+};
+
+export type SetDeviceFaultProfileInput = {
+  assetId: Scalars['String']['input'];
+  /**
+   * 0-1. Reduces effective cooling capacity while running, so the compressor
+   * runs harder for longer to reach setpoint - simulates refrigerant loss or a
+   * dirty filter.
+   */
+  degradationRate?: InputMaybe<Scalars['Float']['input']>;
+  /**
+   * Multiplier (1 = normal) on the current reading's noise spread - simulates
+   * a degraded electrical contact.
+   */
+  noiseAmplification?: InputMaybe<Scalars['Float']['input']>;
+  /**
+   * 0-1. Shrinks the compressor's startup current spike - simulates a worn
+   * starting capacitor.
+   */
+  startupCurrentDecay?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type SetPrimaryUserEmailInput = {
@@ -7710,6 +7847,7 @@ export type ResolversTypes = {
   DeleteUserEmailInput: DeleteUserEmailInput;
   DeleteVersionsInput: DeleteVersionsInput;
   DenyWorkspaceJoinRequestInput: DenyWorkspaceJoinRequestInput;
+  DeviceHealthSignal: ResolverTypeWrapper<DeviceHealthSignal>;
   DevicePowerState: DevicePowerState;
   DeviceState: ResolverTypeWrapper<DeviceState>;
   DigitalTwinAsset: ResolverTypeWrapper<DigitalTwinAssetGraphQLReturn>;
@@ -7757,6 +7895,10 @@ export type ResolversTypes = {
   GetModelUploadsInput: GetModelUploadsInput;
   GetSensorsInput: GetSensorsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
+  HealthMetric: HealthMetric;
+  HealthMutations: ResolverTypeWrapper<HealthMutations>;
+  HealthSeverity: HealthSeverity;
+  HealthTrend: HealthTrend;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   InvitableCollaboratorsFilter: InvitableCollaboratorsFilter;
@@ -7776,6 +7918,7 @@ export type ResolversTypes = {
   MaintenanceOrderPriority: MaintenanceOrderPriority;
   MaintenanceOrderStatus: MaintenanceOrderStatus;
   MaintenanceOrderType: MaintenanceOrderType;
+  MaintenanceReport: ResolverTypeWrapper<MaintenanceReport>;
   MarkCommentViewedInput: MarkCommentViewedInput;
   MarkReceivedVersionInput: MarkReceivedVersionInput;
   Model: ResolverTypeWrapper<ModelGraphQLReturn>;
@@ -7901,6 +8044,7 @@ export type ResolversTypes = {
   SessionPaymentStatus: SessionPaymentStatus;
   SetAssetPowerInput: SetAssetPowerInput;
   SetAssetTemperatureInput: SetAssetTemperatureInput;
+  SetDeviceFaultProfileInput: SetDeviceFaultProfileInput;
   SetPrimaryUserEmailInput: SetPrimaryUserEmailInput;
   SmartTextEditorValue: ResolverTypeWrapper<SmartTextEditorValueGraphQLReturn>;
   SortDirection: SortDirection;
@@ -8194,6 +8338,7 @@ export type ResolversParentTypes = {
   DeleteUserEmailInput: DeleteUserEmailInput;
   DeleteVersionsInput: DeleteVersionsInput;
   DenyWorkspaceJoinRequestInput: DenyWorkspaceJoinRequestInput;
+  DeviceHealthSignal: DeviceHealthSignal;
   DeviceState: DeviceState;
   DigitalTwinAsset: DigitalTwinAssetGraphQLReturn;
   DigitalTwinAssetCollection: Omit<DigitalTwinAssetCollection, 'items'> & { items: Array<ResolversParentTypes['DigitalTwinAsset']> };
@@ -8235,6 +8380,7 @@ export type ResolversParentTypes = {
   GetModelUploadsInput: GetModelUploadsInput;
   GetSensorsInput: GetSensorsInput;
   GetUngroupedViewGroupInput: GetUngroupedViewGroupInput;
+  HealthMutations: HealthMutations;
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
   InvitableCollaboratorsFilter: InvitableCollaboratorsFilter;
@@ -8250,6 +8396,7 @@ export type ResolversParentTypes = {
   MaintenanceMutations: MaintenanceMutations;
   MaintenanceOrder: MaintenanceOrder;
   MaintenanceOrderCollection: MaintenanceOrderCollection;
+  MaintenanceReport: MaintenanceReport;
   MarkCommentViewedInput: MarkCommentViewedInput;
   MarkReceivedVersionInput: MarkReceivedVersionInput;
   Model: ModelGraphQLReturn;
@@ -8356,6 +8503,7 @@ export type ResolversParentTypes = {
   ServerWorkspacesInfo: GraphQLEmptyReturn;
   SetAssetPowerInput: SetAssetPowerInput;
   SetAssetTemperatureInput: SetAssetTemperatureInput;
+  SetDeviceFaultProfileInput: SetDeviceFaultProfileInput;
   SetPrimaryUserEmailInput: SetPrimaryUserEmailInput;
   SmartTextEditorValue: SmartTextEditorValueGraphQLReturn;
   Space: Space;
@@ -8743,8 +8891,10 @@ export type AssetResolvers<ContextType = GraphQLContext, ParentType extends Reso
   energyHistory?: Resolver<Array<ResolversTypes['EnergyReading']>, ParentType, ContextType, RequireFields<AssetEnergyHistoryArgs, 'limit'>>;
   extendedAttributes?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
   facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  healthSignals?: Resolver<Array<ResolversTypes['DeviceHealthSignal']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   installDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  maintenanceReports?: Resolver<Array<ResolversTypes['MaintenanceReport']>, ParentType, ContextType, RequireFields<AssetMaintenanceReportsArgs, 'limit'>>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   serialNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
@@ -9233,6 +9383,17 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
   name: 'DateTime';
 }
 
+export type DeviceHealthSignalResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DeviceHealthSignal'] = ResolversParentTypes['DeviceHealthSignal']> = {
+  assetId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  metric?: Resolver<ResolversTypes['HealthMetric'], ParentType, ContextType>;
+  severity?: Resolver<ResolversTypes['HealthSeverity'], ParentType, ContextType>;
+  since?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  trend?: Resolver<ResolversTypes['HealthTrend'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  zScore?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type DeviceStateResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DeviceState'] = ResolversParentTypes['DeviceState']> = {
   ambientTemperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   assetId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9241,9 +9402,12 @@ export type DeviceStateResolvers<ContextType = GraphQLContext, ParentType extend
   cumulativeKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   currentA?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   currentTemperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  degradationRate?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  noiseAmplification?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   nominalPowerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   powerState?: Resolver<ResolversTypes['DevicePowerState'], ParentType, ContextType>;
   setpoint?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  startupCurrentDecay?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -9340,8 +9504,10 @@ export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends R
   documents?: Resolver<ResolversTypes['FacilityDocumentCollection'], ParentType, ContextType, Partial<FacilityDocumentsArgs>>;
   energyTariffPerKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   floors?: Resolver<Array<ResolversTypes['Floor']>, ParentType, ContextType>;
+  healthSignals?: Resolver<Array<ResolversTypes['DeviceHealthSignal']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   maintenanceOrders?: Resolver<ResolversTypes['MaintenanceOrderCollection'], ParentType, ContextType, Partial<FacilityMaintenanceOrdersArgs>>;
+  maintenanceReports?: Resolver<Array<ResolversTypes['MaintenanceReport']>, ParentType, ContextType, RequireFields<FacilityMaintenanceReportsArgs, 'limit'>>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sensors?: Resolver<ResolversTypes['SensorCollection'], ParentType, ContextType, Partial<FacilitySensorsArgs>>;
@@ -9504,6 +9670,12 @@ export type GenerateFileUploadUrlOutputResolvers<ContextType = GraphQLContext, P
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type HealthMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['HealthMutations'] = ResolversParentTypes['HealthMutations']> = {
+  generateMaintenanceReport?: Resolver<ResolversTypes['MaintenanceReport'], ParentType, ContextType, RequireFields<HealthMutationsGenerateMaintenanceReportArgs, 'projectId'>>;
+  setDeviceFaultProfile?: Resolver<ResolversTypes['DeviceState'], ParentType, ContextType, RequireFields<HealthMutationsSetDeviceFaultProfileArgs, 'input'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export interface JsonObjectScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['JSONObject'], any> {
   name: 'JSONObject';
 }
@@ -9609,6 +9781,19 @@ export type MaintenanceOrderCollectionResolvers<ContextType = GraphQLContext, Pa
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type MaintenanceReportResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['MaintenanceReport'] = ResolversParentTypes['MaintenanceReport']> = {
+  asset?: Resolver<Maybe<ResolversTypes['Asset']>, ParentType, ContextType>;
+  assetId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  generatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  generatedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  recommendation?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  severity?: Resolver<ResolversTypes['HealthSeverity'], ParentType, ContextType>;
+  summary?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type ModelResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Model'] = ResolversParentTypes['Model']> = {
   accSyncItem?: Resolver<Maybe<ResolversTypes['AccSyncItem']>, ParentType, ContextType>;
   author?: Resolver<Maybe<ResolversTypes['LimitedUser']>, ParentType, ContextType>;
@@ -9708,6 +9893,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   documentMutations?: Resolver<ResolversTypes['DocumentMutations'], ParentType, ContextType>;
   facilityMutations?: Resolver<ResolversTypes['FacilityMutations'], ParentType, ContextType>;
   fileUploadMutations?: Resolver<ResolversTypes['FileUploadMutations'], ParentType, ContextType>;
+  healthMutations?: Resolver<ResolversTypes['HealthMutations'], ParentType, ContextType>;
   inviteDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteDeleteArgs, 'inviteId'>>;
   inviteResend?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationInviteResendArgs, 'inviteId'>>;
   maintenanceMutations?: Resolver<ResolversTypes['MaintenanceMutations'], ParentType, ContextType>;
@@ -11192,6 +11378,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   DashboardToken?: DashboardTokenResolvers<ContextType>;
   DashboardTokenCollection?: DashboardTokenCollectionResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
+  DeviceHealthSignal?: DeviceHealthSignalResolvers<ContextType>;
   DeviceState?: DeviceStateResolvers<ContextType>;
   DigitalTwinAsset?: DigitalTwinAssetResolvers<ContextType>;
   DigitalTwinAssetCollection?: DigitalTwinAssetCollectionResolvers<ContextType>;
@@ -11216,6 +11403,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   GendoAIRender?: GendoAiRenderResolvers<ContextType>;
   GendoAIRenderCollection?: GendoAiRenderCollectionResolvers<ContextType>;
   GenerateFileUploadUrlOutput?: GenerateFileUploadUrlOutputResolvers<ContextType>;
+  HealthMutations?: HealthMutationsResolvers<ContextType>;
   JSONObject?: GraphQLScalarType;
   LegacyCommentViewerData?: LegacyCommentViewerDataResolvers<ContextType>;
   LimitedUser?: LimitedUserResolvers<ContextType>;
@@ -11227,6 +11415,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   MaintenanceMutations?: MaintenanceMutationsResolvers<ContextType>;
   MaintenanceOrder?: MaintenanceOrderResolvers<ContextType>;
   MaintenanceOrderCollection?: MaintenanceOrderCollectionResolvers<ContextType>;
+  MaintenanceReport?: MaintenanceReportResolvers<ContextType>;
   Model?: ModelResolvers<ContextType>;
   ModelCollection?: ModelCollectionResolvers<ContextType>;
   ModelMutations?: ModelMutationsResolvers<ContextType>;

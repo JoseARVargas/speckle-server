@@ -302,6 +302,13 @@ type DeviceState {
   Simulated instantaneous current draw, as a real PZEM-004T would report.
   """
   currentA: Float!
+  """
+  Fault-injection knobs for predictive-maintenance testing - see
+  HealthMutations.setDeviceFaultProfile. 0 on every field means "healthy".
+  """
+  degradationRate: Float!
+  startupCurrentDecay: Float!
+  noiseAmplification: Float!
   updatedAt: DateTime!
 }
 

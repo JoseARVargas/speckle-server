@@ -643,6 +643,12 @@ export const DeviceStates = buildTableHelper('device_states', [
   'nominalPowerKw',
   'cumulativeKwh',
   'cumulativeCost',
+  'compressorDuty',
+  'currentA',
+  'degradationRate',
+  'startupCurrentDecay',
+  'noiseAmplification',
+  'poweredOnAt',
   'updatedAt'
 ])
 
@@ -662,7 +668,9 @@ export const TelemetryReadings = buildTableHelper('telemetry_readings', [
   'projectId',
   'ts',
   'temperature',
-  'powerState'
+  'powerState',
+  'compressorDuty',
+  'currentA'
 ])
 
 export const EnergyReadings = buildTableHelper('energy_readings', [
@@ -738,6 +746,31 @@ export const SensorReadings = buildTableHelper('sensor_readings', [
   'projectId',
   'ts',
   'value'
+])
+
+export const DeviceHealthSignals = buildTableHelper('device_health_signals', [
+  'id',
+  'assetId',
+  'projectId',
+  'metric',
+  'trend',
+  'severity',
+  'zScore',
+  'since',
+  'updatedAt'
+])
+
+export const MaintenanceReports = buildTableHelper('maintenance_reports', [
+  'id',
+  'projectId',
+  'facilityId',
+  'assetId',
+  'summary',
+  'recommendation',
+  'severity',
+  'signalsSnapshot',
+  'generatedAt',
+  'generatedBy'
 ])
 
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [

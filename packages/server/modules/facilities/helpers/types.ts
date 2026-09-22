@@ -108,6 +108,16 @@ export type DeviceStateRecord = {
   cumulativeCost: number
   compressorDuty: number
   currentA: number
+  /**
+   * Fault-injection knobs (0 = healthy). See services/simulation.ts for how
+   * each one distorts the physics model.
+   */
+  degradationRate: number
+  startupCurrentDecay: number
+  noiseAmplification: number
+  /** Set when the asset was last turned on; null while off. Drives the
+   * startup current spike window. */
+  poweredOnAt: Nullable<Date>
   updatedAt: Date
 }
 
@@ -225,4 +235,36 @@ export type EnergyReadingRecord = {
   cumulativeKwh: number
   costInterval: number
   cumulativeCost: number
+}
+
+// ---- predictive maintenance --------------------------------------------
+
+export type HealthMetric = 'currentA' | 'powerKw' | 'compressorDuty'
+export type HealthTrend = 'rising' | 'falling' | 'stable'
+export type HealthSeverity = 'info' | 'warning' | 'critical'
+
+export type DeviceHealthSignalRecord = {
+  id: string
+  assetId: string
+  projectId: string
+  metric: HealthMetric
+  trend: HealthTrend
+  severity: HealthSeverity
+  zScore: number
+  since: Date
+  updatedAt: Date
+}
+
+export type MaintenanceReportRecord = {
+  id: string
+  projectId: string
+  facilityId: string
+  /** Null for a facility-wide report aggregating every device. */
+  assetId: Nullable<string>
+  summary: string
+  recommendation: string
+  severity: HealthSeverity
+  signalsSnapshot: unknown
+  generatedAt: Date
+  generatedBy: Nullable<string>
 }

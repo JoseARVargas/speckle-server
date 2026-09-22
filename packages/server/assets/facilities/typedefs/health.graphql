@@ -1,0 +1,115 @@
+# Predictive maintenance (see the ac-twin-sim spec, section 9): fault
+# injection on the simulated device, a statistical detection pass over its
+# telemetry, and an AI-generated report built only from that detector's
+# structured output - never from raw telemetry.
+
+enum HealthMetric {
+  currentA
+  powerKw
+  compressorDuty
+}
+
+enum HealthTrend {
+  rising
+  falling
+  stable
+}
+
+enum HealthSeverity {
+  info
+  warning
+  critical
+}
+
+"""
+Current statistical state of one metric for one device - a moving
+baseline/z-score and trend regression over its recent telemetry, recomputed
+every simulation tick. One signal per (asset, metric).
+"""
+type DeviceHealthSignal {
+  assetId: String!
+  metric: HealthMetric!
+  trend: HealthTrend!
+  severity: HealthSeverity!
+  zScore: Float!
+  """
+  When the current severity started (unchanged across ticks as long as the
+  severity stays the same, so this reads as "warning since 14:32").
+  """
+  since: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+An AI-generated report interpreting a device's (or a whole facility's)
+current health signals - never given raw telemetry, only the structured
+signals themselves.
+"""
+type MaintenanceReport {
+  id: String!
+  facilityId: String!
+  """
+  Null for a facility-wide report aggregating every device.
+  """
+  assetId: String
+  asset: Asset
+  summary: String!
+  recommendation: String!
+  severity: HealthSeverity!
+  generatedAt: DateTime!
+  generatedBy: String
+}
+
+extend type Asset {
+  healthSignals: [DeviceHealthSignal!]!
+  maintenanceReports(limit: Int = 10): [MaintenanceReport!]!
+}
+
+extend type Facility {
+  """
+  Every device's signals across the facility, most severe first.
+  """
+  healthSignals: [DeviceHealthSignal!]!
+  """
+  Facility-wide reports only (assetId is null on every result here) - see
+  Asset.maintenanceReports for a single device's reports.
+  """
+  maintenanceReports(limit: Int = 10): [MaintenanceReport!]!
+}
+
+input SetDeviceFaultProfileInput {
+  assetId: String!
+  """
+  0-1. Reduces effective cooling capacity while running, so the compressor
+  runs harder for longer to reach setpoint - simulates refrigerant loss or a
+  dirty filter.
+  """
+  degradationRate: Float
+  """
+  0-1. Shrinks the compressor's startup current spike - simulates a worn
+  starting capacitor.
+  """
+  startupCurrentDecay: Float
+  """
+  Multiplier (1 = normal) on the current reading's noise spread - simulates
+  a degraded electrical contact.
+  """
+  noiseAmplification: Float
+}
+
+type HealthMutations {
+  """
+  For testing the detection layer - injects (or clears, by passing 0/1
+  defaults) a simulated hardware fault into a device.
+  """
+  setDeviceFaultProfile(input: SetDeviceFaultProfileInput!): DeviceState!
+  """
+  Generates a report for one device (assetId set) or the whole facility
+  (assetId omitted) from its current health signals.
+  """
+  generateMaintenanceReport(projectId: String!, assetId: String): MaintenanceReport!
+}
+
+extend type Mutation {
+  healthMutations: HealthMutations! @hasServerRole(role: SERVER_GUEST)
+}
