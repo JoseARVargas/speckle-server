@@ -1715,8 +1715,15 @@ export type DeviceState = {
   __typename?: 'DeviceState';
   ambientTemperature: Scalars['Float']['output'];
   assetId: Scalars['String']['output'];
+  /**
+   * Fraction (0-1) of the tick the compressor spent running - cycles down
+   * once the room is near setpoint, same as a real split AC.
+   */
+  compressorDuty: Scalars['Float']['output'];
   cumulativeCost: Scalars['Float']['output'];
   cumulativeKwh: Scalars['Float']['output'];
+  /** Simulated instantaneous current draw, as a real PZEM-004T would report. */
+  currentA: Scalars['Float']['output'];
   currentTemperature: Scalars['Float']['output'];
   nominalPowerKw: Scalars['Float']['output'];
   powerState: DevicePowerState;
@@ -4425,6 +4432,11 @@ export type Query = {
    * isn't specified, the server will look for any valid invite.
    */
   projectInvite?: Maybe<PendingStreamCollaborator>;
+  /**
+   * Fetch a single sensor directly, e.g. to load its reading history without
+   * refetching the whole facility's sensor list.
+   */
+  sensor?: Maybe<Sensor>;
   serverInfo: ServerInfo;
   /** Receive metadata about an invite by the invite token */
   serverInviteByToken?: Maybe<ServerInvite>;
@@ -4584,6 +4596,11 @@ export type QueryProjectArgs = {
 export type QueryProjectInviteArgs = {
   projectId: Scalars['String']['input'];
   token?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QuerySensorArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -5835,6 +5852,8 @@ export type SubscriptionWorkspaceUpdatedArgs = {
 
 export type TelemetryReading = {
   __typename?: 'TelemetryReading';
+  compressorDuty: Scalars['Float']['output'];
+  currentA: Scalars['Float']['output'];
   powerState: DevicePowerState;
   temperature: Scalars['Float']['output'];
   ts: Scalars['DateTime']['output'];
@@ -9217,8 +9236,10 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
 export type DeviceStateResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DeviceState'] = ResolversParentTypes['DeviceState']> = {
   ambientTemperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   assetId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  compressorDuty?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   cumulativeCost?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   cumulativeKwh?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  currentA?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   currentTemperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   nominalPowerKw?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   powerState?: Resolver<ResolversTypes['DevicePowerState'], ParentType, ContextType>;
@@ -10099,6 +10120,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   otherUser?: Resolver<Maybe<ResolversTypes['LimitedUser']>, ParentType, ContextType, RequireFields<QueryOtherUserArgs, 'id'>>;
   project?: Resolver<ResolversTypes['Project'], ParentType, ContextType, RequireFields<QueryProjectArgs, 'id'>>;
   projectInvite?: Resolver<Maybe<ResolversTypes['PendingStreamCollaborator']>, ParentType, ContextType, RequireFields<QueryProjectInviteArgs, 'projectId'>>;
+  sensor?: Resolver<Maybe<ResolversTypes['Sensor']>, ParentType, ContextType, RequireFields<QuerySensorArgs, 'id'>>;
   serverInfo?: Resolver<ResolversTypes['ServerInfo'], ParentType, ContextType>;
   serverInviteByToken?: Resolver<Maybe<ResolversTypes['ServerInvite']>, ParentType, ContextType, Partial<QueryServerInviteByTokenArgs>>;
   serverStats?: Resolver<ResolversTypes['ServerStats'], ParentType, ContextType>;
@@ -10537,6 +10559,8 @@ export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType exten
 };
 
 export type TelemetryReadingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['TelemetryReading'] = ResolversParentTypes['TelemetryReading']> = {
+  compressorDuty?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  currentA?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   powerState?: Resolver<ResolversTypes['DevicePowerState'], ParentType, ContextType>;
   temperature?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   ts?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;

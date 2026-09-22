@@ -293,6 +293,15 @@ type DeviceState {
   nominalPowerKw: Float!
   cumulativeKwh: Float!
   cumulativeCost: Float!
+  """
+  Fraction (0-1) of the tick the compressor spent running - cycles down
+  once the room is near setpoint, same as a real split AC.
+  """
+  compressorDuty: Float!
+  """
+  Simulated instantaneous current draw, as a real PZEM-004T would report.
+  """
+  currentA: Float!
   updatedAt: DateTime!
 }
 
@@ -300,6 +309,8 @@ type TelemetryReading {
   ts: DateTime!
   temperature: Float!
   powerState: DevicePowerState!
+  compressorDuty: Float!
+  currentA: Float!
 }
 
 type EnergyReading {

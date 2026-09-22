@@ -50,6 +50,8 @@ export const ensureDeviceStateFactory =
       nominalPowerKw: 1.2,
       cumulativeKwh: 0,
       cumulativeCost: 0,
+      compressorDuty: 0,
+      currentA: 0,
       updatedAt: new Date()
     }
     const [row] = await tables.deviceStates(deps.db).insert(defaults).returning('*')

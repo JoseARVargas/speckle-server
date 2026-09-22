@@ -106,6 +106,8 @@ export type DeviceStateRecord = {
   nominalPowerKw: number
   cumulativeKwh: number
   cumulativeCost: number
+  compressorDuty: number
+  currentA: number
   updatedAt: Date
 }
 
@@ -128,6 +130,8 @@ export type TelemetryReadingRecord = {
   ts: Date
   temperature: number
   powerState: DevicePowerState
+  compressorDuty: number
+  currentA: number
 }
 
 export type MaintenanceOrderType = 'corrective' | 'preventive'

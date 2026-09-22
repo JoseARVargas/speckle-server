@@ -25,8 +25,20 @@ const NOISE_DEGREES = 0.15
 // Below this distance from the setpoint, the compressor is treated as
 // cycling (low duty) rather than running flat out.
 const CYCLING_BAND_DEGREES = 1
+// Single-phase line voltage assumed for deriving simulated amperage from
+// simulated power draw - matches what a real PZEM-004T would be wired at.
+const VOLTAGE_V = 220
+// A real remote (IR) gives no direct acknowledgement - the UI only ever
+// finds out a command took effect once telemetry reflects it. Delaying the
+// command's application here (rather than applying it synchronously) keeps
+// the frontend honest about that instead of assuming instant confirmation.
+const COMMAND_APPLY_DELAY_MS = [2000, 5000] as const
 
 const jitter = (spread: number) => (Math.random() * 2 - 1) * spread
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const randomDelay = () =>
+  COMMAND_APPLY_DELAY_MS[0] +
+  Math.random() * (COMMAND_APPLY_DELAY_MS[1] - COMMAND_APPLY_DELAY_MS[0])
 
 /**
  * One simulation step for every asset that has ever been turned on or had
@@ -59,14 +71,20 @@ export const runSimulationTickFactory =
         (target - state.currentTemperature) * convergence +
         jitter(NOISE_DEGREES)
 
-      let powerKw = 0
+      // The compressor doesn't run flat out the whole time the unit is "on" -
+      // it cycles down to a low duty once the room is near setpoint, same as
+      // a real split AC.
+      let compressorDuty = 0
       if (isOn) {
         const distance = Math.abs(state.currentTemperature - state.setpoint)
-        powerKw =
-          distance > CYCLING_BAND_DEGREES
-            ? state.nominalPowerKw
-            : state.nominalPowerKw * (0.2 + Math.random() * 0.15)
+        compressorDuty =
+          distance > CYCLING_BAND_DEGREES ? 1 : 0.2 + Math.random() * 0.15
       }
+      const powerKw = state.nominalPowerKw * compressorDuty
+      // Reported amperage gets its own noise on top of the (noise-free)
+      // power used for energy accounting, so the accumulated kWh stays
+      // clean while the live reading still looks like a real sensor.
+      const currentA = isOn ? ((powerKw * 1000) / VOLTAGE_V) * (1 + jitter(0.02)) : 0
 
       const energyKwhInterval = powerKw * (TICK_SECONDS / 3600)
       const cumulativeKwh = state.cumulativeKwh + energyKwhInterval
@@ -76,14 +94,22 @@ export const runSimulationTickFactory =
 
       await updateDeviceStateFactory(deps)({
         assetId: state.assetId,
-        update: { currentTemperature: nextTemperature, cumulativeKwh, cumulativeCost }
+        update: {
+          currentTemperature: nextTemperature,
+          cumulativeKwh,
+          cumulativeCost,
+          compressorDuty,
+          currentA
+        }
       })
       await insertTelemetryReadingFactory(deps)({
         assetId: state.assetId,
         projectId: state.projectId,
         ts: now,
         temperature: nextTemperature,
-        powerState: state.powerState
+        powerState: state.powerState,
+        compressorDuty,
+        currentA
       })
       await insertEnergyReadingFactory(deps)({
         assetId: state.assetId,
@@ -140,6 +166,7 @@ export const setAssetPowerFactory =
       issuedBy: params.userId,
       issuedAt: new Date()
     })
+    await sleep(randomDelay())
     return await updateDeviceStateFactory(deps)({
       assetId: params.assetId,
       update: { powerState: params.powerState }
@@ -167,6 +194,7 @@ export const setAssetTemperatureFactory =
       issuedBy: params.userId,
       issuedAt: new Date()
     })
+    await sleep(randomDelay())
     return await updateDeviceStateFactory(deps)({
       assetId: params.assetId,
       update: { setpoint: params.setpoint }
