@@ -23,6 +23,10 @@ import { getFeatureFlags } from '@speckle/shared/environment'
 import type { JobPayloadV1 } from '@speckle/shared/workers/fileimport'
 import type { EventBusEmit } from '@/modules/shared/services/eventBus'
 import { FileuploadEvents } from '@/modules/fileuploads/domain/events'
+import {
+  buildDigitalTwinAsset,
+  listDigitalTwinAssetsFactory
+} from '@/modules/fileuploads/services/digitalTwin'
 import type { BranchRecord } from '@/modules/core/helpers/types'
 import type { BasicTestUser } from '@/test/authHelper'
 import { createTestUser } from '@/test/authHelper'
@@ -34,6 +38,142 @@ const { createBranch, garbageCollector } = initUploadTestEnvironment()
 const { FF_NEXT_GEN_FILE_IMPORTER_ENABLED } = getFeatureFlags()
 
 describe('FileUploads @fileuploads', () => {
+  it('builds a digital twin asset snapshot from a Speckle file import result', () => {
+    const upload = {
+      id: 'blob-123',
+      projectId: 'project-123',
+      modelId: 'model-123',
+      userId: 'user-123',
+      fileName: 'facility.ifc',
+      fileType: 'ifc',
+      fileSize: 42,
+      uploadComplete: true,
+      uploadDate: new Date('2026-09-09T00:00:00.000Z'),
+      convertedStatus: FileUploadConvertedStatus.Completed,
+      convertedLastUpdate: new Date('2026-09-09T00:00:05.000Z'),
+      convertedMessage: 'Import finished',
+      convertedCommitId: 'version-123',
+      metadata: { description: 'Main building model' },
+      performanceData: {
+        durationSeconds: 10,
+        downloadDurationSeconds: 4,
+        parseDurationSeconds: 6
+      },
+      discipline: 'ST',
+      suitabilityStatus: 'shared' as const,
+      revision: 'P02'
+    }
+
+    const asset = buildDigitalTwinAsset({
+      upload,
+      jobResult: {
+        status: 'success',
+        warnings: [],
+        result: {
+          versionId: 'version-123',
+          durationSeconds: 10,
+          downloadDurationSeconds: 4,
+          parseDurationSeconds: 6,
+          parser: 'speckle_ifc'
+        }
+      }
+    })
+
+    expect(asset).to.deep.include({
+      id: 'blob-123',
+      projectId: 'project-123',
+      modelId: 'model-123',
+      fileName: 'facility.ifc',
+      fileType: 'ifc',
+      source: 'speckle',
+      versionId: 'version-123',
+      status: 'completed',
+      discipline: 'ST',
+      suitabilityStatus: 'shared',
+      revision: 'P02'
+    })
+    expect(asset.metadata).to.deep.equal({ description: 'Main building model' })
+    expect(asset.performanceData).to.deep.equal({
+      durationSeconds: 10,
+      downloadDurationSeconds: 4,
+      parseDurationSeconds: 6
+    })
+  })
+
+  it('lists project file imports as digital twin assets', async () => {
+    const uploads = [
+      {
+        id: 'blob-1',
+        streamId: 'project-123',
+        branchName: 'main',
+        modelId: 'model-123',
+        userId: 'user-123',
+        fileName: 'facility.ifc',
+        fileType: 'ifc',
+        fileSize: 42,
+        uploadComplete: true,
+        uploadDate: new Date('2026-09-09T00:00:00.000Z'),
+        convertedStatus: FileUploadConvertedStatus.Completed,
+        convertedLastUpdate: new Date('2026-09-09T00:00:05.000Z'),
+        convertedMessage: null,
+        convertedCommitId: 'version-1',
+        metadata: null,
+        performanceData: null,
+        discipline: null,
+        suitabilityStatus: null,
+        revision: null
+      },
+      {
+        id: 'blob-2',
+        streamId: 'project-123',
+        branchName: 'main',
+        modelId: null,
+        userId: 'user-123',
+        fileName: 'broken.ifc',
+        fileType: 'ifc',
+        fileSize: null,
+        uploadComplete: true,
+        uploadDate: new Date('2026-09-09T00:00:00.000Z'),
+        convertedStatus: FileUploadConvertedStatus.Error,
+        convertedLastUpdate: new Date('2026-09-09T00:00:05.000Z'),
+        convertedMessage: 'Boom',
+        convertedCommitId: null,
+        metadata: null,
+        performanceData: null,
+        discipline: null,
+        suitabilityStatus: null,
+        revision: null
+      }
+    ]
+
+    const listDigitalTwinAssets = listDigitalTwinAssetsFactory({
+      getProjectUploads: async () => ({
+        items: uploads,
+        totalCount: 2,
+        cursor: 'next-cursor'
+      })
+    })
+
+    const res = await listDigitalTwinAssets({
+      projectId: 'project-123',
+      limit: 25
+    })
+
+    expect(res.totalCount).to.equal(2)
+    expect(res.cursor).to.equal('next-cursor')
+    expect(res.items.map((i) => i.id)).to.deep.equal(['blob-1', 'blob-2'])
+    expect(res.items[0]).to.deep.include({
+      projectId: 'project-123',
+      status: 'completed',
+      versionId: 'version-1',
+      source: 'speckle'
+    })
+    expect(res.items[1]).to.deep.include({
+      status: 'error',
+      versionId: null
+    })
+  })
+
   let userOne: BasicTestUser
   let createdStreamId: string
   let createdBranch: BranchRecord

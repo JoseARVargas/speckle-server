@@ -1,0 +1,96 @@
+# Documents (plantas, manuais, ARTs, ...) attached to a facility, optionally
+# scoped to one Asset or Space. The file itself lives in Speckle's own
+# generic blob storage REST API (POST/GET/DELETE
+# /api/stream/:projectId/blob... - unrelated to the model-import pipeline
+# behind the "Modelos" tab) - these mutations only manage the metadata
+# that blob storage doesn't have (title, category, what it's about).
+enum DocumentCategory {
+  drawing
+  manual
+  art
+  other
+}
+
+type FacilityDocument {
+  id: String!
+  facilityId: String!
+  assetId: String
+  asset: Asset
+  spaceId: String
+  space: Space
+  title: String!
+  category: DocumentCategory
+  description: String
+  """
+  Id of the underlying blob - fetch/download it via
+  GET {serverUrl}/api/stream/{projectId}/blob/{blobId}.
+  """
+  blobId: String!
+  fileName: String!
+  fileSize: Int
+  uploadedBy: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type FacilityDocumentCollection {
+  totalCount: Int!
+  cursor: String
+  items: [FacilityDocument!]!
+}
+
+input GetFacilityDocumentsInput {
+  limit: Int = 50
+  cursor: String
+  category: DocumentCategory
+  assetId: String
+  spaceId: String
+}
+
+extend type Facility {
+  documents(input: GetFacilityDocumentsInput): FacilityDocumentCollection!
+}
+
+input CreateFacilityDocumentInput {
+  projectId: String!
+  title: String!
+  category: DocumentCategory
+  description: String
+  assetId: String
+  spaceId: String
+  """
+  The file must already be uploaded to Speckle's blob storage (POST
+  /api/stream/{projectId}/blob) before calling this - this only records
+  the resulting blobId/fileName/fileSize alongside facility-specific
+  metadata.
+  """
+  blobId: String!
+  fileName: String!
+  fileSize: Int
+}
+
+input UpdateFacilityDocumentInput {
+  id: String!
+  title: String
+  category: DocumentCategory
+  description: String
+  assetId: String
+  spaceId: String
+}
+
+type DocumentMutations {
+  create(input: CreateFacilityDocumentInput!): FacilityDocument!
+  update(input: UpdateFacilityDocumentInput!): FacilityDocument!
+  """
+  Deletes the metadata row and the underlying blob from storage.
+  """
+  delete(id: String!): Boolean!
+}
+
+extend type Mutation {
+  """
+  Manage a project's facility documents. Requires publish access to the
+  target project.
+  """
+  documentMutations: DocumentMutations! @hasServerRole(role: SERVER_GUEST)
+}

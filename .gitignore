@@ -67,6 +67,8 @@ kubeconfig
 minio-data/
 postgres-data/
 redis-data/
+speckle-server.log
+infra-aws/server.env
 
 packages/fileimport-service/src/ifc-dotnet/output
 

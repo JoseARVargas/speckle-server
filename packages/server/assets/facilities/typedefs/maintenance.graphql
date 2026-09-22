@@ -1,0 +1,100 @@
+# A single work-order model for both "Chamados" (corrective, ad-hoc) and
+# "Manutenção" (preventive, scheduled) - they only ever differed by `type`,
+# so one screen/table covers both instead of duplicating CRUD.
+enum MaintenanceOrderType {
+  corrective
+  preventive
+}
+
+enum MaintenanceOrderStatus {
+  open
+  in_progress
+  done
+  cancelled
+}
+
+enum MaintenanceOrderPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+type MaintenanceOrder {
+  id: String!
+  facilityId: String!
+  assetId: String
+  """
+  Null for a facility-wide order not tied to one registered asset.
+  """
+  asset: Asset
+  title: String!
+  description: String
+  type: MaintenanceOrderType!
+  status: MaintenanceOrderStatus!
+  priority: MaintenanceOrderPriority
+  reportedBy: String
+  """
+  Free text for now - there's no team/assignee directory in this app yet.
+  """
+  assignedTo: String
+  dueDate: DateTime
+  completedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MaintenanceOrderCollection {
+  totalCount: Int!
+  cursor: String
+  items: [MaintenanceOrder!]!
+}
+
+input GetMaintenanceOrdersInput {
+  limit: Int = 25
+  cursor: String
+  status: MaintenanceOrderStatus
+  type: MaintenanceOrderType
+  assetId: String
+}
+
+extend type Facility {
+  maintenanceOrders(input: GetMaintenanceOrdersInput): MaintenanceOrderCollection!
+}
+
+input CreateMaintenanceOrderInput {
+  projectId: String!
+  assetId: String
+  title: String!
+  description: String
+  type: MaintenanceOrderType!
+  priority: MaintenanceOrderPriority
+  assignedTo: String
+  dueDate: DateTime
+}
+
+input UpdateMaintenanceOrderInput {
+  id: String!
+  title: String
+  description: String
+  type: MaintenanceOrderType
+  status: MaintenanceOrderStatus
+  priority: MaintenanceOrderPriority
+  assetId: String
+  assignedTo: String
+  dueDate: DateTime
+}
+
+type MaintenanceMutations {
+  create(input: CreateMaintenanceOrderInput!): MaintenanceOrder!
+  update(input: UpdateMaintenanceOrderInput!): MaintenanceOrder!
+  delete(id: String!): Boolean!
+}
+
+extend type Mutation {
+  """
+  Manage a project's maintenance/work orders. Requires publish access to
+  the target project.
+  """
+  maintenanceMutations: MaintenanceMutations! @hasServerRole(role: SERVER_GUEST)
+}
