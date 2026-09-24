@@ -501,6 +501,12 @@ export type Asset = {
   facilityId: Scalars['String']['output'];
   healthSignals: Array<DeviceHealthSignal>;
   id: Scalars['String']['output'];
+  /**
+   * System-generated global identity code (PHD-NNNNNN-C, Luhn check digit) -
+   * distinct from tagNumber, which tracks the BIM model's own tag property.
+   * Assigned once at creation and never editable via the API.
+   */
+  identityCode: Scalars['String']['output'];
   /** COBie Component sheet attributes. */
   installDate?: Maybe<Scalars['DateTime']['output']>;
   maintenanceReports: Array<MaintenanceReport>;
@@ -8908,6 +8914,7 @@ export type AssetResolvers<ContextType = GraphQLContext, ParentType extends Reso
   facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   healthSignals?: Resolver<Array<ResolversTypes['DeviceHealthSignal']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  identityCode?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   installDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   maintenanceReports?: Resolver<Array<ResolversTypes['MaintenanceReport']>, ParentType, ContextType, RequireFields<AssetMaintenanceReportsArgs, 'limit'>>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

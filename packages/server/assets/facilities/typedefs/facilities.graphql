@@ -233,6 +233,12 @@ type Asset {
   element's IfcTag/IfcName property. Unique per facility.
   """
   tagNumber: String!
+  """
+  System-generated global identity code (PHD-NNNNNN-C, Luhn check digit) -
+  distinct from tagNumber, which tracks the BIM model's own tag property.
+  Assigned once at creation and never editable via the API.
+  """
+  identityCode: String!
   name: String
   assetTypeId: String
   assetType: AssetType

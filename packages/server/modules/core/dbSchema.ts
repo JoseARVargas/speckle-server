@@ -614,6 +614,7 @@ export const Assets = buildTableHelper('assets', [
   'projectId',
   'facilityId',
   'tagNumber',
+  'identityCode',
   'name',
   'assetTypeId',
   'spaceId',

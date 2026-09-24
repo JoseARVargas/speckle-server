@@ -75,6 +75,12 @@ export type AssetRecord = {
   projectId: string
   facilityId: string
   tagNumber: string
+  /**
+   * PHD-NNNNNN-C - system-generated global identity code (ISO/IEC
+   * 81346-style: identity/location/function kept separate). Never edited
+   * after creation - see services/identity.ts.
+   */
+  identityCode: string
   name: Nullable<string>
   assetTypeId: Nullable<string>
   spaceId: Nullable<string>

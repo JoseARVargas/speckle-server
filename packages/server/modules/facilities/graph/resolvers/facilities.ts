@@ -6,6 +6,7 @@ import { throwIfResourceAccessNotAllowed } from '@/modules/core/helpers/token'
 import { TokenResourceIdentifierType } from '@/modules/core/domain/tokens/types'
 import type { GraphQLContext } from '@/modules/shared/helpers/typeHelper'
 import { ensureFacilityFactory, newId } from '@/modules/facilities/services/facilities'
+import { generateAssetIdentityCodeFactory } from '@/modules/facilities/services/identity'
 import {
   getFacilityByProjectIdFactory,
   updateFacilityFactory,
@@ -331,11 +332,13 @@ const facilityMutations = {
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
     const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
+    const identityCode = await generateAssetIdentityCodeFactory({ db: projectDb })()
     const asset = await insertAssetFactory({ db: projectDb })({
       id: newId(),
       projectId,
       facilityId: facility.id,
       tagNumber,
+      identityCode,
       name: name ?? null,
       assetTypeId: assetTypeId ?? null,
       spaceId: spaceId ?? null,
