@@ -1440,7 +1440,9 @@ export type CreateFacilityDocumentInput = {
   fileName: Scalars['String']['input'];
   fileSize?: InputMaybe<Scalars['Int']['input']>;
   projectId: Scalars['String']['input'];
+  revision?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<DigitalTwinAssetSuitabilityStatus>;
   title: Scalars['String']['input'];
 };
 
@@ -2074,8 +2076,19 @@ export type FacilityDocument = {
   fileName: Scalars['String']['output'];
   fileSize?: Maybe<Scalars['Int']['output']>;
   id: Scalars['String']['output'];
+  /**
+   * Free-text revision code, e.g. "P01" while work_in_progress, "C02" once
+   * shared/published (the naming convention switches prefix letter on status
+   * transitions and restarts the count).
+   */
+  revision?: Maybe<Scalars['String']['output']>;
   space?: Maybe<Space>;
   spaceId?: Maybe<Scalars['String']['output']>;
+  /**
+   * ISO 19650-style suitability - same 4 states as a model version's
+   * suitabilityStatus, so documents and models share one status vocabulary.
+   */
+  status: DigitalTwinAssetSuitabilityStatus;
   title: Scalars['String']['output'];
   updatedAt: Scalars['DateTime']['output'];
   uploadedBy?: Maybe<Scalars['String']['output']>;
@@ -6112,7 +6125,9 @@ export type UpdateFacilityDocumentInput = {
   category?: InputMaybe<DocumentCategory>;
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['String']['input'];
+  revision?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<DigitalTwinAssetSuitabilityStatus>;
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -9540,8 +9555,10 @@ export type FacilityDocumentResolvers<ContextType = GraphQLContext, ParentType e
   fileName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   fileSize?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  revision?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
   spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['DigitalTwinAssetSuitabilityStatus'], ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   uploadedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

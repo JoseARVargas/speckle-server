@@ -28,6 +28,17 @@ type FacilityDocument {
   blobId: String!
   fileName: String!
   fileSize: Int
+  """
+  ISO 19650-style suitability - same 4 states as a model version's
+  suitabilityStatus, so documents and models share one status vocabulary.
+  """
+  status: DigitalTwinAssetSuitabilityStatus!
+  """
+  Free-text revision code, e.g. "P01" while work_in_progress, "C02" once
+  shared/published (the naming convention switches prefix letter on status
+  transitions and restarts the count).
+  """
+  revision: String
   uploadedBy: String
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -67,6 +78,8 @@ input CreateFacilityDocumentInput {
   blobId: String!
   fileName: String!
   fileSize: Int
+  status: DigitalTwinAssetSuitabilityStatus
+  revision: String
 }
 
 input UpdateFacilityDocumentInput {
@@ -76,6 +89,8 @@ input UpdateFacilityDocumentInput {
   description: String
   assetId: String
   spaceId: String
+  status: DigitalTwinAssetSuitabilityStatus
+  revision: String
 }
 
 type DocumentMutations {

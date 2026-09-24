@@ -715,6 +715,8 @@ export const FacilityDocuments = buildTableHelper('facility_documents', [
   'blobId',
   'fileName',
   'fileSize',
+  'status',
+  'revision',
   'uploadedBy',
   'createdAt',
   'updatedAt'

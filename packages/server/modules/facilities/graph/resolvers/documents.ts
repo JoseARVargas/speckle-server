@@ -23,7 +23,10 @@ import {
 } from '@/modules/blobstorage/repositories'
 import { deleteObjectFactory } from '@/modules/blobstorage/repositories/blobs'
 import { fullyDeleteBlobFactory } from '@/modules/blobstorage/services/management'
-import type { DocumentCategory } from '@/modules/facilities/helpers/types'
+import type {
+  DocumentCategory,
+  DocumentStatus
+} from '@/modules/facilities/helpers/types'
 
 const documentMutations = {
   async create(
@@ -39,6 +42,8 @@ const documentMutations = {
         blobId: string
         fileName: string
         fileSize?: number | null
+        status?: DocumentStatus | null
+        revision?: string | null
       }
     },
     ctx: GraphQLContext
@@ -52,7 +57,9 @@ const documentMutations = {
       spaceId,
       blobId,
       fileName,
-      fileSize
+      fileSize,
+      status,
+      revision
     } = args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
@@ -69,6 +76,8 @@ const documentMutations = {
       blobId,
       fileName,
       fileSize: fileSize ?? null,
+      status: status ?? 'work_in_progress',
+      revision: revision ?? 'P01',
       uploadedBy: ctx.userId ?? null,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -85,11 +94,14 @@ const documentMutations = {
         description?: string | null
         assetId?: string | null
         spaceId?: string | null
+        status?: DocumentStatus | null
+        revision?: string | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { id, title, category, description, assetId, spaceId } = args.input
+    const { id, title, category, description, assetId, spaceId, status, revision } =
+      args.input
     const document = await getFacilityDocumentByIdFactory({ db })({ id })
     if (!document) throw new NotFoundError('Document not found')
     await assertCanManageFacility(ctx, document.projectId)
@@ -101,7 +113,9 @@ const documentMutations = {
         ...(category !== undefined ? { category } : {}),
         ...(description !== undefined ? { description } : {}),
         ...(assetId !== undefined ? { assetId } : {}),
-        ...(spaceId !== undefined ? { spaceId } : {})
+        ...(spaceId !== undefined ? { spaceId } : {}),
+        ...(status !== undefined && status !== null ? { status } : {}),
+        ...(revision !== undefined ? { revision } : {})
       }
     })
   },

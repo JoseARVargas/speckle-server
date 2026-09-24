@@ -168,6 +168,14 @@ export type MaintenanceOrderRecord = {
 
 export type DocumentCategory = 'drawing' | 'manual' | 'art' | 'other'
 
+/**
+ * Same 4 states as DigitalTwinAssetSuitabilityStatus (fileuploads module) -
+ * ISO 19650-style suitability, simplified from the standard's S0-S7 codes.
+ * Kept as a separate type (rather than importing across modules) since the
+ * two modules evolve independently, but the values must stay in sync.
+ */
+export type DocumentStatus = 'work_in_progress' | 'shared' | 'published' | 'archived'
+
 export type FacilityDocumentRecord = {
   id: string
   projectId: string
@@ -181,6 +189,9 @@ export type FacilityDocumentRecord = {
   blobId: string
   fileName: string
   fileSize: Nullable<number>
+  status: DocumentStatus
+  /** Free-text revision code, e.g. "P01" while work_in_progress, "C02" once shared/published. */
+  revision: Nullable<string>
   uploadedBy: Nullable<string>
   createdAt: Date
   updatedAt: Date
