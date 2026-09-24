@@ -78,6 +78,26 @@ export async function assertCanManageFacility(ctx: GraphQLContext, projectId: st
 }
 
 /**
+ * Read-side counterpart of assertCanManageFacility, for root queries that
+ * fetch a facility record straight by id. Fields nested under Project inherit
+ * core's project access check; these root lookups don't, so without this any
+ * caller holding an id could read another project's assets/sensors. Mirrors
+ * the gate core's Query.project uses.
+ */
+export async function assertCanReadFacility(ctx: GraphQLContext, projectId: string) {
+  throwIfResourceAccessNotAllowed({
+    resourceId: projectId,
+    resourceType: TokenResourceIdentifierType.Project,
+    resourceAccessRules: ctx.resourceAccessRules
+  })
+  const canRead = await ctx.authPolicies.project.canRead({
+    userId: ctx.userId,
+    projectId
+  })
+  throwIfAuthNotOk(canRead)
+}
+
+/**
  * Server-side twin of the UI gate that hides power/temperature controls for
  * non-device types (furniture, structural elements, ...) - stops someone
  * from turning "on" a piece of furniture by calling the mutation directly.
@@ -797,9 +817,11 @@ export default {
       const type = await getAssetTypeByIdFactory({ db })({ id: args.id })
       return type ?? null
     },
-    async asset(_parent: unknown, args: { id: string }) {
+    async asset(_parent: unknown, args: { id: string }, ctx: GraphQLContext) {
       const asset = await getAssetByIdFactory({ db })({ id: args.id })
-      return asset ?? null
+      if (!asset) return null
+      await assertCanReadFacility(ctx, asset.projectId)
+      return asset
     }
   },
 

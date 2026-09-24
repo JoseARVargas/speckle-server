@@ -2,7 +2,10 @@ import { db } from '@/db/knex'
 import { getProjectDbClient } from '@/modules/multiregion/utils/dbSelector'
 import { NotFoundError } from '@/modules/shared/errors'
 import type { GraphQLContext } from '@/modules/shared/helpers/typeHelper'
-import { assertCanManageFacility } from '@/modules/facilities/graph/resolvers/facilities'
+import {
+  assertCanManageFacility,
+  assertCanReadFacility
+} from '@/modules/facilities/graph/resolvers/facilities'
 import { ensureFacilityFactory, newId } from '@/modules/facilities/services/facilities'
 import { generateSensorApiKey } from '@/modules/facilities/services/sensors'
 import {
@@ -150,9 +153,11 @@ const sensorMutations = {
 
 export default {
   Query: {
-    async sensor(_parent: unknown, args: { id: string }) {
+    async sensor(_parent: unknown, args: { id: string }, ctx: GraphQLContext) {
       const sensor = await getSensorByIdFactory({ db })({ id: args.id })
-      return sensor ?? null
+      if (!sensor) return null
+      await assertCanReadFacility(ctx, sensor.projectId)
+      return sensor
     }
   },
 
