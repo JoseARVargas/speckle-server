@@ -7,7 +7,10 @@ import type {
   GetModelUploadsItems,
   GetModelUploadsTotalCount,
   InsertNewUploadAndNotifyV2,
-  InsertNewUploadAndNotify
+  InsertNewUploadAndNotify,
+  GetProjectUploads,
+  GetProjectUploadsItems,
+  GetProjectUploadsTotalCount
 } from '@/modules/fileuploads/domain/operations'
 import type { EventBusEmit } from '@/modules/shared/services/eventBus'
 import { FileuploadEvents } from '@/modules/fileuploads/domain/events'
@@ -105,6 +108,26 @@ export const getModelUploadsFactory =
         ? { items: [], cursor: null }
         : deps.getModelUploadsItems(params),
       deps.getModelUploadsTotalCount(params)
+    ])
+
+    return {
+      items,
+      totalCount,
+      cursor
+    }
+  }
+
+export const getProjectUploadsFactory =
+  (deps: {
+    getProjectUploadsItems: GetProjectUploadsItems
+    getProjectUploadsTotalCount: GetProjectUploadsTotalCount
+  }): GetProjectUploads =>
+  async (params) => {
+    const [{ items, cursor }, totalCount] = await Promise.all([
+      params.limit === 0
+        ? { items: [], cursor: null }
+        : deps.getProjectUploadsItems(params),
+      deps.getProjectUploadsTotalCount(params)
     ])
 
     return {

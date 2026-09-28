@@ -125,3 +125,27 @@ export type GetModelUploads = (params: GetModelUploadsArgs) => Promise<{
   totalCount: number
   cursor: string | null
 }>
+
+export type GetProjectUploadsBaseArgs = {
+  projectId: string
+}
+
+export type GetProjectUploadsArgs = GetProjectUploadsBaseArgs & {
+  limit?: number
+  cursor?: string | null
+}
+
+export type GetProjectUploadsItems = (params: GetProjectUploadsArgs) => Promise<{
+  items: FileUploadRecord[]
+  cursor: string | null
+}>
+
+export type GetProjectUploadsTotalCount = (
+  params: GetProjectUploadsBaseArgs
+) => Promise<number>
+
+export type GetProjectUploads = (params: GetProjectUploadsArgs) => Promise<{
+  items: FileUploadRecord[]
+  totalCount: number
+  cursor: string | null
+}>

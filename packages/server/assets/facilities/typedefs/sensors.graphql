@@ -1,0 +1,137 @@
+# Sensors are registered independently of Assets (one might monitor a whole
+# Space, or nothing in particular yet) but can optionally be linked to one.
+# Reading ingestion is a separate, device-authenticated REST endpoint - see
+# Mutation.sensorMutations below - not a GraphQL mutation, since a physical
+# sensor/gateway has no Speckle user session.
+enum SensorType {
+  temperature
+  humidity
+  co2
+  occupancy
+  power
+  pressure
+  other
+}
+
+enum SensorStatus {
+  active
+  inactive
+}
+
+type Sensor {
+  id: String!
+  facilityId: String!
+  assetId: String
+  asset: Asset
+  spaceId: String
+  space: Space
+  name: String!
+  type: SensorType!
+  unit: String
+  manufacturer: String
+  model: String
+  serialNumber: String
+  status: SensorStatus!
+  """
+  Denormalized from the most recent reading, so the UI can show a current
+  value without querying reading history.
+  """
+  lastReadingValue: Float
+  lastReadingAt: DateTime
+  """
+  Reading history, most recent first.
+  """
+  readings(limit: Int = 100): [SensorReading!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SensorReading {
+  ts: DateTime!
+  value: Float!
+}
+
+type SensorCollection {
+  totalCount: Int!
+  cursor: String
+  items: [Sensor!]!
+}
+
+input GetSensorsInput {
+  limit: Int = 50
+  cursor: String
+  type: SensorType
+  status: SensorStatus
+  assetId: String
+  spaceId: String
+}
+
+extend type Facility {
+  sensors(input: GetSensorsInput): SensorCollection!
+}
+
+extend type Query {
+  """
+  Fetch a single sensor directly, e.g. to load its reading history without
+  refetching the whole facility's sensor list.
+  """
+  sensor(id: String!): Sensor
+}
+
+input CreateSensorInput {
+  projectId: String!
+  name: String!
+  type: SensorType!
+  unit: String
+  manufacturer: String
+  model: String
+  serialNumber: String
+  assetId: String
+  spaceId: String
+}
+
+input UpdateSensorInput {
+  id: String!
+  name: String
+  type: SensorType
+  unit: String
+  manufacturer: String
+  model: String
+  serialNumber: String
+  status: SensorStatus
+  assetId: String
+  spaceId: String
+}
+
+"""
+Returned only at creation (or explicit key regeneration) - the raw API key
+is never retrievable again afterwards, only its hash is stored.
+"""
+type SensorWithApiKey {
+  sensor: Sensor!
+  apiKey: String!
+}
+
+type SensorMutations {
+  create(input: CreateSensorInput!): SensorWithApiKey!
+  update(input: UpdateSensorInput!): Sensor!
+  """
+  Invalidates the current API key and issues a new one - use if a key is
+  lost or a device is retired/compromised.
+  """
+  regenerateApiKey(id: String!): SensorWithApiKey!
+  delete(id: String!): Boolean!
+}
+
+extend type Mutation {
+  """
+  Manage a project's sensors (registration/metadata only). Requires
+  publish access to the target project. Ingesting readings is a separate
+  REST endpoint, authenticated with the sensor's own API key instead of a
+  user session:
+  POST {serverUrl}/api/facilities/sensors/{projectId}/{sensorId}/readings
+  body: { "apiKey": "...", "value": 21.5, "ts": "2026-01-01T00:00:00Z" }
+  ("ts" optional, defaults to now)
+  """
+  sensorMutations: SensorMutations! @hasServerRole(role: SERVER_GUEST)
+}

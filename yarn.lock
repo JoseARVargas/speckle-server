@@ -46,6 +46,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@anthropic-ai/sdk@npm:0.120.0":
+  version: 0.120.0
+  resolution: "@anthropic-ai/sdk@npm:0.120.0"
+  dependencies:
+    json-schema-to-ts: "npm:^3.1.1"
+    standardwebhooks: "npm:^1.0.0"
+  peerDependencies:
+    zod: ^3.25.0 || ^4.0.0
+  peerDependenciesMeta:
+    zod:
+      optional: true
+  bin:
+    anthropic-ai-sdk: bin/cli
+  checksum: 10/9ce97731e1cfa9bf4f3fbd8301b7537ab56a39206aecba85699826a70eeb17131d3f140363af353f696c83e0fb47061b5b3ccd756b8331bee8ac9be48f478610
+  languageName: node
+  linkType: hard
+
 "@apidevtools/json-schema-ref-parser@npm:^11.7.0":
   version: 11.9.1
   resolution: "@apidevtools/json-schema-ref-parser@npm:11.9.1"
@@ -3144,6 +3161,13 @@ __metadata:
   version: 7.28.4
   resolution: "@babel/runtime@npm:7.28.4"
   checksum: 10/6c9a70452322ea80b3c9b2a412bcf60771819213a67576c8cec41e88a95bb7bf01fc983754cda35dc19603eef52df22203ccbf7777b9d6316932f9fb77c25163
+  languageName: node
+  linkType: hard
+
+"@babel/runtime@npm:^7.18.3":
+  version: 7.29.7
+  resolution: "@babel/runtime@npm:7.29.7"
+  checksum: 10/9883b4951787779fd382b121f22f92966d85f19434841f65fb00b2dfec232107e139683f47c6f252891826ad8ee18317b46c3a0e4819116a9885f47b46d7126a
   languageName: node
   linkType: hard
 
@@ -9965,6 +9989,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@speckle/server@workspace:packages/server"
   dependencies:
+    "@anthropic-ai/sdk": "npm:0.120.0"
     "@apollo/client": "npm:^3.7.0"
     "@apollo/rover": "npm:^0.36.1"
     "@apollo/server": "npm:^4.11.0"
@@ -10431,6 +10456,13 @@ __metadata:
   version: 1.2.7
   resolution: "@speed-highlight/core@npm:1.2.7"
   checksum: 10/45269bd3533d0c89d6888accebd725cb7389b13925c0c575d5595f546cdafebd0618d398c7790a908f1231067732007f15213addbf81f5557efe21faeef46c02
+  languageName: node
+  linkType: hard
+
+"@stablelib/base64@npm:^1.0.0":
+  version: 1.0.1
+  resolution: "@stablelib/base64@npm:1.0.1"
+  checksum: 10/93f3edb05d5a828a775d23ebde49884abeb456b8946942acbe6a0815630e769c59c06c7275983031c8707bdcefc1c62917aaa99522ff1ec5f457704c83b686da
   languageName: node
   linkType: hard
 
@@ -12871,8 +12903,8 @@ __metadata:
 
 "@types/react@file:./packages/frontend-2/type-augmentations/stubs/types__react::locator=root%40workspace%3A.":
   version: 0.0.0
-  resolution: "@types/react@file:./packages/frontend-2/type-augmentations/stubs/types__react#./packages/frontend-2/type-augmentations/stubs/types__react::hash=2ea486&locator=root%40workspace%3A."
-  checksum: 10/500d185a1e5fc9e977520f4704194ad2e4391cfb8ef7747ca9f2a59bc7a52b555726e6d59e212f4a6b11ee08f06737615224031f80b7da3e216a8905642280fe
+  resolution: "@types/react@file:./packages/frontend-2/type-augmentations/stubs/types__react#./packages/frontend-2/type-augmentations/stubs/types__react::hash=3341b8&locator=root%40workspace%3A."
+  checksum: 10/e8bc37abe6beea68fddb76a579cc3fac358b3603c587c1b740589544a2338a0acd98193b9b83c6cac90de61bb97435e673d4255e7698c33385d3f28dc6fc5aed
   languageName: node
   linkType: hard
 
@@ -20963,6 +20995,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fast-sha256@npm:^1.3.0":
+  version: 1.3.0
+  resolution: "fast-sha256@npm:1.3.0"
+  checksum: 10/3bef0491f10a254348ec11dcddb26e4d951cfd3b4c0662ea5843ad1be3fe184ed74d640df68565fcc60f6437548cddf49e3ac886f88a69e05b5142e862840bf9
+  languageName: node
+  linkType: hard
+
 "fast-xml-parser@npm:>=4.2.5":
   version: 4.5.3
   resolution: "fast-xml-parser@npm:4.5.3"
@@ -25137,6 +25176,16 @@ __metadata:
   version: 2.3.1
   resolution: "json-parse-even-better-errors@npm:2.3.1"
   checksum: 10/5f3a99009ed5f2a5a67d06e2f298cc97bc86d462034173308156f15b43a6e850be8511dc204b9b94566305da2947f7d90289657237d210351a39059ff9d666cf
+  languageName: node
+  linkType: hard
+
+"json-schema-to-ts@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "json-schema-to-ts@npm:3.1.1"
+  dependencies:
+    "@babel/runtime": "npm:^7.18.3"
+    ts-algebra: "npm:^2.0.0"
+  checksum: 10/9fd0490279d36ff8b4604cc10632df05e4e5f5ee1d0a77841c927623fc1e636c47eb4ace488018c4e9a2e7e5dde5520d0870e06dfc84b930d9c98c6eacd0f041
   languageName: node
   linkType: hard
 
@@ -33795,6 +33844,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"standardwebhooks@npm:^1.0.0":
+  version: 1.1.1
+  resolution: "standardwebhooks@npm:1.1.1"
+  dependencies:
+    "@stablelib/base64": "npm:^1.0.0"
+    fast-sha256: "npm:^1.3.0"
+  checksum: 10/50d1f5b923eacfc7a78ad45c3364f3879d47a6f2231c96c7d8efec8153f5405f847ee3d7b990fa22c1c0ed208beadba8777688c34b5c9a88b4004bb81a512400
+  languageName: node
+  linkType: hard
+
 "statuses@npm:2.0.1":
   version: 2.0.1
   resolution: "statuses@npm:2.0.1"
@@ -35300,6 +35359,13 @@ __metadata:
   version: 8.5.0
   resolution: "true-myth@npm:8.5.0"
   checksum: 10/f3f96d96df8f0bfb5d26c379bbe029b947349b9dabdd00afa939ff75e979864c951c647ba35b21a13d676a9b34d721bffd2a1e9f0750d5d2a588988f16de5bd0
+  languageName: node
+  linkType: hard
+
+"ts-algebra@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "ts-algebra@npm:2.0.0"
+  checksum: 10/b970eef64ca9594a77337e03b9c1732c1b7a0d2c4d316638b654e921a47b40c4cc42f41821445e9e54408d5dfdf4ecca27ffa59554373033b9c92dee8b52066d
   languageName: node
   linkType: hard
 

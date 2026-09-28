@@ -184,6 +184,11 @@ export function getAzureAdClientSecret() {
   return process.env.AZURE_AD_CLIENT_SECRET || undefined
 }
 
+/** Powers the facilities module's AI-generated predictive maintenance reports - unset means that feature is disabled. */
+export function getAnthropicApiKey() {
+  return process.env.ANTHROPIC_API_KEY || undefined
+}
+
 export function getMailchimpStatus() {
   return getBooleanFromEnv('MAILCHIMP_ENABLED', false)
 }

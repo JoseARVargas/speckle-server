@@ -4,6 +4,7 @@ import type {
   ProcessFileImportResult,
   UpdateFileUpload
 } from '@/modules/fileuploads/domain/operations'
+import { buildDigitalTwinAsset } from '@/modules/fileuploads/services/digitalTwin'
 import {
   jobResultStatusToFileUploadStatus,
   jobResultToConvertedMessage
@@ -137,11 +138,14 @@ export const onFileImportResultFactory =
       }
     })
 
+    const asset = buildDigitalTwinAsset({ upload: updatedFile, jobResult })
+
     await deps.eventEmit({
       eventName: FileuploadEvents.Finished,
       payload: {
         jobId: blobId,
-        jobResult
+        jobResult,
+        asset
       }
     })
 

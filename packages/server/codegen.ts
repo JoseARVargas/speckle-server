@@ -82,6 +82,8 @@ const config: CodegenConfig = {
           ProjectCollaborator:
             '@/modules/core/helpers/graphTypes#ProjectCollaboratorGraphQLReturn',
           FileUpload: '@/modules/fileuploads/helpers/types#FileUploadGraphQLReturn',
+          DigitalTwinAsset:
+            '@/modules/fileuploads/services/digitalTwin#DigitalTwinAssetGraphQLReturn',
           AutomateFunction:
             '@/modules/automate/helpers/graphTypes#AutomateFunctionGraphQLReturn',
           AutomateFunctionRelease:
