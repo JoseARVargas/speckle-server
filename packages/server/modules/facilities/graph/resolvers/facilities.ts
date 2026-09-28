@@ -31,6 +31,11 @@ import {
   insertAssetSystemFactory,
   updateAssetSystemFactory,
   deleteAssetSystemFactory,
+  listAssetClassesFactory,
+  getAssetClassByIdFactory,
+  insertAssetClassFactory,
+  updateAssetClassFactory,
+  deleteAssetClassFactory,
   listSystemsForAssetFactory,
   listAssetsFactory,
   countAssetsFactory,
@@ -42,6 +47,16 @@ import {
   getSystemEnergyBreakdownFactory
 } from '@/modules/facilities/repositories/facilities'
 import {
+  assertAssetClassCanBeDeletedFactory,
+  assertAssignableAssetClassFactory,
+  assertClassName,
+  validateAssetClassPathFactory
+} from '@/modules/facilities/services/assetClassification'
+import {
+  validateAssetNamingConfig,
+  validateIfcClasses
+} from '@/modules/facilities/services/assetNaming'
+import {
   getDeviceStateFactory,
   listTelemetryReadingsFactory,
   listEnergyReadingsFactory,
@@ -52,7 +67,12 @@ import {
   setAssetPowerFactory,
   setAssetTemperatureFactory
 } from '@/modules/facilities/services/simulation'
-import type { DevicePowerState } from '@/modules/facilities/helpers/types'
+import type {
+  AssetClassLevel,
+  AssetState,
+  AssetTenure,
+  DevicePowerState
+} from '@/modules/facilities/helpers/types'
 
 /**
  * All facility-registry mutations take a projectId and are gated the same
@@ -122,12 +142,14 @@ const facilityMutations = {
         projectId: string
         name?: string | null
         tagSourceProperty?: string | null
+        namingConfig?: Record<string, unknown> | null
         energyTariffPerKwh?: number | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { projectId, name, tagSourceProperty, energyTariffPerKwh } = args.input
+    const { projectId, name, tagSourceProperty, namingConfig, energyTariffPerKwh } =
+      args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
     await ensureFacilityFactory({ db: projectDb })({ projectId })
@@ -141,6 +163,9 @@ const facilityMutations = {
         ...(name !== undefined && name !== null ? { name } : {}),
         ...(tagSourceProperty !== undefined && tagSourceProperty !== null
           ? { tagSourceProperty }
+          : {}),
+        ...(namingConfig !== undefined && namingConfig !== null
+          ? { namingConfig: validateAssetNamingConfig(namingConfig) }
           : {}),
         ...(energyTariffPerKwh !== undefined && energyTariffPerKwh !== null
           ? { energyTariffPerKwh }
@@ -313,15 +338,100 @@ const facilityMutations = {
     return true
   },
 
+  async createAssetClass(
+    _parent: unknown,
+    args: {
+      input: {
+        projectId: string
+        parentId?: string | null
+        code: string
+        name: string
+        level: AssetClassLevel
+        ifcClasses?: string[] | null
+      }
+    },
+    ctx: GraphQLContext
+  ) {
+    const { projectId, parentId, code, name, level } = args.input
+    const ifcClasses = validateIfcClasses(args.input.ifcClasses ?? [])
+    if (ifcClasses.length && level !== 'type') {
+      throw new BadRequestError(
+        'IFC classes can only be assigned to type-level classes'
+      )
+    }
+    await assertCanManageFacility(ctx, projectId)
+    const projectDb = await getProjectDbClient({ projectId })
+    const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
+    const parent = await validateAssetClassPathFactory({ db: projectDb })({
+      facilityId: facility.id,
+      parentId,
+      level,
+      code
+    })
+    const fullCode = parent ? `${parent.code}.${code}` : code
+    return await insertAssetClassFactory({ db: projectDb })({
+      id: newId(),
+      projectId,
+      facilityId: facility.id,
+      parentId: parentId ?? null,
+      code: fullCode,
+      name: assertClassName(name),
+      level,
+      ifcClasses,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+  },
+
+  async updateAssetClass(
+    _parent: unknown,
+    args: { input: { id: string; name: string; ifcClasses?: string[] | null } },
+    ctx: GraphQLContext
+  ) {
+    const assetClass = await getAssetClassByIdFactory({ db })({ id: args.input.id })
+    if (!assetClass) throw new NotFoundError('Asset class not found')
+    await assertCanManageFacility(ctx, assetClass.projectId)
+    const projectDb = await getProjectDbClient({ projectId: assetClass.projectId })
+    const ifcClasses =
+      args.input.ifcClasses !== undefined
+        ? validateIfcClasses(args.input.ifcClasses)
+        : assetClass.ifcClasses
+    if (ifcClasses.length && assetClass.level !== 'type') {
+      throw new BadRequestError(
+        'IFC classes can only be assigned to type-level classes'
+      )
+    }
+    return await updateAssetClassFactory({ db: projectDb })({
+      id: assetClass.id,
+      update: {
+        name: assertClassName(args.input.name),
+        ifcClasses
+      }
+    })
+  },
+
+  async deleteAssetClass(_parent: unknown, args: { id: string }, ctx: GraphQLContext) {
+    const assetClass = await getAssetClassByIdFactory({ db })({ id: args.id })
+    if (!assetClass) throw new NotFoundError('Asset class not found')
+    await assertCanManageFacility(ctx, assetClass.projectId)
+    const projectDb = await getProjectDbClient({ projectId: assetClass.projectId })
+    await assertAssetClassCanBeDeletedFactory({ db: projectDb })({ id: args.id })
+    await deleteAssetClassFactory({ db: projectDb })({ id: args.id })
+    return true
+  },
+
   async createAsset(
     _parent: unknown,
     args: {
       input: {
         projectId: string
         tagNumber: string
-        name?: string | null
+        name: string
         assetTypeId?: string | null
-        spaceId?: string | null
+        assetClassId: string
+        spaceId: string
+        state: AssetState
+        tenure: AssetTenure
         systemIds?: string[] | null
         currentObjectId?: string | null
         currentVersionId?: string | null
@@ -339,7 +449,10 @@ const facilityMutations = {
       tagNumber,
       name,
       assetTypeId,
+      assetClassId,
       spaceId,
+      state,
+      tenure,
       systemIds,
       currentObjectId,
       currentVersionId,
@@ -352,6 +465,14 @@ const facilityMutations = {
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
     const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
+    await assertAssignableAssetClassFactory({ db: projectDb })({
+      id: assetClassId,
+      facilityId: facility.id
+    })
+    const space = await getSpaceByIdFactory({ db: projectDb })({ id: spaceId })
+    if (!space || space.facilityId !== facility.id) {
+      throw new BadRequestError('Space does not belong to this facility')
+    }
     const identityCode = await generateAssetIdentityCodeFactory({ db: projectDb })()
     const asset = await insertAssetFactory({ db: projectDb })({
       id: newId(),
@@ -359,9 +480,12 @@ const facilityMutations = {
       facilityId: facility.id,
       tagNumber,
       identityCode,
-      name: name ?? null,
+      name: assertClassName(name),
       assetTypeId: assetTypeId ?? null,
-      spaceId: spaceId ?? null,
+      assetClassId,
+      spaceId,
+      state,
+      tenure,
       currentObjectId: currentObjectId ?? null,
       currentVersionId: currentVersionId ?? null,
       installDate: installDate ?? null,
@@ -386,7 +510,10 @@ const facilityMutations = {
         tagNumber?: string | null
         name?: string | null
         assetTypeId?: string | null
+        assetClassId?: string | null
         spaceId?: string | null
+        state?: AssetState | null
+        tenure?: AssetTenure | null
         systemIds?: string[] | null
         currentObjectId?: string | null
         currentVersionId?: string | null
@@ -404,7 +531,10 @@ const facilityMutations = {
       tagNumber,
       name,
       assetTypeId,
+      assetClassId,
       spaceId,
+      state,
+      tenure,
       systemIds,
       currentObjectId,
       currentVersionId,
@@ -418,13 +548,37 @@ const facilityMutations = {
     if (!asset) throw new NotFoundError('Asset not found')
     await assertCanManageFacility(ctx, asset.projectId)
     const projectDb = await getProjectDbClient({ projectId: asset.projectId })
+    if (assetClassId) {
+      await assertAssignableAssetClassFactory({ db: projectDb })({
+        id: assetClassId,
+        facilityId: asset.facilityId
+      })
+    }
+    if (spaceId) {
+      const space = await getSpaceByIdFactory({ db: projectDb })({ id: spaceId })
+      if (!space || space.facilityId !== asset.facilityId) {
+        throw new BadRequestError('Space does not belong to this facility')
+      }
+    }
+    const nextClassId = assetClassId !== undefined ? assetClassId : asset.assetClassId
+    const nextSpaceId = spaceId !== undefined ? spaceId : asset.spaceId
+    const nextState = state !== undefined ? state : asset.state
+    const nextTenure = tenure !== undefined ? tenure : asset.tenure
+    if (nextState === 'active' && (!nextClassId || !nextSpaceId || !nextTenure)) {
+      throw new BadRequestError(
+        'Active assets require a type classification, a space, and a tenure'
+      )
+    }
     const updated = await updateAssetFactory({ db: projectDb })({
       id,
       update: {
         ...(tagNumber !== undefined && tagNumber !== null ? { tagNumber } : {}),
         ...(name !== undefined ? { name } : {}),
         ...(assetTypeId !== undefined ? { assetTypeId } : {}),
+        ...(assetClassId !== undefined ? { assetClassId } : {}),
         ...(spaceId !== undefined ? { spaceId } : {}),
+        ...(state !== undefined ? { state } : {}),
+        ...(tenure !== undefined ? { tenure } : {}),
         ...(currentObjectId !== undefined ? { currentObjectId } : {}),
         ...(currentVersionId !== undefined ? { currentVersionId } : {}),
         ...(installDate !== undefined ? { installDate } : {}),
@@ -595,6 +749,10 @@ export default {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
       return await listAssetSystemsFactory({ db: projectDb })({ facilityId: parent.id })
     },
+    async assetClasses(parent: { id: string; projectId: string }) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await listAssetClassesFactory({ db: projectDb })({ facilityId: parent.id })
+    },
     async assets(
       parent: { id: string; projectId: string },
       args: {
@@ -755,6 +913,13 @@ export default {
       if (!parent.assetTypeId) return null
       return await getAssetTypeByIdFactory({ db })({ id: parent.assetTypeId })
     },
+    async assetClass(parent: { assetClassId: string | null; projectId: string }) {
+      if (!parent.assetClassId) return null
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await getAssetClassByIdFactory({ db: projectDb })({
+        id: parent.assetClassId
+      })
+    },
     async space(parent: { spaceId: string | null; projectId: string }) {
       if (!parent.spaceId) return null
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
@@ -790,6 +955,14 @@ export default {
         assetId: parent.id,
         limit: args.limit ?? 50
       })
+    }
+  },
+
+  AssetClass: {
+    async parent(parent: { parentId: string | null; projectId: string }) {
+      if (!parent.parentId) return null
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await getAssetClassByIdFactory({ db: projectDb })({ id: parent.parentId })
     }
   },
 

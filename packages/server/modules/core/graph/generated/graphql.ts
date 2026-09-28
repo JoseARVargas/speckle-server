@@ -476,6 +476,8 @@ export type ArchiveCommentInput = {
  */
 export type Asset = {
   __typename?: 'Asset';
+  assetClass?: Maybe<AssetClass>;
+  assetClassId?: Maybe<Scalars['String']['output']>;
   assetType?: Maybe<AssetType>;
   assetTypeId?: Maybe<Scalars['String']['output']>;
   barCode?: Maybe<Scalars['String']['output']>;
@@ -514,6 +516,7 @@ export type Asset = {
   serialNumber?: Maybe<Scalars['String']['output']>;
   space?: Maybe<Space>;
   spaceId?: Maybe<Scalars['String']['output']>;
+  state?: Maybe<AssetState>;
   systems: Array<AssetSystem>;
   /**
    * Stable identity within the facility - usually read from the linked BIM
@@ -522,6 +525,7 @@ export type Asset = {
   tagNumber: Scalars['String']['output'];
   /** Simulated temperature readings, most recent first. */
   telemetryHistory: Array<TelemetryReading>;
+  tenure?: Maybe<AssetTenure>;
   updatedAt: Scalars['DateTime']['output'];
   warrantyStartDate?: Maybe<Scalars['DateTime']['output']>;
 };
@@ -556,6 +560,29 @@ export type AssetTelemetryHistoryArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
+/** A facility-scoped node in the group → family → type taxonomy. */
+export type AssetClass = {
+  __typename?: 'AssetClass';
+  code: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  facilityId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  /** IFC class names that can suggest this type during BIM linking. */
+  ifcClasses: Array<Scalars['String']['output']>;
+  level: AssetClassLevel;
+  name: Scalars['String']['output'];
+  parent?: Maybe<AssetClass>;
+  parentId?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export const AssetClassLevel = {
+  Family: 'family',
+  Group: 'group',
+  Type: 'type'
+} as const;
+
+export type AssetClassLevel = typeof AssetClassLevel[keyof typeof AssetClassLevel];
 export type AssetCollection = {
   __typename?: 'AssetCollection';
   cursor?: Maybe<Scalars['String']['output']>;
@@ -563,6 +590,15 @@ export type AssetCollection = {
   totalCount: Scalars['Int']['output'];
 };
 
+export const AssetState = {
+  Active: 'active',
+  Maintenance: 'maintenance',
+  Planned: 'planned',
+  Retired: 'retired',
+  Stock: 'stock'
+} as const;
+
+export type AssetState = typeof AssetState[keyof typeof AssetState];
 /**
  * The COBie "System" sheet - a functional grouping of assets (e.g. "Sistema
  * de Climatização 1"), scoped to one facility. An asset can belong to more
@@ -589,6 +625,14 @@ export type AssetSystemAssetsArgs = {
   input?: InputMaybe<GetFacilityAssetsInput>;
 };
 
+export const AssetTenure = {
+  Leased: 'leased',
+  Loaned: 'loaned',
+  Owned: 'owned',
+  ThirdParty: 'thirdParty'
+} as const;
+
+export type AssetTenure = typeof AssetTenure[keyof typeof AssetTenure];
 /**
  * The COBie "Type" sheet - a shared, server-wide equipment catalog (e.g.
  * "12,000 BTU split AC, Manufacturer X, Model Y"), reused across facilities.
@@ -1344,7 +1388,17 @@ export type CreateAccSyncItemInput = {
   projectId: Scalars['String']['input'];
 };
 
+export type CreateAssetClassInput = {
+  code: Scalars['String']['input'];
+  ifcClasses?: InputMaybe<Array<Scalars['String']['input']>>;
+  level: AssetClassLevel;
+  name: Scalars['String']['input'];
+  parentId?: InputMaybe<Scalars['String']['input']>;
+  projectId: Scalars['String']['input'];
+};
+
 export type CreateAssetInput = {
+  assetClassId: Scalars['String']['input'];
   assetTypeId?: InputMaybe<Scalars['String']['input']>;
   barCode?: InputMaybe<Scalars['String']['input']>;
   /**
@@ -1355,12 +1409,14 @@ export type CreateAssetInput = {
   currentVersionId?: InputMaybe<Scalars['String']['input']>;
   extendedAttributes?: InputMaybe<Scalars['JSONObject']['input']>;
   installDate?: InputMaybe<Scalars['DateTime']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
   projectId: Scalars['String']['input'];
   serialNumber?: InputMaybe<Scalars['String']['input']>;
-  spaceId?: InputMaybe<Scalars['String']['input']>;
+  spaceId: Scalars['String']['input'];
+  state: AssetState;
   systemIds?: InputMaybe<Array<Scalars['String']['input']>>;
   tagNumber: Scalars['String']['input'];
+  tenure: AssetTenure;
   warrantyStartDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
@@ -1979,6 +2035,7 @@ export type ExtendedViewerResourcesRequest = {
 
 export type Facility = {
   __typename?: 'Facility';
+  assetClasses: Array<AssetClass>;
   assets: AssetCollection;
   createdAt: Scalars['DateTime']['output'];
   /**
@@ -2003,6 +2060,8 @@ export type Facility = {
    */
   maintenanceReports: Array<MaintenanceReport>;
   name: Scalars['String']['output'];
+  /** User-managed templates and BIM property mappings used for asset suggestions. */
+  namingConfig: Scalars['JSONObject']['output'];
   projectId: Scalars['String']['output'];
   sensors: SensorCollection;
   spaces: Array<Space>;
@@ -2118,10 +2177,12 @@ export type FacilityEnergyPoint = {
 export type FacilityMutations = {
   __typename?: 'FacilityMutations';
   createAsset: Asset;
+  createAssetClass: AssetClass;
   createFloor: Floor;
   createSpace: Space;
   createSystem: AssetSystem;
   deleteAsset: Scalars['Boolean']['output'];
+  deleteAssetClass: Scalars['Boolean']['output'];
   deleteFloor: Scalars['Boolean']['output'];
   deleteSpace: Scalars['Boolean']['output'];
   deleteSystem: Scalars['Boolean']['output'];
@@ -2137,6 +2198,7 @@ export type FacilityMutations = {
   setAssetTemperature: DeviceState;
   update: Facility;
   updateAsset: Asset;
+  updateAssetClass: AssetClass;
   updateFloor: Floor;
   updateSpace: Space;
   updateSystem: AssetSystem;
@@ -2145,6 +2207,11 @@ export type FacilityMutations = {
 
 export type FacilityMutationsCreateAssetArgs = {
   input: CreateAssetInput;
+};
+
+
+export type FacilityMutationsCreateAssetClassArgs = {
+  input: CreateAssetClassInput;
 };
 
 
@@ -2164,6 +2231,11 @@ export type FacilityMutationsCreateSystemArgs = {
 
 
 export type FacilityMutationsDeleteAssetArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsDeleteAssetClassArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -2200,6 +2272,11 @@ export type FacilityMutationsUpdateArgs = {
 
 export type FacilityMutationsUpdateAssetArgs = {
   input: UpdateAssetInput;
+};
+
+
+export type FacilityMutationsUpdateAssetClassArgs = {
+  input: UpdateAssetClassInput;
 };
 
 
@@ -6065,7 +6142,14 @@ export type UpdateAccSyncItemInput = {
   status: AccSyncItemStatus;
 };
 
+export type UpdateAssetClassInput = {
+  id: Scalars['String']['input'];
+  ifcClasses?: InputMaybe<Array<Scalars['String']['input']>>;
+  name: Scalars['String']['input'];
+};
+
 export type UpdateAssetInput = {
+  assetClassId?: InputMaybe<Scalars['String']['input']>;
   assetTypeId?: InputMaybe<Scalars['String']['input']>;
   barCode?: InputMaybe<Scalars['String']['input']>;
   /**
@@ -6080,8 +6164,10 @@ export type UpdateAssetInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   serialNumber?: InputMaybe<Scalars['String']['input']>;
   spaceId?: InputMaybe<Scalars['String']['input']>;
+  state?: InputMaybe<AssetState>;
   systemIds?: InputMaybe<Array<Scalars['String']['input']>>;
   tagNumber?: InputMaybe<Scalars['String']['input']>;
+  tenure?: InputMaybe<AssetTenure>;
   warrantyStartDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
@@ -6140,6 +6226,7 @@ export type UpdateFacilityDocumentInput = {
 export type UpdateFacilityInput = {
   energyTariffPerKwh?: InputMaybe<Scalars['Float']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  namingConfig?: InputMaybe<Scalars['JSONObject']['input']>;
   projectId: Scalars['String']['input'];
   tagSourceProperty?: InputMaybe<Scalars['String']['input']>;
 };
@@ -7755,8 +7842,12 @@ export type ResolversTypes = {
   ApproveWorkspaceJoinRequestInput: ApproveWorkspaceJoinRequestInput;
   ArchiveCommentInput: ArchiveCommentInput;
   Asset: ResolverTypeWrapper<Asset>;
+  AssetClass: ResolverTypeWrapper<AssetClass>;
+  AssetClassLevel: AssetClassLevel;
   AssetCollection: ResolverTypeWrapper<AssetCollection>;
+  AssetState: AssetState;
   AssetSystem: ResolverTypeWrapper<AssetSystem>;
+  AssetTenure: AssetTenure;
   AssetType: ResolverTypeWrapper<AssetType>;
   AssetTypeCollection: ResolverTypeWrapper<AssetTypeCollection>;
   AssetTypeMutations: ResolverTypeWrapper<AssetTypeMutations>;
@@ -7827,6 +7918,7 @@ export type ResolversTypes = {
   CommitsMoveInput: CommitsMoveInput;
   CountOnlyCollection: ResolverTypeWrapper<CountOnlyCollection>;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
+  CreateAssetClassInput: CreateAssetClassInput;
   CreateAssetInput: CreateAssetInput;
   CreateAssetSystemInput: CreateAssetSystemInput;
   CreateAssetTypeInput: CreateAssetTypeInput;
@@ -8092,6 +8184,7 @@ export type ResolversTypes = {
   TokenResourceIdentifierType: TokenResourceIdentifierType;
   TriggeredAutomationsStatus: ResolverTypeWrapper<TriggeredAutomationsStatusGraphQLReturn>;
   UpdateAccSyncItemInput: UpdateAccSyncItemInput;
+  UpdateAssetClassInput: UpdateAssetClassInput;
   UpdateAssetInput: UpdateAssetInput;
   UpdateAssetSystemInput: UpdateAssetSystemInput;
   UpdateAssetTypeInput: UpdateAssetTypeInput;
@@ -8252,6 +8345,7 @@ export type ResolversParentTypes = {
   ApproveWorkspaceJoinRequestInput: ApproveWorkspaceJoinRequestInput;
   ArchiveCommentInput: ArchiveCommentInput;
   Asset: Asset;
+  AssetClass: AssetClass;
   AssetCollection: AssetCollection;
   AssetSystem: AssetSystem;
   AssetType: AssetType;
@@ -8319,6 +8413,7 @@ export type ResolversParentTypes = {
   CommitsMoveInput: CommitsMoveInput;
   CountOnlyCollection: CountOnlyCollection;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
+  CreateAssetClassInput: CreateAssetClassInput;
   CreateAssetInput: CreateAssetInput;
   CreateAssetSystemInput: CreateAssetSystemInput;
   CreateAssetTypeInput: CreateAssetTypeInput;
@@ -8548,6 +8643,7 @@ export type ResolversParentTypes = {
   TokenResourceIdentifierInput: TokenResourceIdentifierInput;
   TriggeredAutomationsStatus: TriggeredAutomationsStatusGraphQLReturn;
   UpdateAccSyncItemInput: UpdateAccSyncItemInput;
+  UpdateAssetClassInput: UpdateAssetClassInput;
   UpdateAssetInput: UpdateAssetInput;
   UpdateAssetSystemInput: UpdateAssetSystemInput;
   UpdateAssetTypeInput: UpdateAssetTypeInput;
@@ -8902,6 +8998,8 @@ export type AppAuthorResolvers<ContextType = GraphQLContext, ParentType extends 
 };
 
 export type AssetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Asset'] = ResolversParentTypes['Asset']> = {
+  assetClass?: Resolver<Maybe<ResolversTypes['AssetClass']>, ParentType, ContextType>;
+  assetClassId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   assetType?: Resolver<Maybe<ResolversTypes['AssetType']>, ParentType, ContextType>;
   assetTypeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   barCode?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8921,11 +9019,27 @@ export type AssetResolvers<ContextType = GraphQLContext, ParentType extends Reso
   serialNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   space?: Resolver<Maybe<ResolversTypes['Space']>, ParentType, ContextType>;
   spaceId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  state?: Resolver<Maybe<ResolversTypes['AssetState']>, ParentType, ContextType>;
   systems?: Resolver<Array<ResolversTypes['AssetSystem']>, ParentType, ContextType>;
   tagNumber?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   telemetryHistory?: Resolver<Array<ResolversTypes['TelemetryReading']>, ParentType, ContextType, RequireFields<AssetTelemetryHistoryArgs, 'limit'>>;
+  tenure?: Resolver<Maybe<ResolversTypes['AssetTenure']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   warrantyStartDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AssetClassResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AssetClass'] = ResolversParentTypes['AssetClass']> = {
+  code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ifcClasses?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  level?: Resolver<ResolversTypes['AssetClassLevel'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  parent?: Resolver<Maybe<ResolversTypes['AssetClass']>, ParentType, ContextType>;
+  parentId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -9520,6 +9634,7 @@ export type ExtendedViewerResourcesRequestResolvers<ContextType = GraphQLContext
 };
 
 export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Facility'] = ResolversParentTypes['Facility']> = {
+  assetClasses?: Resolver<Array<ResolversTypes['AssetClass']>, ParentType, ContextType>;
   assets?: Resolver<ResolversTypes['AssetCollection'], ParentType, ContextType, Partial<FacilityAssetsArgs>>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   dashboard?: Resolver<ResolversTypes['FacilityDashboard'], ParentType, ContextType>;
@@ -9531,6 +9646,7 @@ export type FacilityResolvers<ContextType = GraphQLContext, ParentType extends R
   maintenanceOrders?: Resolver<ResolversTypes['MaintenanceOrderCollection'], ParentType, ContextType, Partial<FacilityMaintenanceOrdersArgs>>;
   maintenanceReports?: Resolver<Array<ResolversTypes['MaintenanceReport']>, ParentType, ContextType, RequireFields<FacilityMaintenanceReportsArgs, 'limit'>>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  namingConfig?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
   projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sensors?: Resolver<ResolversTypes['SensorCollection'], ParentType, ContextType, Partial<FacilitySensorsArgs>>;
   spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType, Partial<FacilitySpacesArgs>>;
@@ -9589,10 +9705,12 @@ export type FacilityEnergyPointResolvers<ContextType = GraphQLContext, ParentTyp
 
 export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FacilityMutations'] = ResolversParentTypes['FacilityMutations']> = {
   createAsset?: Resolver<ResolversTypes['Asset'], ParentType, ContextType, RequireFields<FacilityMutationsCreateAssetArgs, 'input'>>;
+  createAssetClass?: Resolver<ResolversTypes['AssetClass'], ParentType, ContextType, RequireFields<FacilityMutationsCreateAssetClassArgs, 'input'>>;
   createFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsCreateFloorArgs, 'input'>>;
   createSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsCreateSpaceArgs, 'input'>>;
   createSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsCreateSystemArgs, 'input'>>;
   deleteAsset?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteAssetArgs, 'id'>>;
+  deleteAssetClass?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteAssetClassArgs, 'id'>>;
   deleteFloor?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteFloorArgs, 'id'>>;
   deleteSpace?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSpaceArgs, 'id'>>;
   deleteSystem?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSystemArgs, 'id'>>;
@@ -9600,6 +9718,7 @@ export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType 
   setAssetTemperature?: Resolver<ResolversTypes['DeviceState'], ParentType, ContextType, RequireFields<FacilityMutationsSetAssetTemperatureArgs, 'input'>>;
   update?: Resolver<ResolversTypes['Facility'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateArgs, 'input'>>;
   updateAsset?: Resolver<ResolversTypes['Asset'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateAssetArgs, 'input'>>;
+  updateAssetClass?: Resolver<ResolversTypes['AssetClass'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateAssetClassArgs, 'input'>>;
   updateFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateFloorArgs, 'input'>>;
   updateSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSpaceArgs, 'input'>>;
   updateSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSystemArgs, 'input'>>;
@@ -11348,6 +11467,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   ApiToken?: ApiTokenResolvers<ContextType>;
   AppAuthor?: AppAuthorResolvers<ContextType>;
   Asset?: AssetResolvers<ContextType>;
+  AssetClass?: AssetClassResolvers<ContextType>;
   AssetCollection?: AssetCollectionResolvers<ContextType>;
   AssetSystem?: AssetSystemResolvers<ContextType>;
   AssetType?: AssetTypeResolvers<ContextType>;

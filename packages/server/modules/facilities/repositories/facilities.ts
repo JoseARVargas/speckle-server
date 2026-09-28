@@ -4,6 +4,7 @@ import {
   Spaces,
   AssetTypes,
   AssetSystems,
+  AssetClasses,
   Assets,
   AssetSystemMembers,
   DeviceStates
@@ -14,9 +15,11 @@ import type {
   SpaceRecord,
   AssetTypeRecord,
   AssetSystemRecord,
+  AssetClassRecord,
   AssetRecord
 } from '@/modules/facilities/helpers/types'
 import type { Knex } from 'knex'
+import { BadRequestError } from '@/modules/shared/errors'
 
 const tables = {
   facilities: (db: Knex) => db<FacilityRecord>(Facilities.name),
@@ -24,6 +27,7 @@ const tables = {
   spaces: (db: Knex) => db<SpaceRecord>(Spaces.name),
   assetTypes: (db: Knex) => db<AssetTypeRecord>(AssetTypes.name),
   assetSystems: (db: Knex) => db<AssetSystemRecord>(AssetSystems.name),
+  assetClasses: (db: Knex) => db<AssetClassRecord>(AssetClasses.name),
   assets: (db: Knex) => db<AssetRecord>(Assets.name),
   assetSystemMembers: (db: Knex) => db(AssetSystemMembers.name)
 }
@@ -202,6 +206,82 @@ export const updateAssetSystemFactory =
 export const deleteAssetSystemFactory =
   (deps: { db: Knex }) => (params: { id: string }) =>
     tables.assetSystems(deps.db).where({ id: params.id }).del()
+
+// ---- facility-scoped asset classification -------------------------------
+
+export const listAssetClassesFactory =
+  (deps: { db: Knex }) => (params: { facilityId: string }) =>
+    tables
+      .assetClasses(deps.db)
+      .where({ facilityId: params.facilityId })
+      .orderBy('code', 'asc')
+
+export const getAssetClassByIdFactory =
+  (deps: { db: Knex }) => (params: { id: string }) =>
+    tables.assetClasses(deps.db).where({ id: params.id }).first()
+
+export const insertAssetClassFactory =
+  (deps: { db: Knex }) => async (assetClass: AssetClassRecord) => {
+    try {
+      const [row] = await tables
+        .assetClasses(deps.db)
+        // `ifcClasses` is a jsonb array column - the pg driver serializes a bare
+        // JS array as a Postgres ARRAY literal, not JSON, so it must be
+        // stringified explicitly before insert. Cast back to the declared
+        // column type so the typed query builder still accepts it.
+        .insert({
+          ...assetClass,
+          ifcClasses: JSON.stringify(assetClass.ifcClasses) as unknown as string[]
+        })
+        .returning('*')
+      return row
+    } catch (err) {
+      // Postgres unique_violation - fail closed with a message the caller can
+      // act on, instead of leaking the raw SQL error/stacktrace (A10).
+      if ((err as { code?: string }).code === '23505') {
+        throw new BadRequestError(
+          'A class with this code already exists in this facility'
+        )
+      }
+      throw err
+    }
+  }
+
+export const updateAssetClassFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    id: string
+    update: Pick<AssetClassRecord, 'name' | 'ifcClasses'>
+  }) => {
+    const [row] = await tables
+      .assetClasses(deps.db)
+      .where({ id: params.id })
+      .update({
+        ...params.update,
+        ...(params.update.ifcClasses !== undefined
+          ? {
+              ifcClasses: JSON.stringify(
+                params.update.ifcClasses
+              ) as unknown as string[]
+            }
+          : {}),
+        updatedAt: new Date()
+      })
+      .returning('*')
+    return row
+  }
+
+export const deleteAssetClassFactory =
+  (deps: { db: Knex }) => (params: { id: string }) =>
+    tables.assetClasses(deps.db).where({ id: params.id }).del()
+
+export const assetClassHasChildrenFactory =
+  (deps: { db: Knex }) => (params: { id: string }) =>
+    tables.assetClasses(deps.db).where({ parentId: params.id }).first()
+
+export const assetClassIsInUseFactory =
+  (deps: { db: Knex }) => (params: { id: string }) =>
+    tables.assets(deps.db).where({ assetClassId: params.id }).first()
 
 export const listSystemsForAssetFactory =
   (deps: { db: Knex }) =>

@@ -1,6 +1,7 @@
 import type { Knex } from 'knex'
 import cryptoRandomString from 'crypto-random-string'
 import type { FacilityRecord } from '@/modules/facilities/helpers/types'
+import { DEFAULT_ASSET_NAMING_CONFIG } from '@/modules/facilities/services/assetNaming'
 import {
   getFacilityByProjectIdFactory,
   upsertFacilityFactory
@@ -24,6 +25,7 @@ export const ensureFacilityFactory =
       projectId: params.projectId,
       name: params.projectId,
       tagSourceProperty: 'IfcTag',
+      namingConfig: DEFAULT_ASSET_NAMING_CONFIG,
       energyTariffPerKwh: 0.75,
       createdAt: new Date(),
       updatedAt: new Date()

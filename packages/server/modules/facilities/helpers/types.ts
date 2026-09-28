@@ -1,12 +1,16 @@
 import type { Nullable } from '@speckle/shared'
 
 export type AssetTypeNature = 'fixed' | 'movable'
+export type AssetClassLevel = 'group' | 'family' | 'type'
+export type AssetState = 'planned' | 'active' | 'maintenance' | 'stock' | 'retired'
+export type AssetTenure = 'owned' | 'leased' | 'loaned' | 'thirdParty'
 
 export type FacilityRecord = {
   id: string
   projectId: string
   name: string
   tagSourceProperty: string
+  namingConfig: AssetNamingConfig
   energyTariffPerKwh: number
   createdAt: Date
   updatedAt: Date
@@ -70,6 +74,26 @@ export type AssetSystemRecord = {
   updatedAt: Date
 }
 
+export type AssetNamingConfig = {
+  tagTemplate: string
+  nameTemplate: string
+  ifcClassProperty: string
+  propertyMappings: Record<string, string>
+}
+
+export type AssetClassRecord = {
+  id: string
+  projectId: string
+  facilityId: string
+  parentId: Nullable<string>
+  code: string
+  name: string
+  level: AssetClassLevel
+  ifcClasses: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+
 export type AssetRecord = {
   id: string
   projectId: string
@@ -83,7 +107,10 @@ export type AssetRecord = {
   identityCode: string
   name: Nullable<string>
   assetTypeId: Nullable<string>
+  assetClassId: Nullable<string>
   spaceId: Nullable<string>
+  state: Nullable<AssetState>
+  tenure: Nullable<AssetTenure>
   currentObjectId: Nullable<string>
   currentVersionId: Nullable<string>
   installDate: Nullable<Date>

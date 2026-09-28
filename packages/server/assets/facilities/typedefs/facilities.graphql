@@ -20,6 +20,10 @@ type Facility {
   """
   tagSourceProperty: String!
   """
+  User-managed templates and BIM property mappings used for asset suggestions.
+  """
+  namingConfig: JSONObject!
+  """
   R$/kWh used to turn simulated energy consumption into cost for this
   facility's assets.
   """
@@ -27,6 +31,7 @@ type Facility {
   floors: [Floor!]!
   spaces(input: GetFacilitySpacesInput): [Space!]!
   systems: [AssetSystem!]!
+  assetClasses: [AssetClass!]!
   assets(input: GetFacilityAssetsInput): AssetCollection!
   """
   Facility-wide rollup of the simulated energy data (consumption, cost,
@@ -113,6 +118,46 @@ input GetFacilitySpacesInput {
 enum AssetTypeNature {
   fixed
   movable
+}
+
+enum AssetClassLevel {
+  group
+  family
+  type
+}
+
+enum AssetState {
+  planned
+  active
+  maintenance
+  stock
+  retired
+}
+
+enum AssetTenure {
+  owned
+  leased
+  loaned
+  thirdParty
+}
+
+"""
+A facility-scoped node in the group → family → type taxonomy.
+"""
+type AssetClass {
+  id: String!
+  facilityId: String!
+  parentId: String
+  code: String!
+  name: String!
+  level: AssetClassLevel!
+  """
+  IFC class names that can suggest this type during BIM linking.
+  """
+  ifcClasses: [String!]!
+  parent: AssetClass
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 """
@@ -242,6 +287,10 @@ type Asset {
   name: String
   assetTypeId: String
   assetType: AssetType
+  assetClassId: String
+  assetClass: AssetClass
+  state: AssetState
+  tenure: AssetTenure
   spaceId: String
   space: Space
   systems: [AssetSystem!]!
@@ -363,6 +412,7 @@ input UpdateFacilityInput {
   projectId: String!
   name: String
   tagSourceProperty: String
+  namingConfig: JSONObject
   energyTariffPerKwh: Float
 }
 
@@ -400,6 +450,21 @@ input CreateAssetSystemInput {
   description: String
 }
 
+input CreateAssetClassInput {
+  projectId: String!
+  parentId: String
+  code: String!
+  name: String!
+  level: AssetClassLevel!
+  ifcClasses: [String!]
+}
+
+input UpdateAssetClassInput {
+  id: String!
+  name: String!
+  ifcClasses: [String!]
+}
+
 input UpdateAssetSystemInput {
   id: String!
   name: String
@@ -409,9 +474,12 @@ input UpdateAssetSystemInput {
 input CreateAssetInput {
   projectId: String!
   tagNumber: String!
-  name: String
+  name: String!
   assetTypeId: String
-  spaceId: String
+  assetClassId: String!
+  spaceId: String!
+  state: AssetState!
+  tenure: AssetTenure!
   systemIds: [String!]
   """
   Set when creating an asset directly from a viewer selection that has no
@@ -431,7 +499,10 @@ input UpdateAssetInput {
   tagNumber: String
   name: String
   assetTypeId: String
+  assetClassId: String
   spaceId: String
+  state: AssetState
+  tenure: AssetTenure
   systemIds: [String!]
   """
   Set by BIM reconciliation (matching this asset's tagNumber against a
@@ -460,6 +531,10 @@ type FacilityMutations {
   createSystem(input: CreateAssetSystemInput!): AssetSystem!
   updateSystem(input: UpdateAssetSystemInput!): AssetSystem!
   deleteSystem(id: String!): Boolean!
+
+  createAssetClass(input: CreateAssetClassInput!): AssetClass!
+  updateAssetClass(input: UpdateAssetClassInput!): AssetClass!
+  deleteAssetClass(id: String!): Boolean!
 
   createAsset(input: CreateAssetInput!): Asset!
   updateAsset(input: UpdateAssetInput!): Asset!

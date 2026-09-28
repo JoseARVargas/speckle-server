@@ -555,6 +555,7 @@ export const Facilities = buildTableHelper('facilities', [
   'projectId',
   'name',
   'tagSourceProperty',
+  'namingConfig',
   'energyTariffPerKwh',
   'createdAt',
   'updatedAt'
@@ -609,6 +610,19 @@ export const AssetSystems = buildTableHelper('asset_systems', [
   'updatedAt'
 ])
 
+export const AssetClasses = buildTableHelper('asset_classes', [
+  'id',
+  'projectId',
+  'facilityId',
+  'parentId',
+  'code',
+  'name',
+  'level',
+  'ifcClasses',
+  'createdAt',
+  'updatedAt'
+])
+
 export const Assets = buildTableHelper('assets', [
   'id',
   'projectId',
@@ -617,7 +631,10 @@ export const Assets = buildTableHelper('assets', [
   'identityCode',
   'name',
   'assetTypeId',
+  'assetClassId',
   'spaceId',
+  'state',
+  'tenure',
   'currentObjectId',
   'currentVersionId',
   'installDate',
