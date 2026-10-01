@@ -2,14 +2,14 @@
 
 ## Papéis dos agentes
 
-| Agente          | Papel                                                                                                                                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Claude Code** | Arquitetura e planejamento: entende o problema, avalia alternativas, decide a arquitetura, modelos de dados, contratos e requisitos de segurança; escreve o plano; revisa a implementação contra o plano. |
-| **Codex**       | Implementação e execução: implementa o plano, roda as validações de `TESTING.md`, corrige falhas e relata o que fez, o que validou e onde se desviou.                                                     |
+| Agente          | Papel                                                                                                                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Claude Code** | Arquitetura, planejamento e implementação: entende o problema, avalia alternativas, decide a arquitetura, modelos de dados, contratos e requisitos de segurança; escreve o plano quando a mudança justificar; implementa, roda as validações de `TESTING.md` e relata o que fez, o que validou e o que ficou sem validar. |
+| **Codex**       | Apoio sob demanda: atua quando o usuário pedir (revisão, tarefas paralelas, execução de um plano existente), seguindo as mesmas regras.                                                                                                                                                                                   |
 
-- O Claude Code entrega **planos** em `.ai/plans/`. Implementa direto só quando o usuário pedir ou quando a mudança for trivial e o usuário estiver esperando o resultado na hora.
-- O Codex segue o plano e os padrões do repositório. Se o plano estiver errado ou incompleto, ou se a tarefa exigir uma decisão arquitetural que o plano não cobre (padrão novo, dependência, modelo de dados, fronteira de segurança), **para** e registra a dúvida no plano ou avisa o usuário.
-- Instrução explícita do usuário prevalece sobre essa divisão. Mudança de papéis só vale quando o usuário a comunicar aos dois agentes.
+- O Claude Code planeja **e implementa**. Para mudanças grandes ou arquiteturais, escreve antes o plano em `.ai/plans/` (registro das decisões e contexto para quem vier depois) e o mantém atualizado; mudanças pequenas não precisam de plano.
+- Quem executa um plano segue o plano e os padrões do repositório. Se o plano estiver errado ou incompleto, ou se surgir uma decisão arquitetural que ele não cobre (padrão novo, dependência, modelo de dados, fronteira de segurança), o Claude Code registra a decisão e o motivo no plano; o Codex **para** e registra a dúvida no plano ou avisa o usuário.
+- Instrução explícita do usuário prevalece sobre essa divisão. Mudança de papéis só vale quando o usuário a comunicar explicitamente.
 - Os agentes podem trabalhar ao mesmo tempo. O repositório (código, planos, `git status`) é o canal entre eles; não presumir que o outro sabe o que foi conversado.
 
 ## Planos (`.ai/plans/`)
