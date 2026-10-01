@@ -1,3 +1,4 @@
+import type { Knex } from 'knex'
 import { db } from '@/db/knex'
 import { getProjectDbClient } from '@/modules/multiregion/utils/dbSelector'
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/modules/shared/errors'
@@ -20,6 +21,11 @@ import {
   insertSpaceFactory,
   updateSpaceFactory,
   deleteSpaceFactory,
+  listZonesFactory,
+  getZoneByIdFactory,
+  insertZoneFactory,
+  updateZoneFactory,
+  deleteZoneFactory,
   listAssetTypesFactory,
   countAssetTypesFactory,
   getAssetTypeByIdFactory,
@@ -134,6 +140,37 @@ async function assertAssetIsControllable(asset: { assetTypeId: string | null }) 
   }
 }
 
+/**
+ * Validates a Space's Floor/Zone references before writing it: the Floor
+ * (if any) must belong to the same project/facility as the Space, and the
+ * Zone (if any) must belong to that same project and sit under that exact
+ * Floor - a Zone always belongs to one Floor, so a Space can't reference a
+ * Zone from a different Floor than the one it's on.
+ */
+async function assertValidSpaceHierarchy(params: {
+  projectDb: Knex
+  projectId: string
+  floorId: string | null
+  zoneId: string | null
+}) {
+  const { projectDb, projectId, floorId, zoneId } = params
+  if (floorId) {
+    const floor = await getFloorByIdFactory({ db: projectDb })({ id: floorId })
+    if (!floor || floor.projectId !== projectId) {
+      throw new BadRequestError('Floor does not belong to this facility')
+    }
+  }
+  if (zoneId) {
+    const zone = await getZoneByIdFactory({ db: projectDb })({ id: zoneId })
+    if (!zone || zone.projectId !== projectId) {
+      throw new BadRequestError('Zone does not belong to this facility')
+    }
+    if (!floorId || zone.floorId !== floorId) {
+      throw new BadRequestError("Zone does not belong to this space's floor")
+    }
+  }
+}
+
 const facilityMutations = {
   async update(
     _parent: unknown,
@@ -229,21 +266,29 @@ const facilityMutations = {
         projectId: string
         name: string
         floorId?: string | null
+        zoneId?: string | null
         elevationZ?: number | null
         speckleObjectId?: string | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { projectId, name, floorId, elevationZ, speckleObjectId } = args.input
+    const { projectId, name, floorId, zoneId, elevationZ, speckleObjectId } = args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
     const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
+    await assertValidSpaceHierarchy({
+      projectDb,
+      projectId,
+      floorId: floorId ?? null,
+      zoneId: zoneId ?? null
+    })
     return await insertSpaceFactory({ db: projectDb })({
       id: newId(),
       projectId,
       facilityId: facility.id,
       floorId: floorId ?? null,
+      zoneId: zoneId ?? null,
       name,
       elevationZ: elevationZ ?? null,
       speckleObjectId: speckleObjectId ?? null,
@@ -259,22 +304,32 @@ const facilityMutations = {
         id: string
         name?: string | null
         floorId?: string | null
+        zoneId?: string | null
         elevationZ?: number | null
         speckleObjectId?: string | null
       }
     },
     ctx: GraphQLContext
   ) {
-    const { id, name, floorId, elevationZ, speckleObjectId } = args.input
+    const { id, name, floorId, zoneId, elevationZ, speckleObjectId } = args.input
     const space = await getSpaceByIdFactory({ db })({ id })
     if (!space) throw new NotFoundError('Space not found')
     await assertCanManageFacility(ctx, space.projectId)
     const projectDb = await getProjectDbClient({ projectId: space.projectId })
+    const nextFloorId = floorId !== undefined ? floorId : space.floorId
+    const nextZoneId = zoneId !== undefined ? zoneId : space.zoneId
+    await assertValidSpaceHierarchy({
+      projectDb,
+      projectId: space.projectId,
+      floorId: nextFloorId,
+      zoneId: nextZoneId
+    })
     return await updateSpaceFactory({ db: projectDb })({
       id,
       update: {
         ...(name !== undefined && name !== null ? { name } : {}),
         ...(floorId !== undefined ? { floorId } : {}),
+        ...(zoneId !== undefined ? { zoneId } : {}),
         ...(elevationZ !== undefined ? { elevationZ } : {}),
         ...(speckleObjectId !== undefined ? { speckleObjectId } : {})
       }
@@ -287,6 +342,57 @@ const facilityMutations = {
     await assertCanManageFacility(ctx, space.projectId)
     const projectDb = await getProjectDbClient({ projectId: space.projectId })
     await deleteSpaceFactory({ db: projectDb })({ id: args.id })
+    return true
+  },
+
+  async createZone(
+    _parent: unknown,
+    args: { input: { projectId: string; floorId: string; name: string } },
+    ctx: GraphQLContext
+  ) {
+    const { projectId, floorId, name } = args.input
+    await assertCanManageFacility(ctx, projectId)
+    const projectDb = await getProjectDbClient({ projectId })
+    const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
+    const floor = await getFloorByIdFactory({ db: projectDb })({ id: floorId })
+    if (!floor || floor.projectId !== projectId) {
+      throw new BadRequestError('Floor does not belong to this facility')
+    }
+    return await insertZoneFactory({ db: projectDb })({
+      id: newId(),
+      projectId,
+      facilityId: facility.id,
+      floorId,
+      name,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+  },
+
+  async updateZone(
+    _parent: unknown,
+    args: { input: { id: string; name?: string | null } },
+    ctx: GraphQLContext
+  ) {
+    const { id, name } = args.input
+    const zone = await getZoneByIdFactory({ db })({ id })
+    if (!zone) throw new NotFoundError('Zone not found')
+    await assertCanManageFacility(ctx, zone.projectId)
+    const projectDb = await getProjectDbClient({ projectId: zone.projectId })
+    return await updateZoneFactory({ db: projectDb })({
+      id,
+      update: {
+        ...(name !== undefined && name !== null ? { name } : {})
+      }
+    })
+  },
+
+  async deleteZone(_parent: unknown, args: { id: string }, ctx: GraphQLContext) {
+    const zone = await getZoneByIdFactory({ db })({ id: args.id })
+    if (!zone) throw new NotFoundError('Zone not found')
+    await assertCanManageFacility(ctx, zone.projectId)
+    const projectDb = await getProjectDbClient({ projectId: zone.projectId })
+    await deleteZoneFactory({ db: projectDb })({ id: args.id })
     return true
   },
 
@@ -834,6 +940,20 @@ export default {
         facilityId: parent.facilityId,
         floorId: parent.id
       })
+    },
+    async zones(parent: { id: string; projectId: string }) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await listZonesFactory({ db: projectDb })({ floorId: parent.id })
+    }
+  },
+
+  Zone: {
+    async spaces(parent: { id: string; facilityId: string; projectId: string }) {
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await listSpacesFactory({ db: projectDb })({
+        facilityId: parent.facilityId,
+        zoneId: parent.id
+      })
     }
   },
 
@@ -842,6 +962,11 @@ export default {
       if (!parent.floorId) return null
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
       return await getFloorByIdFactory({ db: projectDb })({ id: parent.floorId })
+    },
+    async zone(parent: { zoneId: string | null; projectId: string }) {
+      if (!parent.zoneId) return null
+      const projectDb = await getProjectDbClient({ projectId: parent.projectId })
+      return await getZoneByIdFactory({ db: projectDb })({ id: parent.zoneId })
     },
     async assets(
       parent: { id: string; projectId: string; facilityId: string },

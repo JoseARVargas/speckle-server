@@ -1584,6 +1584,7 @@ export type CreateSpaceInput = {
   name: Scalars['String']['input'];
   projectId: Scalars['String']['input'];
   speckleObjectId?: InputMaybe<Scalars['String']['input']>;
+  zoneId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateUserEmailInput = {
@@ -1598,6 +1599,12 @@ export type CreateVersionInput = {
   projectId: Scalars['String']['input'];
   sourceApplication?: InputMaybe<Scalars['String']['input']>;
   totalChildrenCount?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type CreateZoneInput = {
+  floorId: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
 };
 
 export const Currency = {
@@ -2181,11 +2188,13 @@ export type FacilityMutations = {
   createFloor: Floor;
   createSpace: Space;
   createSystem: AssetSystem;
+  createZone: Zone;
   deleteAsset: Scalars['Boolean']['output'];
   deleteAssetClass: Scalars['Boolean']['output'];
   deleteFloor: Scalars['Boolean']['output'];
   deleteSpace: Scalars['Boolean']['output'];
   deleteSystem: Scalars['Boolean']['output'];
+  deleteZone: Scalars['Boolean']['output'];
   /**
    * Turns an asset's simulated device on/off. Lazily creates its device state
    * with default values on first use.
@@ -2202,6 +2211,7 @@ export type FacilityMutations = {
   updateFloor: Floor;
   updateSpace: Space;
   updateSystem: AssetSystem;
+  updateZone: Zone;
 };
 
 
@@ -2230,6 +2240,11 @@ export type FacilityMutationsCreateSystemArgs = {
 };
 
 
+export type FacilityMutationsCreateZoneArgs = {
+  input: CreateZoneInput;
+};
+
+
 export type FacilityMutationsDeleteAssetArgs = {
   id: Scalars['String']['input'];
 };
@@ -2251,6 +2266,11 @@ export type FacilityMutationsDeleteSpaceArgs = {
 
 
 export type FacilityMutationsDeleteSystemArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type FacilityMutationsDeleteZoneArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -2292,6 +2312,11 @@ export type FacilityMutationsUpdateSpaceArgs = {
 
 export type FacilityMutationsUpdateSystemArgs = {
   input: UpdateAssetSystemInput;
+};
+
+
+export type FacilityMutationsUpdateZoneArgs = {
+  input: UpdateZoneInput;
 };
 
 /**
@@ -2435,6 +2460,11 @@ export type Floor = {
   name: Scalars['String']['output'];
   spaces: Array<Space>;
   updatedAt: Scalars['DateTime']['output'];
+  /**
+   * Optional sub-division of this Floor (e.g. "Ala Norte"). A Space may
+   * belong to one of these instead of (or in addition to) the Floor directly.
+   */
+  zones: Array<Zone>;
 };
 
 export type GendoAiRender = {
@@ -5556,6 +5586,9 @@ export type Space = {
   /** Id of the BIM element (e.g. an IfcSpace) this space is linked to, if any. */
   speckleObjectId?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['DateTime']['output'];
+  zone?: Maybe<Zone>;
+  /** Optional Zone within `floor`, when the Facility subdivides its floors. */
+  zoneId?: Maybe<Scalars['String']['output']>;
 };
 
 
@@ -6312,6 +6345,7 @@ export type UpdateSpaceInput = {
   id: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   speckleObjectId?: InputMaybe<Scalars['String']['input']>;
+  zoneId?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Only non-null values will be updated */
@@ -6319,6 +6353,11 @@ export type UpdateVersionInput = {
   message?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['ID']['input'];
   versionId: Scalars['ID']['input'];
+};
+
+export type UpdateZoneInput = {
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpgradePlanInput = {
@@ -7733,6 +7772,17 @@ export type WorkspaceUpdatedMessage = {
   workspace: Workspace;
 };
 
+export type Zone = {
+  __typename?: 'Zone';
+  createdAt: Scalars['DateTime']['output'];
+  facilityId: Scalars['String']['output'];
+  floorId: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  spaces: Array<Space>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 
 
 export type ResolverTypeWrapper<T> = Promise<T> | T;
@@ -7939,6 +7989,7 @@ export type ResolversTypes = {
   CreateSpaceInput: CreateSpaceInput;
   CreateUserEmailInput: CreateUserEmailInput;
   CreateVersionInput: CreateVersionInput;
+  CreateZoneInput: CreateZoneInput;
   Currency: Currency;
   CurrencyBasedPrices: ResolverTypeWrapper<Omit<CurrencyBasedPrices, 'gbp' | 'usd'> & { gbp: ResolversTypes['WorkspacePaidPlanPrices'], usd: ResolversTypes['WorkspacePaidPlanPrices'] }>;
   Dashboard: ResolverTypeWrapper<DashboardGraphQLReturn>;
@@ -8201,6 +8252,7 @@ export type ResolversTypes = {
   UpdateServerRegionInput: UpdateServerRegionInput;
   UpdateSpaceInput: UpdateSpaceInput;
   UpdateVersionInput: UpdateVersionInput;
+  UpdateZoneInput: UpdateZoneInput;
   UpgradePlanInput: UpgradePlanInput;
   User: ResolverTypeWrapper<UserGraphQLReturn>;
   UserAutomateInfo: ResolverTypeWrapper<UserAutomateInfoGraphQLReturn>;
@@ -8304,6 +8356,7 @@ export type ResolversTypes = {
   WorkspaceUpdateInput: WorkspaceUpdateInput;
   WorkspaceUpdateSeatTypeInput: WorkspaceUpdateSeatTypeInput;
   WorkspaceUpdatedMessage: ResolverTypeWrapper<Omit<WorkspaceUpdatedMessage, 'workspace'> & { workspace: ResolversTypes['Workspace'] }>;
+  Zone: ResolverTypeWrapper<Zone>;
 };
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -8434,6 +8487,7 @@ export type ResolversParentTypes = {
   CreateSpaceInput: CreateSpaceInput;
   CreateUserEmailInput: CreateUserEmailInput;
   CreateVersionInput: CreateVersionInput;
+  CreateZoneInput: CreateZoneInput;
   CurrencyBasedPrices: Omit<CurrencyBasedPrices, 'gbp' | 'usd'> & { gbp: ResolversParentTypes['WorkspacePaidPlanPrices'], usd: ResolversParentTypes['WorkspacePaidPlanPrices'] };
   Dashboard: DashboardGraphQLReturn;
   DashboardCollection: Omit<DashboardCollection, 'items'> & { items: Array<ResolversParentTypes['Dashboard']> };
@@ -8660,6 +8714,7 @@ export type ResolversParentTypes = {
   UpdateServerRegionInput: UpdateServerRegionInput;
   UpdateSpaceInput: UpdateSpaceInput;
   UpdateVersionInput: UpdateVersionInput;
+  UpdateZoneInput: UpdateZoneInput;
   UpgradePlanInput: UpgradePlanInput;
   User: UserGraphQLReturn;
   UserAutomateInfo: UserAutomateInfoGraphQLReturn;
@@ -8751,6 +8806,7 @@ export type ResolversParentTypes = {
   WorkspaceUpdateInput: WorkspaceUpdateInput;
   WorkspaceUpdateSeatTypeInput: WorkspaceUpdateSeatTypeInput;
   WorkspaceUpdatedMessage: Omit<WorkspaceUpdatedMessage, 'workspace'> & { workspace: ResolversParentTypes['Workspace'] };
+  Zone: Zone;
 };
 
 export type HasScopeDirectiveArgs = {
@@ -9709,11 +9765,13 @@ export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType 
   createFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsCreateFloorArgs, 'input'>>;
   createSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsCreateSpaceArgs, 'input'>>;
   createSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsCreateSystemArgs, 'input'>>;
+  createZone?: Resolver<ResolversTypes['Zone'], ParentType, ContextType, RequireFields<FacilityMutationsCreateZoneArgs, 'input'>>;
   deleteAsset?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteAssetArgs, 'id'>>;
   deleteAssetClass?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteAssetClassArgs, 'id'>>;
   deleteFloor?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteFloorArgs, 'id'>>;
   deleteSpace?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSpaceArgs, 'id'>>;
   deleteSystem?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteSystemArgs, 'id'>>;
+  deleteZone?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<FacilityMutationsDeleteZoneArgs, 'id'>>;
   setAssetPower?: Resolver<ResolversTypes['DeviceState'], ParentType, ContextType, RequireFields<FacilityMutationsSetAssetPowerArgs, 'input'>>;
   setAssetTemperature?: Resolver<ResolversTypes['DeviceState'], ParentType, ContextType, RequireFields<FacilityMutationsSetAssetTemperatureArgs, 'input'>>;
   update?: Resolver<ResolversTypes['Facility'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateArgs, 'input'>>;
@@ -9722,6 +9780,7 @@ export type FacilityMutationsResolvers<ContextType = GraphQLContext, ParentType 
   updateFloor?: Resolver<ResolversTypes['Floor'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateFloorArgs, 'input'>>;
   updateSpace?: Resolver<ResolversTypes['Space'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSpaceArgs, 'input'>>;
   updateSystem?: Resolver<ResolversTypes['AssetSystem'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateSystemArgs, 'input'>>;
+  updateZone?: Resolver<ResolversTypes['Zone'], ParentType, ContextType, RequireFields<FacilityMutationsUpdateZoneArgs, 'input'>>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -9781,6 +9840,7 @@ export type FloorResolvers<ContextType = GraphQLContext, ParentType extends Reso
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  zones?: Resolver<Array<ResolversTypes['Zone']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -10789,6 +10849,8 @@ export type SpaceResolvers<ContextType = GraphQLContext, ParentType extends Reso
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   speckleObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  zone?: Resolver<Maybe<ResolversTypes['Zone']>, ParentType, ContextType>;
+  zoneId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -11440,6 +11502,17 @@ export type WorkspaceUpdatedMessageResolvers<ContextType = GraphQLContext, Paren
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type ZoneResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Zone'] = ResolversParentTypes['Zone']> = {
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  facilityId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  floorId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  spaces?: Resolver<Array<ResolversTypes['Space']>, ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type Resolvers<ContextType = GraphQLContext> = {
   AccFolder?: AccFolderResolvers<ContextType>;
   AccFolderCollection?: AccFolderCollectionResolvers<ContextType>;
@@ -11703,6 +11776,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   WorkspaceSubscriptionSeats?: WorkspaceSubscriptionSeatsResolvers<ContextType>;
   WorkspaceTeamByRole?: WorkspaceTeamByRoleResolvers<ContextType>;
   WorkspaceUpdatedMessage?: WorkspaceUpdatedMessageResolvers<ContextType>;
+  Zone?: ZoneResolvers<ContextType>;
 };
 
 export type DirectiveResolvers<ContextType = GraphQLContext> = {

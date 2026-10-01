@@ -576,9 +576,20 @@ export const Spaces = buildTableHelper('spaces', [
   'projectId',
   'facilityId',
   'floorId',
+  'zoneId',
   'name',
   'elevationZ',
   'speckleObjectId',
+  'createdAt',
+  'updatedAt'
+])
+
+export const Zones = buildTableHelper('zones', [
+  'id',
+  'projectId',
+  'facilityId',
+  'floorId',
+  'name',
   'createdAt',
   'updatedAt'
 ])

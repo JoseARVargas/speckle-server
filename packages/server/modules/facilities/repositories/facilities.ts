@@ -2,6 +2,7 @@ import {
   Facilities,
   Floors,
   Spaces,
+  Zones,
   AssetTypes,
   AssetSystems,
   AssetClasses,
@@ -13,6 +14,7 @@ import type {
   FacilityRecord,
   FloorRecord,
   SpaceRecord,
+  ZoneRecord,
   AssetTypeRecord,
   AssetSystemRecord,
   AssetClassRecord,
@@ -25,6 +27,7 @@ const tables = {
   facilities: (db: Knex) => db<FacilityRecord>(Facilities.name),
   floors: (db: Knex) => db<FloorRecord>(Floors.name),
   spaces: (db: Knex) => db<SpaceRecord>(Spaces.name),
+  zones: (db: Knex) => db<ZoneRecord>(Zones.name),
   assetTypes: (db: Knex) => db<AssetTypeRecord>(AssetTypes.name),
   assetSystems: (db: Knex) => db<AssetSystemRecord>(AssetSystems.name),
   assetClasses: (db: Knex) => db<AssetClassRecord>(AssetClasses.name),
@@ -100,9 +103,11 @@ export const deleteFloorFactory = (deps: { db: Knex }) => (params: { id: string 
 // ---- spaces ---------------------------------------------------------------
 
 export const listSpacesFactory =
-  (deps: { db: Knex }) => (params: { facilityId: string; floorId?: string }) => {
+  (deps: { db: Knex }) =>
+  (params: { facilityId: string; floorId?: string; zoneId?: string }) => {
     const q = tables.spaces(deps.db).where({ facilityId: params.facilityId })
     if (params.floorId) q.andWhere({ floorId: params.floorId })
+    if (params.zoneId) q.andWhere({ zoneId: params.zoneId })
     return q.orderBy('name', 'asc')
   }
 
@@ -128,6 +133,33 @@ export const updateSpaceFactory =
 
 export const deleteSpaceFactory = (deps: { db: Knex }) => (params: { id: string }) =>
   tables.spaces(deps.db).where({ id: params.id }).del()
+
+// ---- zones ------------------------------------------------------------------
+
+export const listZonesFactory = (deps: { db: Knex }) => (params: { floorId: string }) =>
+  tables.zones(deps.db).where({ floorId: params.floorId }).orderBy('name', 'asc')
+
+export const getZoneByIdFactory = (deps: { db: Knex }) => (params: { id: string }) =>
+  tables.zones(deps.db).where({ id: params.id }).first()
+
+export const insertZoneFactory = (deps: { db: Knex }) => async (zone: ZoneRecord) => {
+  const [row] = await tables.zones(deps.db).insert(zone).returning('*')
+  return row
+}
+
+export const updateZoneFactory =
+  (deps: { db: Knex }) =>
+  async (params: { id: string; update: Partial<ZoneRecord> }) => {
+    const [row] = await tables
+      .zones(deps.db)
+      .where({ id: params.id })
+      .update({ ...params.update, updatedAt: new Date() })
+      .returning('*')
+    return row
+  }
+
+export const deleteZoneFactory = (deps: { db: Knex }) => (params: { id: string }) =>
+  tables.zones(deps.db).where({ id: params.id }).del()
 
 // ---- asset types (global catalog) ------------------------------------------
 
