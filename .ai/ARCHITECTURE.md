@@ -24,7 +24,7 @@ Fork do [Speckle Server](https://github.com/specklesystems/speckle-server) (mono
 | `rest/router.ts`       | Ingestão de leituras de sensores físicos: `POST /api/facilities/sensors/:projectId/:sensorId/readings`, autenticada por chave de API do dispositivo com hash bcrypt. |
 | `helpers/types.ts`     | Tipos de registro do banco e de domínio.                                                                                                                             |
 
-Domínios: facility (andares, espaços, sistemas, ativos, tipos de ativo com classificação IFC/COBie), código de identidade do ativo (`PHD-NNNNNN-C`), simulação de dispositivos (estado, telemetria, energia), manutenção (ordens), documentos (plantas, manuais, ARTs, com status e revisão), sensores, manutenção preditiva (injeção de falhas, sinais de saúde, relatórios de IA).
+Domínios: coordenação BIM (model check ISO 19650: requisitos OIR/AIR/PIR/EIR, marcos, conjuntos de regras WHERE/CHECK versionados, runs sobre versões de modelo; arquivos `*/coordination*.ts`, tabelas `coord_*`), facility (andares, espaços, sistemas, ativos, tipos de ativo com classificação IFC/COBie), código de identidade do ativo (`PHD-NNNNNN-C`), simulação de dispositivos (estado, telemetria, energia), manutenção (ordens), documentos (plantas, manuais, ARTs, com status e revisão), sensores, manutenção preditiva (injeção de falhas, sinais de saúde, relatórios de IA).
 
 ## Autorização
 
@@ -37,5 +37,6 @@ Domínios: facility (andares, espaços, sistemas, ativos, tipos de ativo com cla
 - **Simulação em vez de MQTT**: o simulador AC foi implementado estendendo o simulador de dispositivos do módulo, não como serviço MQTT separado. O ponto de entrada para hardware real é a ingestão REST de sensores.
 - **IA só com sinais estruturados**: o relatório de manutenção envia ao Claude os sinais calculados, nunca a telemetria bruta, e valida o JSON de resposta com `zod` puro.
 - **Versões fixadas**: `zod` 3.22.4 é compartilhado com o `frontend-2` (não atualizar isoladamente); `@anthropic-ai/sdk` fixado em versão exata. **Não usar** `@anthropic-ai/sdk/helpers/zod` (importa `zod/v4`, que não existe na 3.22, e derrubou a produção).
+- **Coordenação BIM dentro de `facilities`** (plano `speckle-digitaltwin-console/.ai/plans/2026-10-01-coordenacao-bim-model-check.md`): gatilho pelo event bus interno (`VersionEvents.Created`), não webhook; a tabela `coord_check_runs` é a fila (worker em processo com `SKIP LOCKED`, polling desligado em teste); tabelas `coord_*` sempre no `db` principal, objetos do Speckle lidos via `getProjectDbClient`; resultados por `applicationId`, nunca pelo hash do objeto. Clash e IDS (fases 2–3) entram num worker Python separado.
 - **Boot crítico**: todo start roda `migrateDbToLatest` e carrega todos os resolvers. Import quebrado em arquivo alcançável pelos resolvers, ou migração com erro, causa crash-loop do servidor inteiro.
 - **Produção**: EC2 na AWS com `infra-aws/docker-compose.yml` + Caddy; segredos em `infra-aws/server.env` (fora do Git). O relatório de IA exige `ANTHROPIC_API_KEY` no servidor.

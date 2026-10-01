@@ -11,7 +11,7 @@ Antes de mudanças significativas, leia e siga:
 
 ## Papéis
 
-- **Claude Code**: arquitetura e planejamento (planos em `.ai/plans/`).
-- **Codex**: implementação e execução dos planos.
+- **Claude Code**: arquitetura, planejamento e implementação (planos em `.ai/plans/` para mudanças grandes).
+- **Codex**: apoio sob demanda do usuário (revisão, tarefas paralelas, execução de um plano existente).
 
 Detalhes em `.ai/WORKFLOW.md`. Mudanças de papel só valem quando o usuário as comunica explicitamente.

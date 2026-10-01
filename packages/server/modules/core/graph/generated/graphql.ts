@@ -1364,6 +1364,465 @@ export type CommitsMoveInput = {
   targetBranch: Scalars['String']['input'];
 };
 
+export type CoordCheckRun = {
+  __typename?: 'CoordCheckRun';
+  element?: Maybe<CoordElementDetail>;
+  /**
+   * Per-element results. Filtered by ruleId or requirementId, each element's
+   * status is the worst among those rules only (score is then null).
+   */
+  elementResults: CoordElementResultCollection;
+  error?: Maybe<Scalars['String']['output']>;
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['String']['output'];
+  modelId: Scalars['String']['output'];
+  modelName?: Maybe<Scalars['String']['output']>;
+  /** The previous succeeded, non-preview run of the same rule set and model */
+  previous?: Maybe<CoordCheckRun>;
+  queuedAt: Scalars['DateTime']['output'];
+  requirements: Array<CoordRequirementCompliance>;
+  ruleSet?: Maybe<CoordRuleSet>;
+  ruleSetId: Scalars['String']['output'];
+  ruleSetVersion: CoordRuleSetVersion;
+  ruleStats: Array<CoordRuleStat>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status: CoordRunStatus;
+  summary: CoordRunSummary;
+  trigger: CoordRunTrigger;
+  /** Speckle object ids of elements left without a result (no applicationId) */
+  unkeyedSample: Array<Scalars['String']['output']>;
+  versionId: Scalars['String']['output'];
+};
+
+
+export type CoordCheckRunElementArgs = {
+  elementKey: Scalars['String']['input'];
+};
+
+
+export type CoordCheckRunElementResultsArgs = {
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  requirementId?: InputMaybe<Scalars['String']['input']>;
+  ruleId?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<Array<CoordCheckStatus>>;
+};
+
+export type CoordCheckRunCollection = {
+  __typename?: 'CoordCheckRunCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<CoordCheckRun>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export const CoordCheckStatus = {
+  Fail: 'fail',
+  Na: 'na',
+  Pass: 'pass',
+  Warn: 'warn'
+} as const;
+
+export type CoordCheckStatus = typeof CoordCheckStatus[keyof typeof CoordCheckStatus];
+export type CoordElementDetail = {
+  __typename?: 'CoordElementDetail';
+  elementKey: Scalars['String']['output'];
+  results: Array<CoordRuleResult>;
+  score?: Maybe<Scalars['Float']['output']>;
+  speckleObjectId?: Maybe<Scalars['String']['output']>;
+  status: CoordCheckStatus;
+};
+
+export type CoordElementResult = {
+  __typename?: 'CoordElementResult';
+  elementKey: Scalars['String']['output'];
+  score?: Maybe<Scalars['Float']['output']>;
+  speckleObjectId?: Maybe<Scalars['String']['output']>;
+  status: CoordCheckStatus;
+};
+
+export type CoordElementResultCollection = {
+  __typename?: 'CoordElementResultCollection';
+  cursor?: Maybe<Scalars['String']['output']>;
+  items: Array<CoordElementResult>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type CoordMilestone = {
+  __typename?: 'CoordMilestone';
+  discipline?: Maybe<Scalars['String']['output']>;
+  dueDate?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type CoordMilestoneInput = {
+  discipline?: InputMaybe<Scalars['String']['input']>;
+  dueDate?: InputMaybe<Scalars['DateTime']['input']>;
+  name: Scalars['String']['input'];
+};
+
+export type CoordMilestoneReport = {
+  __typename?: 'CoordMilestoneReport';
+  /** Mean element score across those runs, weighted by applicable elements */
+  adherence?: Maybe<Scalars['Float']['output']>;
+  elements: Scalars['Int']['output'];
+  /** Older succeeded runs of the same rule sets and models, newest first */
+  history: Array<CoordCheckRun>;
+  milestone: CoordMilestone;
+  requirements: Array<CoordRequirementCompliance>;
+  /** Latest succeeded, non-preview run of each (rule set of the milestone x bound model) */
+  runs: Array<CoordCheckRun>;
+  unkeyed: Scalars['Int']['output'];
+};
+
+export type CoordRequirement = {
+  __typename?: 'CoordRequirement';
+  code: Scalars['String']['output'];
+  discipline?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  milestone?: Maybe<CoordMilestone>;
+  milestoneId?: Maybe<Scalars['String']['output']>;
+  /** Purpose of the information (LOIN, ISO 7817-1) */
+  purpose?: Maybe<Scalars['String']['output']>;
+  /** Rules linked to it in the latest published version of each rule set */
+  ruleCount: Scalars['Int']['output'];
+  source: CoordRequirementSource;
+  sourceId: Scalars['String']['output'];
+  /** Adherence (0-100) at which the requirement counts as met */
+  targetPct: Scalars['Float']['output'];
+  title: Scalars['String']['output'];
+};
+
+export type CoordRequirementCompliance = {
+  __typename?: 'CoordRequirementCompliance';
+  adherence?: Maybe<Scalars['Float']['output']>;
+  applicable: Scalars['Int']['output'];
+  passed: Scalars['Int']['output'];
+  requirement: CoordRequirement;
+};
+
+export type CoordRequirementInput = {
+  code: Scalars['String']['input'];
+  discipline?: InputMaybe<Scalars['String']['input']>;
+  milestoneId?: InputMaybe<Scalars['String']['input']>;
+  purpose?: InputMaybe<Scalars['String']['input']>;
+  sourceId: Scalars['String']['input'];
+  targetPct?: InputMaybe<Scalars['Float']['input']>;
+  title: Scalars['String']['input'];
+};
+
+export type CoordRequirementSource = {
+  __typename?: 'CoordRequirementSource';
+  clause?: Maybe<Scalars['String']['output']>;
+  document?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  kind: CoordRequirementSourceKind;
+  parent?: Maybe<CoordRequirementSource>;
+  parentId?: Maybe<Scalars['String']['output']>;
+  revision?: Maybe<Scalars['String']['output']>;
+  title: Scalars['String']['output'];
+};
+
+export type CoordRequirementSourceInput = {
+  clause?: InputMaybe<Scalars['String']['input']>;
+  document?: InputMaybe<Scalars['String']['input']>;
+  kind: CoordRequirementSourceKind;
+  parentId?: InputMaybe<Scalars['String']['input']>;
+  revision?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
+};
+
+export const CoordRequirementSourceKind = {
+  Air: 'AIR',
+  Eir: 'EIR',
+  Oir: 'OIR',
+  Pir: 'PIR'
+} as const;
+
+export type CoordRequirementSourceKind = typeof CoordRequirementSourceKind[keyof typeof CoordRequirementSourceKind];
+export type CoordRule = {
+  __typename?: 'CoordRule';
+  code: Scalars['String']['output'];
+  /** { where: [...], check: [...] } - see the WHERE/CHECK rule format */
+  definition: Scalars['JSONObject']['output'];
+  /** Just the CHECK part, shown as the expected value */
+  expected: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  requirement?: Maybe<CoordRequirement>;
+  requirementId?: Maybe<Scalars['String']['output']>;
+  severity: CoordSeverity;
+  /** Human readable sentence: "Onde ..., verificar se ..." */
+  summary: Scalars['String']['output'];
+  weight: Scalars['Float']['output'];
+};
+
+export type CoordRuleResult = {
+  __typename?: 'CoordRuleResult';
+  actualValue?: Maybe<Array<Scalars['String']['output']>>;
+  message?: Maybe<Scalars['String']['output']>;
+  rule: CoordRule;
+  status: CoordCheckStatus;
+};
+
+export type CoordRuleSet = {
+  __typename?: 'CoordRuleSet';
+  bindings: Array<CoordRuleSetBinding>;
+  draft?: Maybe<CoordRuleSetVersion>;
+  format: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  lastRun?: Maybe<CoordCheckRun>;
+  milestone?: Maybe<CoordMilestone>;
+  milestoneId?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  published?: Maybe<CoordRuleSetVersion>;
+  purpose?: Maybe<Scalars['String']['output']>;
+  versions: Array<CoordRuleSetVersion>;
+};
+
+export type CoordRuleSetBinding = {
+  __typename?: 'CoordRuleSetBinding';
+  autoRun: Scalars['Boolean']['output'];
+  modelId: Scalars['String']['output'];
+  modelName?: Maybe<Scalars['String']['output']>;
+  unkeyedBlockPct: Scalars['Float']['output'];
+};
+
+export type CoordRuleSetImportResult = {
+  __typename?: 'CoordRuleSetImportResult';
+  /** Requirement codes that didn't exist and were created under "Importado" */
+  createdRequirements: Array<Scalars['String']['output']>;
+  ruleSet: CoordRuleSet;
+};
+
+export type CoordRuleSetInput = {
+  milestoneId?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  purpose?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type CoordRuleSetVersion = {
+  __typename?: 'CoordRuleSetVersion';
+  id: Scalars['String']['output'];
+  publishedAt?: Maybe<Scalars['DateTime']['output']>;
+  rules: Array<CoordRule>;
+  status: CoordRuleSetVersionStatus;
+  version: Scalars['Int']['output'];
+};
+
+export const CoordRuleSetVersionStatus = {
+  Draft: 'draft',
+  Published: 'published'
+} as const;
+
+export type CoordRuleSetVersionStatus = typeof CoordRuleSetVersionStatus[keyof typeof CoordRuleSetVersionStatus];
+export type CoordRuleStat = {
+  __typename?: 'CoordRuleStat';
+  applicable: Scalars['Int']['output'];
+  failed: Scalars['Int']['output'];
+  passed: Scalars['Int']['output'];
+  rule: CoordRule;
+  warned: Scalars['Int']['output'];
+};
+
+export const CoordRunStatus = {
+  Blocked: 'blocked',
+  Failed: 'failed',
+  Queued: 'queued',
+  Running: 'running',
+  Succeeded: 'succeeded'
+} as const;
+
+export type CoordRunStatus = typeof CoordRunStatus[keyof typeof CoordRunStatus];
+export type CoordRunSummary = {
+  __typename?: 'CoordRunSummary';
+  /** Mean element score (0-1) over applicable elements */
+  adherence?: Maybe<Scalars['Float']['output']>;
+  applicable: Scalars['Int']['output'];
+  elements: Scalars['Int']['output'];
+  failed: Scalars['Int']['output'];
+  notApplicable: Scalars['Int']['output'];
+  passed: Scalars['Int']['output'];
+  unkeyed: Scalars['Int']['output'];
+  warned: Scalars['Int']['output'];
+};
+
+export const CoordRunTrigger = {
+  Manual: 'manual',
+  Preview: 'preview',
+  VersionCreated: 'version_created'
+} as const;
+
+export type CoordRunTrigger = typeof CoordRunTrigger[keyof typeof CoordRunTrigger];
+export const CoordSeverity = {
+  Error: 'error',
+  Warning: 'warning'
+} as const;
+
+export type CoordSeverity = typeof CoordSeverity[keyof typeof CoordSeverity];
+export type CoordinationMutations = {
+  __typename?: 'CoordinationMutations';
+  createMilestone: CoordMilestone;
+  createRequirement: CoordRequirement;
+  createRequirementSource: CoordRequirementSource;
+  createRuleSet: CoordRuleSet;
+  deleteDraftRule: Scalars['Boolean']['output'];
+  deleteMilestone: Scalars['Boolean']['output'];
+  deleteRequirement: Scalars['Boolean']['output'];
+  deleteRequirementSource: Scalars['Boolean']['output'];
+  deleteRuleSet: Scalars['Boolean']['output'];
+  duplicateRuleSet: CoordRuleSet;
+  /** Imports { name, milestone?, purpose?, rules: [...] } as a new rule set draft */
+  importRuleSet: CoordRuleSetImportResult;
+  /** Runs the draft on the latest version of the model */
+  previewDraft: CoordCheckRun;
+  publishRuleSet: CoordRuleSetVersion;
+  removeRuleSetBinding: Scalars['Boolean']['output'];
+  reorderDraftRules: Array<CoordRule>;
+  /** Runs the published version on a model version (latest when versionId is null) */
+  runCheck: CoordCheckRun;
+  setRuleSetBinding: CoordRuleSetBinding;
+  updateMilestone: CoordMilestone;
+  updateRequirement: CoordRequirement;
+  updateRequirementSource: CoordRequirementSource;
+  updateRuleSet: CoordRuleSet;
+  /**
+   * Creates (ruleId null) or updates a rule of the draft, creating the draft
+   * from the published version when there's none
+   */
+  upsertDraftRule: CoordRule;
+};
+
+
+export type CoordinationMutationsCreateMilestoneArgs = {
+  input: CoordMilestoneInput;
+  projectId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsCreateRequirementArgs = {
+  input: CoordRequirementInput;
+  projectId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsCreateRequirementSourceArgs = {
+  input: CoordRequirementSourceInput;
+  projectId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsCreateRuleSetArgs = {
+  input: CoordRuleSetInput;
+  projectId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteDraftRuleArgs = {
+  ruleId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteMilestoneArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteRequirementArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteRequirementSourceArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteRuleSetArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDuplicateRuleSetArgs = {
+  id: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsImportRuleSetArgs = {
+  document: Scalars['JSONObject']['input'];
+  projectId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsPreviewDraftArgs = {
+  modelId: Scalars['String']['input'];
+  ruleSetId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsPublishRuleSetArgs = {
+  ruleSetId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsRemoveRuleSetBindingArgs = {
+  modelId: Scalars['String']['input'];
+  ruleSetId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsReorderDraftRulesArgs = {
+  ruleIds: Array<Scalars['String']['input']>;
+  ruleSetId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsRunCheckArgs = {
+  modelId: Scalars['String']['input'];
+  ruleSetId: Scalars['String']['input'];
+  versionId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type CoordinationMutationsSetRuleSetBindingArgs = {
+  autoRun: Scalars['Boolean']['input'];
+  modelId: Scalars['String']['input'];
+  ruleSetId: Scalars['String']['input'];
+  unkeyedBlockPct?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type CoordinationMutationsUpdateMilestoneArgs = {
+  id: Scalars['String']['input'];
+  input: CoordMilestoneInput;
+};
+
+
+export type CoordinationMutationsUpdateRequirementArgs = {
+  id: Scalars['String']['input'];
+  input: CoordRequirementInput;
+};
+
+
+export type CoordinationMutationsUpdateRequirementSourceArgs = {
+  id: Scalars['String']['input'];
+  input: CoordRequirementSourceInput;
+};
+
+
+export type CoordinationMutationsUpdateRuleSetArgs = {
+  id: Scalars['String']['input'];
+  input: CoordRuleSetInput;
+};
+
+
+export type CoordinationMutationsUpsertDraftRuleArgs = {
+  input: Scalars['JSONObject']['input'];
+  ruleId?: InputMaybe<Scalars['String']['input']>;
+  ruleSetId: Scalars['String']['input'];
+};
+
 /**
  * Can be used instead of a full item collection, when the implementation doesn't call for it yet. Because
  * of the structure, it can be swapped out to a full item collection in the future
@@ -3125,6 +3584,7 @@ export type Mutation = {
    * @deprecated Part of the old API surface and will be removed in the future. Use VersionMutations.moveToModel instead.
    */
   commitsMove: Scalars['Boolean']['output'];
+  coordinationMutations: CoordinationMutations;
   dashboardMutations: DashboardMutations;
   /**
    * Manage a project's facility documents. Requires publish access to the
@@ -3727,6 +4187,7 @@ export type Project = {
   comment?: Maybe<Comment>;
   /** All comment threads in this project */
   commentThreads: ProjectCommentCollection;
+  coordination: ProjectCoordination;
   createdAt: Scalars['DateTime']['output'];
   dashboardTokens: DashboardTokenCollection;
   dashboards: DashboardCollection;
@@ -4180,6 +4641,47 @@ export const ProjectCommentsUpdatedMessageType = {
 } as const;
 
 export type ProjectCommentsUpdatedMessageType = typeof ProjectCommentsUpdatedMessageType[keyof typeof ProjectCommentsUpdatedMessageType];
+export type ProjectCoordination = {
+  __typename?: 'ProjectCoordination';
+  checkRun?: Maybe<CoordCheckRun>;
+  checkRuns: CoordCheckRunCollection;
+  milestoneReport?: Maybe<CoordMilestoneReport>;
+  milestones: Array<CoordMilestone>;
+  requirementSources: Array<CoordRequirementSource>;
+  requirements: Array<CoordRequirement>;
+  ruleSet?: Maybe<CoordRuleSet>;
+  ruleSets: Array<CoordRuleSet>;
+};
+
+
+export type ProjectCoordinationCheckRunArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type ProjectCoordinationCheckRunsArgs = {
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  includePreview?: InputMaybe<Scalars['Boolean']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  modelId?: InputMaybe<Scalars['String']['input']>;
+  ruleSetId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type ProjectCoordinationMilestoneReportArgs = {
+  milestoneId: Scalars['String']['input'];
+};
+
+
+export type ProjectCoordinationRequirementsArgs = {
+  milestoneId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type ProjectCoordinationRuleSetArgs = {
+  id: Scalars['String']['input'];
+};
+
 /** Any values left null will be ignored */
 export type ProjectCreateInput = {
   description?: InputMaybe<Scalars['String']['input']>;
@@ -7966,6 +8468,35 @@ export type ResolversTypes = {
   CommitUpdateInput: CommitUpdateInput;
   CommitsDeleteInput: CommitsDeleteInput;
   CommitsMoveInput: CommitsMoveInput;
+  CoordCheckRun: ResolverTypeWrapper<CoordCheckRun>;
+  CoordCheckRunCollection: ResolverTypeWrapper<CoordCheckRunCollection>;
+  CoordCheckStatus: CoordCheckStatus;
+  CoordElementDetail: ResolverTypeWrapper<CoordElementDetail>;
+  CoordElementResult: ResolverTypeWrapper<CoordElementResult>;
+  CoordElementResultCollection: ResolverTypeWrapper<CoordElementResultCollection>;
+  CoordMilestone: ResolverTypeWrapper<CoordMilestone>;
+  CoordMilestoneInput: CoordMilestoneInput;
+  CoordMilestoneReport: ResolverTypeWrapper<CoordMilestoneReport>;
+  CoordRequirement: ResolverTypeWrapper<CoordRequirement>;
+  CoordRequirementCompliance: ResolverTypeWrapper<CoordRequirementCompliance>;
+  CoordRequirementInput: CoordRequirementInput;
+  CoordRequirementSource: ResolverTypeWrapper<CoordRequirementSource>;
+  CoordRequirementSourceInput: CoordRequirementSourceInput;
+  CoordRequirementSourceKind: CoordRequirementSourceKind;
+  CoordRule: ResolverTypeWrapper<CoordRule>;
+  CoordRuleResult: ResolverTypeWrapper<CoordRuleResult>;
+  CoordRuleSet: ResolverTypeWrapper<CoordRuleSet>;
+  CoordRuleSetBinding: ResolverTypeWrapper<CoordRuleSetBinding>;
+  CoordRuleSetImportResult: ResolverTypeWrapper<CoordRuleSetImportResult>;
+  CoordRuleSetInput: CoordRuleSetInput;
+  CoordRuleSetVersion: ResolverTypeWrapper<CoordRuleSetVersion>;
+  CoordRuleSetVersionStatus: CoordRuleSetVersionStatus;
+  CoordRuleStat: ResolverTypeWrapper<CoordRuleStat>;
+  CoordRunStatus: CoordRunStatus;
+  CoordRunSummary: ResolverTypeWrapper<CoordRunSummary>;
+  CoordRunTrigger: CoordRunTrigger;
+  CoordSeverity: CoordSeverity;
+  CoordinationMutations: ResolverTypeWrapper<CoordinationMutations>;
   CountOnlyCollection: ResolverTypeWrapper<CountOnlyCollection>;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
   CreateAssetClassInput: CreateAssetClassInput;
@@ -8123,6 +8654,7 @@ export type ResolversTypes = {
   ProjectCommentsFilter: ProjectCommentsFilter;
   ProjectCommentsUpdatedMessage: ResolverTypeWrapper<Omit<ProjectCommentsUpdatedMessage, 'comment'> & { comment?: Maybe<ResolversTypes['Comment']> }>;
   ProjectCommentsUpdatedMessageType: ProjectCommentsUpdatedMessageType;
+  ProjectCoordination: ResolverTypeWrapper<ProjectCoordination>;
   ProjectCreateInput: ProjectCreateInput;
   ProjectDashboardsFilter: ProjectDashboardsFilter;
   ProjectEmbedOptions: ResolverTypeWrapper<ProjectEmbedOptions>;
@@ -8464,6 +8996,29 @@ export type ResolversParentTypes = {
   CommitUpdateInput: CommitUpdateInput;
   CommitsDeleteInput: CommitsDeleteInput;
   CommitsMoveInput: CommitsMoveInput;
+  CoordCheckRun: CoordCheckRun;
+  CoordCheckRunCollection: CoordCheckRunCollection;
+  CoordElementDetail: CoordElementDetail;
+  CoordElementResult: CoordElementResult;
+  CoordElementResultCollection: CoordElementResultCollection;
+  CoordMilestone: CoordMilestone;
+  CoordMilestoneInput: CoordMilestoneInput;
+  CoordMilestoneReport: CoordMilestoneReport;
+  CoordRequirement: CoordRequirement;
+  CoordRequirementCompliance: CoordRequirementCompliance;
+  CoordRequirementInput: CoordRequirementInput;
+  CoordRequirementSource: CoordRequirementSource;
+  CoordRequirementSourceInput: CoordRequirementSourceInput;
+  CoordRule: CoordRule;
+  CoordRuleResult: CoordRuleResult;
+  CoordRuleSet: CoordRuleSet;
+  CoordRuleSetBinding: CoordRuleSetBinding;
+  CoordRuleSetImportResult: CoordRuleSetImportResult;
+  CoordRuleSetInput: CoordRuleSetInput;
+  CoordRuleSetVersion: CoordRuleSetVersion;
+  CoordRuleStat: CoordRuleStat;
+  CoordRunSummary: CoordRunSummary;
+  CoordinationMutations: CoordinationMutations;
   CountOnlyCollection: CountOnlyCollection;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
   CreateAssetClassInput: CreateAssetClassInput;
@@ -8603,6 +9158,7 @@ export type ResolversParentTypes = {
   ProjectCommentCollection: Omit<ProjectCommentCollection, 'items'> & { items: Array<ResolversParentTypes['Comment']> };
   ProjectCommentsFilter: ProjectCommentsFilter;
   ProjectCommentsUpdatedMessage: Omit<ProjectCommentsUpdatedMessage, 'comment'> & { comment?: Maybe<ResolversParentTypes['Comment']> };
+  ProjectCoordination: ProjectCoordination;
   ProjectCreateInput: ProjectCreateInput;
   ProjectDashboardsFilter: ProjectDashboardsFilter;
   ProjectEmbedOptions: ProjectEmbedOptions;
@@ -9481,6 +10037,222 @@ export type CommitCollectionResolvers<ContextType = GraphQLContext, ParentType e
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type CoordCheckRunResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordCheckRun'] = ResolversParentTypes['CoordCheckRun']> = {
+  element?: Resolver<Maybe<ResolversTypes['CoordElementDetail']>, ParentType, ContextType, RequireFields<CoordCheckRunElementArgs, 'elementKey'>>;
+  elementResults?: Resolver<ResolversTypes['CoordElementResultCollection'], ParentType, ContextType, RequireFields<CoordCheckRunElementResultsArgs, 'limit'>>;
+  error?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  finishedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  previous?: Resolver<Maybe<ResolversTypes['CoordCheckRun']>, ParentType, ContextType>;
+  queuedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  requirements?: Resolver<Array<ResolversTypes['CoordRequirementCompliance']>, ParentType, ContextType>;
+  ruleSet?: Resolver<Maybe<ResolversTypes['CoordRuleSet']>, ParentType, ContextType>;
+  ruleSetId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ruleSetVersion?: Resolver<ResolversTypes['CoordRuleSetVersion'], ParentType, ContextType>;
+  ruleStats?: Resolver<Array<ResolversTypes['CoordRuleStat']>, ParentType, ContextType>;
+  startedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['CoordRunStatus'], ParentType, ContextType>;
+  summary?: Resolver<ResolversTypes['CoordRunSummary'], ParentType, ContextType>;
+  trigger?: Resolver<ResolversTypes['CoordRunTrigger'], ParentType, ContextType>;
+  unkeyedSample?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  versionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordCheckRunCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordCheckRunCollection'] = ResolversParentTypes['CoordCheckRunCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['CoordCheckRun']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordElementDetailResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordElementDetail'] = ResolversParentTypes['CoordElementDetail']> = {
+  elementKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  results?: Resolver<Array<ResolversTypes['CoordRuleResult']>, ParentType, ContextType>;
+  score?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  speckleObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['CoordCheckStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordElementResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordElementResult'] = ResolversParentTypes['CoordElementResult']> = {
+  elementKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  score?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  speckleObjectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['CoordCheckStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordElementResultCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordElementResultCollection'] = ResolversParentTypes['CoordElementResultCollection']> = {
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['CoordElementResult']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordMilestoneResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordMilestone'] = ResolversParentTypes['CoordMilestone']> = {
+  discipline?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  dueDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordMilestoneReportResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordMilestoneReport'] = ResolversParentTypes['CoordMilestoneReport']> = {
+  adherence?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  elements?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  history?: Resolver<Array<ResolversTypes['CoordCheckRun']>, ParentType, ContextType>;
+  milestone?: Resolver<ResolversTypes['CoordMilestone'], ParentType, ContextType>;
+  requirements?: Resolver<Array<ResolversTypes['CoordRequirementCompliance']>, ParentType, ContextType>;
+  runs?: Resolver<Array<ResolversTypes['CoordCheckRun']>, ParentType, ContextType>;
+  unkeyed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRequirementResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRequirement'] = ResolversParentTypes['CoordRequirement']> = {
+  code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  discipline?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  milestone?: Resolver<Maybe<ResolversTypes['CoordMilestone']>, ParentType, ContextType>;
+  milestoneId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  purpose?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ruleCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType>;
+  sourceId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  targetPct?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRequirementComplianceResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRequirementCompliance'] = ResolversParentTypes['CoordRequirementCompliance']> = {
+  adherence?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  applicable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  passed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  requirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRequirementSourceResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRequirementSource'] = ResolversParentTypes['CoordRequirementSource']> = {
+  clause?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  document?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  kind?: Resolver<ResolversTypes['CoordRequirementSourceKind'], ParentType, ContextType>;
+  parent?: Resolver<Maybe<ResolversTypes['CoordRequirementSource']>, ParentType, ContextType>;
+  parentId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  revision?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRule'] = ResolversParentTypes['CoordRule']> = {
+  code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  definition?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
+  expected?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  requirement?: Resolver<Maybe<ResolversTypes['CoordRequirement']>, ParentType, ContextType>;
+  requirementId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  severity?: Resolver<ResolversTypes['CoordSeverity'], ParentType, ContextType>;
+  summary?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  weight?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRuleResult'] = ResolversParentTypes['CoordRuleResult']> = {
+  actualValue?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  message?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  rule?: Resolver<ResolversTypes['CoordRule'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['CoordCheckStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleSetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRuleSet'] = ResolversParentTypes['CoordRuleSet']> = {
+  bindings?: Resolver<Array<ResolversTypes['CoordRuleSetBinding']>, ParentType, ContextType>;
+  draft?: Resolver<Maybe<ResolversTypes['CoordRuleSetVersion']>, ParentType, ContextType>;
+  format?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  lastRun?: Resolver<Maybe<ResolversTypes['CoordCheckRun']>, ParentType, ContextType>;
+  milestone?: Resolver<Maybe<ResolversTypes['CoordMilestone']>, ParentType, ContextType>;
+  milestoneId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  published?: Resolver<Maybe<ResolversTypes['CoordRuleSetVersion']>, ParentType, ContextType>;
+  purpose?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versions?: Resolver<Array<ResolversTypes['CoordRuleSetVersion']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleSetBindingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRuleSetBinding'] = ResolversParentTypes['CoordRuleSetBinding']> = {
+  autoRun?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  modelId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  unkeyedBlockPct?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleSetImportResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRuleSetImportResult'] = ResolversParentTypes['CoordRuleSetImportResult']> = {
+  createdRequirements?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  ruleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleSetVersionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRuleSetVersion'] = ResolversParentTypes['CoordRuleSetVersion']> = {
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  publishedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  rules?: Resolver<Array<ResolversTypes['CoordRule']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['CoordRuleSetVersionStatus'], ParentType, ContextType>;
+  version?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRuleStatResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRuleStat'] = ResolversParentTypes['CoordRuleStat']> = {
+  applicable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  failed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  passed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  rule?: Resolver<ResolversTypes['CoordRule'], ParentType, ContextType>;
+  warned?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordRunSummaryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordRunSummary'] = ResolversParentTypes['CoordRunSummary']> = {
+  adherence?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  applicable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  elements?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  failed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  notApplicable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  passed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  unkeyed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  warned?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordinationMutations'] = ResolversParentTypes['CoordinationMutations']> = {
+  createMilestone?: Resolver<ResolversTypes['CoordMilestone'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateMilestoneArgs, 'input' | 'projectId'>>;
+  createRequirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRequirementArgs, 'input' | 'projectId'>>;
+  createRequirementSource?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRequirementSourceArgs, 'input' | 'projectId'>>;
+  createRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRuleSetArgs, 'input' | 'projectId'>>;
+  deleteDraftRule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteDraftRuleArgs, 'ruleId'>>;
+  deleteMilestone?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteMilestoneArgs, 'id'>>;
+  deleteRequirement?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRequirementArgs, 'id'>>;
+  deleteRequirementSource?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRequirementSourceArgs, 'id'>>;
+  deleteRuleSet?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRuleSetArgs, 'id'>>;
+  duplicateRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsDuplicateRuleSetArgs, 'id' | 'name'>>;
+  importRuleSet?: Resolver<ResolversTypes['CoordRuleSetImportResult'], ParentType, ContextType, RequireFields<CoordinationMutationsImportRuleSetArgs, 'document' | 'projectId'>>;
+  previewDraft?: Resolver<ResolversTypes['CoordCheckRun'], ParentType, ContextType, RequireFields<CoordinationMutationsPreviewDraftArgs, 'modelId' | 'ruleSetId'>>;
+  publishRuleSet?: Resolver<ResolversTypes['CoordRuleSetVersion'], ParentType, ContextType, RequireFields<CoordinationMutationsPublishRuleSetArgs, 'ruleSetId'>>;
+  removeRuleSetBinding?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsRemoveRuleSetBindingArgs, 'modelId' | 'ruleSetId'>>;
+  reorderDraftRules?: Resolver<Array<ResolversTypes['CoordRule']>, ParentType, ContextType, RequireFields<CoordinationMutationsReorderDraftRulesArgs, 'ruleIds' | 'ruleSetId'>>;
+  runCheck?: Resolver<ResolversTypes['CoordCheckRun'], ParentType, ContextType, RequireFields<CoordinationMutationsRunCheckArgs, 'modelId' | 'ruleSetId'>>;
+  setRuleSetBinding?: Resolver<ResolversTypes['CoordRuleSetBinding'], ParentType, ContextType, RequireFields<CoordinationMutationsSetRuleSetBindingArgs, 'autoRun' | 'modelId' | 'ruleSetId'>>;
+  updateMilestone?: Resolver<ResolversTypes['CoordMilestone'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateMilestoneArgs, 'id' | 'input'>>;
+  updateRequirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRequirementArgs, 'id' | 'input'>>;
+  updateRequirementSource?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRequirementSourceArgs, 'id' | 'input'>>;
+  updateRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRuleSetArgs, 'id' | 'input'>>;
+  upsertDraftRule?: Resolver<ResolversTypes['CoordRule'], ParentType, ContextType, RequireFields<CoordinationMutationsUpsertDraftRuleArgs, 'input' | 'ruleSetId'>>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CountOnlyCollectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CountOnlyCollection'] = ResolversParentTypes['CountOnlyCollection']> = {
   totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -10092,6 +10864,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   commitUpdate?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitUpdateArgs, 'commit'>>;
   commitsDelete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitsDeleteArgs, 'input'>>;
   commitsMove?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCommitsMoveArgs, 'input'>>;
+  coordinationMutations?: Resolver<ResolversTypes['CoordinationMutations'], ParentType, ContextType>;
   dashboardMutations?: Resolver<ResolversTypes['DashboardMutations'], ParentType, ContextType>;
   documentMutations?: Resolver<ResolversTypes['DocumentMutations'], ParentType, ContextType>;
   facilityMutations?: Resolver<ResolversTypes['FacilityMutations'], ParentType, ContextType>;
@@ -10225,6 +10998,7 @@ export type ProjectResolvers<ContextType = GraphQLContext, ParentType extends Re
   blobs?: Resolver<Maybe<ResolversTypes['BlobMetadataCollection']>, ParentType, ContextType, RequireFields<ProjectBlobsArgs, 'cursor' | 'limit' | 'query'>>;
   comment?: Resolver<Maybe<ResolversTypes['Comment']>, ParentType, ContextType, RequireFields<ProjectCommentArgs, 'id'>>;
   commentThreads?: Resolver<ResolversTypes['ProjectCommentCollection'], ParentType, ContextType, Partial<ProjectCommentThreadsArgs>>;
+  coordination?: Resolver<ResolversTypes['ProjectCoordination'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   dashboardTokens?: Resolver<ResolversTypes['DashboardTokenCollection'], ParentType, ContextType, Partial<ProjectDashboardTokensArgs>>;
   dashboards?: Resolver<ResolversTypes['DashboardCollection'], ParentType, ContextType, RequireFields<ProjectDashboardsArgs, 'limit'>>;
@@ -10340,6 +11114,18 @@ export type ProjectCommentsUpdatedMessageResolvers<ContextType = GraphQLContext,
   comment?: Resolver<Maybe<ResolversTypes['Comment']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['ProjectCommentsUpdatedMessageType'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type ProjectCoordinationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProjectCoordination'] = ResolversParentTypes['ProjectCoordination']> = {
+  checkRun?: Resolver<Maybe<ResolversTypes['CoordCheckRun']>, ParentType, ContextType, RequireFields<ProjectCoordinationCheckRunArgs, 'id'>>;
+  checkRuns?: Resolver<ResolversTypes['CoordCheckRunCollection'], ParentType, ContextType, RequireFields<ProjectCoordinationCheckRunsArgs, 'includePreview' | 'limit'>>;
+  milestoneReport?: Resolver<Maybe<ResolversTypes['CoordMilestoneReport']>, ParentType, ContextType, RequireFields<ProjectCoordinationMilestoneReportArgs, 'milestoneId'>>;
+  milestones?: Resolver<Array<ResolversTypes['CoordMilestone']>, ParentType, ContextType>;
+  requirementSources?: Resolver<Array<ResolversTypes['CoordRequirementSource']>, ParentType, ContextType>;
+  requirements?: Resolver<Array<ResolversTypes['CoordRequirement']>, ParentType, ContextType, Partial<ProjectCoordinationRequirementsArgs>>;
+  ruleSet?: Resolver<Maybe<ResolversTypes['CoordRuleSet']>, ParentType, ContextType, RequireFields<ProjectCoordinationRuleSetArgs, 'id'>>;
+  ruleSets?: Resolver<Array<ResolversTypes['CoordRuleSet']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -11583,6 +12369,25 @@ export type Resolvers<ContextType = GraphQLContext> = {
   CommentThreadActivityMessage?: CommentThreadActivityMessageResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
   CommitCollection?: CommitCollectionResolvers<ContextType>;
+  CoordCheckRun?: CoordCheckRunResolvers<ContextType>;
+  CoordCheckRunCollection?: CoordCheckRunCollectionResolvers<ContextType>;
+  CoordElementDetail?: CoordElementDetailResolvers<ContextType>;
+  CoordElementResult?: CoordElementResultResolvers<ContextType>;
+  CoordElementResultCollection?: CoordElementResultCollectionResolvers<ContextType>;
+  CoordMilestone?: CoordMilestoneResolvers<ContextType>;
+  CoordMilestoneReport?: CoordMilestoneReportResolvers<ContextType>;
+  CoordRequirement?: CoordRequirementResolvers<ContextType>;
+  CoordRequirementCompliance?: CoordRequirementComplianceResolvers<ContextType>;
+  CoordRequirementSource?: CoordRequirementSourceResolvers<ContextType>;
+  CoordRule?: CoordRuleResolvers<ContextType>;
+  CoordRuleResult?: CoordRuleResultResolvers<ContextType>;
+  CoordRuleSet?: CoordRuleSetResolvers<ContextType>;
+  CoordRuleSetBinding?: CoordRuleSetBindingResolvers<ContextType>;
+  CoordRuleSetImportResult?: CoordRuleSetImportResultResolvers<ContextType>;
+  CoordRuleSetVersion?: CoordRuleSetVersionResolvers<ContextType>;
+  CoordRuleStat?: CoordRuleStatResolvers<ContextType>;
+  CoordRunSummary?: CoordRunSummaryResolvers<ContextType>;
+  CoordinationMutations?: CoordinationMutationsResolvers<ContextType>;
   CountOnlyCollection?: CountOnlyCollectionResolvers<ContextType>;
   CreateDashboardTokenReturn?: CreateDashboardTokenReturnResolvers<ContextType>;
   CreateEmbedTokenReturn?: CreateEmbedTokenReturnResolvers<ContextType>;
@@ -11658,6 +12463,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   ProjectCollection?: ProjectCollectionResolvers<ContextType>;
   ProjectCommentCollection?: ProjectCommentCollectionResolvers<ContextType>;
   ProjectCommentsUpdatedMessage?: ProjectCommentsUpdatedMessageResolvers<ContextType>;
+  ProjectCoordination?: ProjectCoordinationResolvers<ContextType>;
   ProjectEmbedOptions?: ProjectEmbedOptionsResolvers<ContextType>;
   ProjectFileImportUpdatedMessage?: ProjectFileImportUpdatedMessageResolvers<ContextType>;
   ProjectInviteMutations?: ProjectInviteMutationsResolvers<ContextType>;
