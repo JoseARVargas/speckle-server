@@ -1,7 +1,7 @@
 # COBie-inspired asset registry: Facility (1:1 with this Project) -> Floor ->
-# Space, with Asset (COBie "Component") optionally linked to a Space and to
-# one or more AssetSystems, and optionally typed by an AssetType drawn from
-# the server-wide catalog.
+# (optional Zone ->) Space, with Asset (COBie "Component") optionally linked
+# to a Space and to one or more AssetSystems, and optionally typed by an
+# AssetType drawn from the server-wide catalog.
 extend type Project {
   """
   The COBie-style facility registry for this project. Null until the first
@@ -87,6 +87,21 @@ type Floor {
   """
   elevationZ: Float
   spaces: [Space!]!
+  """
+  Optional sub-division of this Floor (e.g. "Ala Norte"). A Space may
+  belong to one of these instead of (or in addition to) the Floor directly.
+  """
+  zones: [Zone!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Zone {
+  id: String!
+  facilityId: String!
+  floorId: String!
+  name: String!
+  spaces: [Space!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -96,6 +111,11 @@ type Space {
   facilityId: String!
   floorId: String
   floor: Floor
+  """
+  Optional Zone within `floor`, when the Facility subdivides its floors.
+  """
+  zoneId: String
+  zone: Zone
   name: String!
   """
   Real-world elevation in meters - always worth capturing even without a
@@ -432,6 +452,7 @@ input CreateSpaceInput {
   projectId: String!
   name: String!
   floorId: String
+  zoneId: String
   elevationZ: Float
   speckleObjectId: String
 }
@@ -440,8 +461,20 @@ input UpdateSpaceInput {
   id: String!
   name: String
   floorId: String
+  zoneId: String
   elevationZ: Float
   speckleObjectId: String
+}
+
+input CreateZoneInput {
+  projectId: String!
+  floorId: String!
+  name: String!
+}
+
+input UpdateZoneInput {
+  id: String!
+  name: String
 }
 
 input CreateAssetSystemInput {
@@ -527,6 +560,10 @@ type FacilityMutations {
   createSpace(input: CreateSpaceInput!): Space!
   updateSpace(input: UpdateSpaceInput!): Space!
   deleteSpace(id: String!): Boolean!
+
+  createZone(input: CreateZoneInput!): Zone!
+  updateZone(input: UpdateZoneInput!): Zone!
+  deleteZone(id: String!): Boolean!
 
   createSystem(input: CreateAssetSystemInput!): AssetSystem!
   updateSystem(input: UpdateAssetSystemInput!): AssetSystem!

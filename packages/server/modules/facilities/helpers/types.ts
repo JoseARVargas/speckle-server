@@ -31,9 +31,20 @@ export type SpaceRecord = {
   projectId: string
   facilityId: string
   floorId: Nullable<string>
+  zoneId: Nullable<string>
   name: string
   elevationZ: Nullable<number>
   speckleObjectId: Nullable<string>
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type ZoneRecord = {
+  id: string
+  projectId: string
+  facilityId: string
+  floorId: string
+  name: string
   createdAt: Date
   updatedAt: Date
 }
