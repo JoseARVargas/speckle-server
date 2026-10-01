@@ -804,6 +804,166 @@ export const MaintenanceReports = buildTableHelper('maintenance_reports', [
   'generatedBy'
 ])
 
+// ---- BIM coordination (facilities module) ---------------------------------
+
+export const CoordRequirementSources = buildTableHelper('coord_requirement_sources', [
+  'id',
+  'projectId',
+  'kind',
+  'title',
+  'document',
+  'revision',
+  'clause',
+  'parentId',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordMilestones = buildTableHelper('coord_milestones', [
+  'id',
+  'projectId',
+  'name',
+  'dueDate',
+  'discipline',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordRequirements = buildTableHelper('coord_requirements', [
+  'id',
+  'projectId',
+  'sourceId',
+  'milestoneId',
+  'code',
+  'title',
+  'discipline',
+  'purpose',
+  'targetPct',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordRuleSets = buildTableHelper('coord_rule_sets', [
+  'id',
+  'projectId',
+  'name',
+  'format',
+  'milestoneId',
+  'purpose',
+  'createdBy',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordRuleSetVersions = buildTableHelper('coord_rule_set_versions', [
+  'id',
+  'projectId',
+  'ruleSetId',
+  'version',
+  'status',
+  'publishedAt',
+  'publishedBy',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordRules = buildTableHelper('coord_rules', [
+  'id',
+  'projectId',
+  'ruleSetVersionId',
+  'code',
+  'name',
+  'requirementId',
+  'severity',
+  'weight',
+  'definition',
+  'position',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordRuleSetBindings = buildTableHelper('coord_rule_set_bindings', [
+  'projectId',
+  'ruleSetId',
+  'modelId',
+  'autoRun',
+  'unkeyedBlockPct',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordCheckRuns = buildTableHelper('coord_check_runs', [
+  'id',
+  'projectId',
+  'ruleSetId',
+  'ruleSetVersionId',
+  'modelId',
+  'versionId',
+  'trigger',
+  'status',
+  'attempt',
+  'createdBy',
+  'unkeyedBlockPct',
+  'queuedAt',
+  'startedAt',
+  'finishedAt',
+  'error',
+  'elementCount',
+  'applicableCount',
+  'passCount',
+  'warnCount',
+  'failCount',
+  'naCount',
+  'unkeyedCount',
+  'adherence',
+  'unkeyedSample'
+])
+
+export const CoordCheckResults = buildTableHelper('coord_check_results', [
+  'runId',
+  'ruleId',
+  'elementKey',
+  'speckleObjectId',
+  'status',
+  'actualValue',
+  'message'
+])
+
+export const CoordElementScores = buildTableHelper('coord_element_scores', [
+  'runId',
+  'elementKey',
+  'speckleObjectId',
+  'status',
+  'score'
+])
+
+export const CoordRequirementStats = buildTableHelper('coord_requirement_stats', [
+  'runId',
+  'requirementId',
+  'applicableCount',
+  'passCount'
+])
+
+export const CoordRuleStats = buildTableHelper('coord_rule_stats', [
+  'runId',
+  'ruleId',
+  'applicableCount',
+  'passCount',
+  'warnCount',
+  'failCount'
+])
+
+export const CoordAuditEvents = buildTableHelper('coord_audit_events', [
+  'id',
+  'projectId',
+  'actorId',
+  'action',
+  'entityType',
+  'entityId',
+  'data',
+  'createdAt'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'

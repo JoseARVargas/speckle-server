@@ -1,0 +1,376 @@
+# BIM coordination - "model check": ISO 19650 information requirements
+# (OIR/AIR/PIR/EIR), delivery milestones, versioned WHERE/CHECK rule sets and
+# their runs over model versions. Results are keyed by the element's
+# applicationId (stable across versions), never by the object hash.
+
+extend type Project {
+  coordination: ProjectCoordination!
+}
+
+type ProjectCoordination {
+  requirementSources: [CoordRequirementSource!]!
+  requirements(milestoneId: String): [CoordRequirement!]!
+  milestones: [CoordMilestone!]!
+  ruleSets: [CoordRuleSet!]!
+  ruleSet(id: String!): CoordRuleSet
+  checkRuns(
+    ruleSetId: String
+    modelId: String
+    includePreview: Boolean = false
+    limit: Int = 25
+    cursor: String
+  ): CoordCheckRunCollection!
+  checkRun(id: String!): CoordCheckRun
+  milestoneReport(milestoneId: String!): CoordMilestoneReport
+}
+
+enum CoordRequirementSourceKind {
+  OIR
+  AIR
+  PIR
+  EIR
+}
+
+enum CoordSeverity {
+  error
+  warning
+}
+
+enum CoordRuleSetVersionStatus {
+  draft
+  published
+}
+
+enum CoordRunStatus {
+  queued
+  running
+  succeeded
+  failed
+  blocked
+}
+
+enum CoordRunTrigger {
+  manual
+  version_created
+  preview
+}
+
+enum CoordCheckStatus {
+  pass
+  warn
+  fail
+  na
+}
+
+type CoordRequirementSource {
+  id: String!
+  kind: CoordRequirementSourceKind!
+  title: String!
+  document: String
+  revision: String
+  clause: String
+  parentId: String
+  parent: CoordRequirementSource
+}
+
+type CoordMilestone {
+  id: String!
+  name: String!
+  dueDate: DateTime
+  discipline: String
+}
+
+type CoordRequirement {
+  id: String!
+  code: String!
+  title: String!
+  discipline: String
+  """
+  Purpose of the information (LOIN, ISO 7817-1)
+  """
+  purpose: String
+  """
+  Adherence (0-100) at which the requirement counts as met
+  """
+  targetPct: Float!
+  sourceId: String!
+  source: CoordRequirementSource!
+  milestoneId: String
+  milestone: CoordMilestone
+  """
+  Rules linked to it in the latest published version of each rule set
+  """
+  ruleCount: Int!
+}
+
+type CoordRuleSet {
+  id: String!
+  name: String!
+  format: String!
+  purpose: String
+  milestoneId: String
+  milestone: CoordMilestone
+  published: CoordRuleSetVersion
+  draft: CoordRuleSetVersion
+  versions: [CoordRuleSetVersion!]!
+  bindings: [CoordRuleSetBinding!]!
+  lastRun: CoordCheckRun
+}
+
+type CoordRuleSetVersion {
+  id: String!
+  version: Int!
+  status: CoordRuleSetVersionStatus!
+  publishedAt: DateTime
+  rules: [CoordRule!]!
+}
+
+type CoordRule {
+  id: String!
+  code: String!
+  name: String!
+  severity: CoordSeverity!
+  weight: Float!
+  requirementId: String
+  requirement: CoordRequirement
+  """
+  { where: [...], check: [...] } - see the WHERE/CHECK rule format
+  """
+  definition: JSONObject!
+  """
+  Human readable sentence: "Onde ..., verificar se ..."
+  """
+  summary: String!
+  """
+  Just the CHECK part, shown as the expected value
+  """
+  expected: String!
+}
+
+type CoordRuleSetBinding {
+  modelId: String!
+  modelName: String
+  autoRun: Boolean!
+  unkeyedBlockPct: Float!
+}
+
+type CoordRunSummary {
+  elements: Int!
+  applicable: Int!
+  passed: Int!
+  warned: Int!
+  failed: Int!
+  notApplicable: Int!
+  unkeyed: Int!
+  """
+  Mean element score (0-1) over applicable elements
+  """
+  adherence: Float
+}
+
+type CoordRequirementCompliance {
+  requirement: CoordRequirement!
+  applicable: Int!
+  passed: Int!
+  adherence: Float
+}
+
+type CoordRuleStat {
+  rule: CoordRule!
+  applicable: Int!
+  passed: Int!
+  warned: Int!
+  failed: Int!
+}
+
+type CoordCheckRun {
+  id: String!
+  modelId: String!
+  modelName: String
+  versionId: String!
+  ruleSetId: String!
+  ruleSet: CoordRuleSet
+  ruleSetVersion: CoordRuleSetVersion!
+  trigger: CoordRunTrigger!
+  status: CoordRunStatus!
+  error: String
+  queuedAt: DateTime!
+  startedAt: DateTime
+  finishedAt: DateTime
+  summary: CoordRunSummary!
+  requirements: [CoordRequirementCompliance!]!
+  ruleStats: [CoordRuleStat!]!
+  """
+  Speckle object ids of elements left without a result (no applicationId)
+  """
+  unkeyedSample: [String!]!
+  """
+  The previous succeeded, non-preview run of the same rule set and model
+  """
+  previous: CoordCheckRun
+  """
+  Per-element results. Filtered by ruleId or requirementId, each element's
+  status is the worst among those rules only (score is then null).
+  """
+  elementResults(
+    status: [CoordCheckStatus!]
+    ruleId: String
+    requirementId: String
+    limit: Int = 5000
+    cursor: String
+  ): CoordElementResultCollection!
+  element(elementKey: String!): CoordElementDetail
+}
+
+type CoordElementResult {
+  elementKey: String!
+  speckleObjectId: String
+  status: CoordCheckStatus!
+  score: Float
+}
+
+type CoordElementResultCollection {
+  totalCount: Int!
+  cursor: String
+  items: [CoordElementResult!]!
+}
+
+type CoordCheckRunCollection {
+  totalCount: Int!
+  cursor: String
+  items: [CoordCheckRun!]!
+}
+
+type CoordRuleResult {
+  rule: CoordRule!
+  status: CoordCheckStatus!
+  actualValue: [String!]
+  message: String
+}
+
+type CoordElementDetail {
+  elementKey: String!
+  speckleObjectId: String
+  status: CoordCheckStatus!
+  score: Float
+  results: [CoordRuleResult!]!
+}
+
+type CoordMilestoneReport {
+  milestone: CoordMilestone!
+  """
+  Latest succeeded, non-preview run of each (rule set of the milestone x bound model)
+  """
+  runs: [CoordCheckRun!]!
+  """
+  Mean element score across those runs, weighted by applicable elements
+  """
+  adherence: Float
+  elements: Int!
+  unkeyed: Int!
+  requirements: [CoordRequirementCompliance!]!
+  """
+  Older succeeded runs of the same rule sets and models, newest first
+  """
+  history: [CoordCheckRun!]!
+}
+
+input CoordRequirementSourceInput {
+  kind: CoordRequirementSourceKind!
+  title: String!
+  document: String
+  revision: String
+  clause: String
+  parentId: String
+}
+
+input CoordMilestoneInput {
+  name: String!
+  dueDate: DateTime
+  discipline: String
+}
+
+input CoordRequirementInput {
+  sourceId: String!
+  milestoneId: String
+  code: String!
+  title: String!
+  discipline: String
+  purpose: String
+  targetPct: Float
+}
+
+input CoordRuleSetInput {
+  name: String!
+  milestoneId: String
+  purpose: String
+}
+
+type CoordRuleSetImportResult {
+  ruleSet: CoordRuleSet!
+  """
+  Requirement codes that didn't exist and were created under "Importado"
+  """
+  createdRequirements: [String!]!
+}
+
+type CoordinationMutations {
+  createRequirementSource(
+    projectId: String!
+    input: CoordRequirementSourceInput!
+  ): CoordRequirementSource!
+  updateRequirementSource(
+    id: String!
+    input: CoordRequirementSourceInput!
+  ): CoordRequirementSource!
+  deleteRequirementSource(id: String!): Boolean!
+
+  createMilestone(projectId: String!, input: CoordMilestoneInput!): CoordMilestone!
+  updateMilestone(id: String!, input: CoordMilestoneInput!): CoordMilestone!
+  deleteMilestone(id: String!): Boolean!
+
+  createRequirement(
+    projectId: String!
+    input: CoordRequirementInput!
+  ): CoordRequirement!
+  updateRequirement(id: String!, input: CoordRequirementInput!): CoordRequirement!
+  deleteRequirement(id: String!): Boolean!
+
+  createRuleSet(projectId: String!, input: CoordRuleSetInput!): CoordRuleSet!
+  updateRuleSet(id: String!, input: CoordRuleSetInput!): CoordRuleSet!
+  deleteRuleSet(id: String!): Boolean!
+  duplicateRuleSet(id: String!, name: String!): CoordRuleSet!
+  """
+  Imports { name, milestone?, purpose?, rules: [...] } as a new rule set draft
+  """
+  importRuleSet(projectId: String!, document: JSONObject!): CoordRuleSetImportResult!
+  """
+  Creates (ruleId null) or updates a rule of the draft, creating the draft
+  from the published version when there's none
+  """
+  upsertDraftRule(ruleSetId: String!, ruleId: String, input: JSONObject!): CoordRule!
+  deleteDraftRule(ruleId: String!): Boolean!
+  reorderDraftRules(ruleSetId: String!, ruleIds: [String!]!): [CoordRule!]!
+  publishRuleSet(ruleSetId: String!): CoordRuleSetVersion!
+
+  setRuleSetBinding(
+    ruleSetId: String!
+    modelId: String!
+    autoRun: Boolean!
+    unkeyedBlockPct: Float
+  ): CoordRuleSetBinding!
+  removeRuleSetBinding(ruleSetId: String!, modelId: String!): Boolean!
+
+  """
+  Runs the published version on a model version (latest when versionId is null)
+  """
+  runCheck(ruleSetId: String!, modelId: String!, versionId: String): CoordCheckRun!
+  """
+  Runs the draft on the latest version of the model
+  """
+  previewDraft(ruleSetId: String!, modelId: String!): CoordCheckRun!
+}
+
+extend type Mutation {
+  coordinationMutations: CoordinationMutations! @hasServerRole(role: SERVER_GUEST)
+}
