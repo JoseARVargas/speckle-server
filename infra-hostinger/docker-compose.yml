@@ -42,7 +42,7 @@ services:
     mem_limit: 384m
 
   speckle-server:
-    image: ghcr.io/josearvargas/speckle-server:8776b16884
+    image: ghcr.io/josearvargas/speckle-server:e414a5dd60
     restart: always
     depends_on:
       postgres:
