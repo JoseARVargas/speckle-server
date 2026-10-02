@@ -1,0 +1,26 @@
+[project]
+name = "coord_worker"
+version = "0.1.0"
+description = "NexTwin BIM coordination worker: IDS validation (IfcTester) on original IFC files"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+# Exact pins (A03): ifcopenshell and ifctester must move together.
+dependencies = [
+    "ifcopenshell==0.9.0",
+    "ifctester==0.9.0",
+    "psycopg[binary]==3.2.10",
+    "boto3==1.40.40",
+]
+
+[dependency-groups]
+dev = ["pytest==8.4.2", "ruff==0.13.2"]
+
+[tool.ruff]
+exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["A", "E", "F", "UP", "B", "SIM", "I", "N"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

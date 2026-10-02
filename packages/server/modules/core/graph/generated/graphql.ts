@@ -1372,6 +1372,8 @@ export type CoordCheckRun = {
    * status is the worst among those rules only (score is then null).
    */
   elementResults: CoordElementResultCollection;
+  /** native: rules on the Speckle objects; ids: IfcTester on the original IFC */
+  engine: Scalars['String']['output'];
   error?: Maybe<Scalars['String']['output']>;
   finishedAt?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
@@ -1628,6 +1630,11 @@ export type CoordRuleStat = {
 export const CoordRunStatus = {
   Blocked: 'blocked',
   Failed: 'failed',
+  /** IDS run validated, waiting for the Node worker to aggregate it */
+  IdsDone: 'ids_done',
+  /** IDS run being validated by the Python worker (IfcTester) */
+  IdsRunning: 'ids_running',
+  Processing: 'processing',
   Queued: 'queued',
   Running: 'running',
   Succeeded: 'succeeded'
@@ -1672,6 +1679,11 @@ export type CoordinationMutations = {
   deleteRequirementSource: Scalars['Boolean']['output'];
   deleteRuleSet: Scalars['Boolean']['output'];
   duplicateRuleSet: CoordRuleSet;
+  /**
+   * Imports an IDS 1.0 file (XML text, up to 2 MB). Creates an IDS rule set,
+   * or with ruleSetId replaces that IDS rule set's draft with the new file.
+   */
+  importIdsRuleSet: CoordRuleSetImportResult;
   /** Imports { name, milestone?, purpose?, rules: [...] } as a new rule set draft */
   importRuleSet: CoordRuleSetImportResult;
   /** Runs the draft on the latest version of the model */
@@ -1746,6 +1758,15 @@ export type CoordinationMutationsDeleteRuleSetArgs = {
 export type CoordinationMutationsDuplicateRuleSetArgs = {
   id: Scalars['String']['input'];
   name: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsImportIdsRuleSetArgs = {
+  milestoneId?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  projectId: Scalars['String']['input'];
+  ruleSetId?: InputMaybe<Scalars['String']['input']>;
+  xml: Scalars['String']['input'];
 };
 
 
@@ -10040,6 +10061,7 @@ export type CommitCollectionResolvers<ContextType = GraphQLContext, ParentType e
 export type CoordCheckRunResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordCheckRun'] = ResolversParentTypes['CoordCheckRun']> = {
   element?: Resolver<Maybe<ResolversTypes['CoordElementDetail']>, ParentType, ContextType, RequireFields<CoordCheckRunElementArgs, 'elementKey'>>;
   elementResults?: Resolver<ResolversTypes['CoordElementResultCollection'], ParentType, ContextType, RequireFields<CoordCheckRunElementResultsArgs, 'limit'>>;
+  engine?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   error?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   finishedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -10238,6 +10260,7 @@ export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentT
   deleteRequirementSource?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRequirementSourceArgs, 'id'>>;
   deleteRuleSet?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRuleSetArgs, 'id'>>;
   duplicateRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsDuplicateRuleSetArgs, 'id' | 'name'>>;
+  importIdsRuleSet?: Resolver<ResolversTypes['CoordRuleSetImportResult'], ParentType, ContextType, RequireFields<CoordinationMutationsImportIdsRuleSetArgs, 'projectId' | 'xml'>>;
   importRuleSet?: Resolver<ResolversTypes['CoordRuleSetImportResult'], ParentType, ContextType, RequireFields<CoordinationMutationsImportRuleSetArgs, 'document' | 'projectId'>>;
   previewDraft?: Resolver<ResolversTypes['CoordCheckRun'], ParentType, ContextType, RequireFields<CoordinationMutationsPreviewDraftArgs, 'modelId' | 'ruleSetId'>>;
   publishRuleSet?: Resolver<ResolversTypes['CoordRuleSetVersion'], ParentType, ContextType, RequireFields<CoordinationMutationsPublishRuleSetArgs, 'ruleSetId'>>;

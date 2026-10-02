@@ -93,6 +93,7 @@
     "express-prom-bundle": "^6.6.0",
     "express-session": "^1.17.1",
     "extensionless": "^1.9.9",
+    "fast-xml-parser": "4.5.3",
     "graphql": "^16.6.0",
     "graphql-redis-subscriptions": "^2.2.2",
     "graphql-scalars": "^1.24.1",

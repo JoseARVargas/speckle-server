@@ -15,7 +15,9 @@ export const COORD_LIMITS = {
   maxManualRunsPerProjectPerHour: 30,
   maxElementsPerRun: 200_000,
   maxRunSeconds: 15 * 60,
-  keptFullResultRuns: 10
+  keptFullResultRuns: 10,
+  maxIdsBytes: 2 * 1024 * 1024,
+  maxIdsSpecifications: 200
 } as const
 
 // ---- rule definition --------------------------------------------------------
@@ -164,6 +166,32 @@ export const coordRuleDefinitionSchema = z
 export type CoordRuleDefinition = z.infer<typeof coordRuleDefinitionSchema>
 
 /**
+ * A rule imported from an IDS <specification>: validated by IfcTester in the
+ * Python worker, so only human readable summaries are kept here (the IDS XML
+ * itself lives on the rule set version).
+ */
+export const coordIdsRuleDefinitionSchema = z
+  .object({
+    kind: z.literal('ids'),
+    specIndex: z.number().int().min(0),
+    ifcVersion: z.string().max(100).nullable(),
+    applicability: z.string().max(4000),
+    requirements: z.string().max(4000)
+  })
+  .strict()
+
+export type CoordIdsRuleDefinition = z.infer<typeof coordIdsRuleDefinitionSchema>
+
+export type CoordAnyRuleDefinition = CoordRuleDefinition | CoordIdsRuleDefinition
+
+export const isIdsRuleDefinition = (
+  definition: unknown
+): definition is CoordIdsRuleDefinition =>
+  !!definition &&
+  typeof definition === 'object' &&
+  (definition as { kind?: unknown }).kind === 'ids'
+
+/**
  * A rule as authored/imported: definition plus metadata. `requirement` is
  * the import form ("EIR 4.2 — Pilares ..."), `requirementId` the edit form.
  */
@@ -201,7 +229,21 @@ export type CoordRequirementSourceKind = 'OIR' | 'AIR' | 'PIR' | 'EIR'
 export type CoordSeverity = 'error' | 'warning'
 export type CoordRuleSetVersionStatus = 'draft' | 'published'
 export type CoordRunTrigger = 'manual' | 'version_created' | 'preview'
-export type CoordRunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'blocked'
+/**
+ * native: queued -> running -> succeeded | failed | blocked
+ * ids:    queued -> ids_running (Python) -> ids_done -> processing (Node)
+ *         -> succeeded | failed | blocked
+ */
+export type CoordRunStatus =
+  | 'queued'
+  | 'running'
+  | 'ids_running'
+  | 'ids_done'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'blocked'
+export type CoordRunEngine = 'native' | 'ids'
 export type CoordResultStatus = 'pass' | 'warn' | 'fail'
 export type CoordElementStatus = CoordResultStatus | 'na'
 
@@ -262,6 +304,8 @@ export type CoordRuleSetVersionRecord = {
   status: CoordRuleSetVersionStatus
   publishedAt: Nullable<Date>
   publishedBy: Nullable<string>
+  /** The IDS XML, verbatim (ids rule sets only) */
+  idsXml?: Nullable<string>
   createdAt: Date
   updatedAt: Date
 }
@@ -275,7 +319,7 @@ export type CoordRuleRecord = {
   requirementId: Nullable<string>
   severity: CoordSeverity
   weight: number
-  definition: CoordRuleDefinition
+  definition: CoordAnyRuleDefinition
   position: number
   createdAt: Date
   updatedAt: Date
@@ -316,6 +360,9 @@ export type CoordCheckRunRecord = {
   unkeyedCount: number
   adherence: Nullable<number>
   unkeyedSample: string[]
+  engine: CoordRunEngine
+  /** MinIO object key of the version's original IFC (ids runs) */
+  ifcObjectKey: Nullable<string>
 }
 
 export type CoordCheckResultRecord = {

@@ -56,6 +56,7 @@ import {
   CoordRunLimitError,
   enqueueCheckRunFactory
 } from '@/modules/facilities/services/coordinationRunner'
+import { resolveIfcObjectKeyFactory } from '@/modules/facilities/services/coordinationReader'
 
 export const newCoordId = () => cryptoRandomString({ length: 10 })
 
@@ -260,6 +261,7 @@ export const ensureDraftFactory =
       status: 'draft',
       publishedAt: null,
       publishedBy: null,
+      idsXml: published?.idsXml ?? null,
       createdAt: new Date(),
       updatedAt: new Date()
     })
@@ -291,6 +293,11 @@ export const upsertDraftRuleFactory =
     existingRule: CoordRuleRecord | null
     input: unknown
   }) => {
+    if (p.ruleSet.format === 'ids') {
+      throw new BadRequestError(
+        'Regras de um conjunto IDS não são editadas aqui: altere o IDS e importe a nova versão'
+      )
+    }
     const input = parseOrBadRequest(coordRuleInputSchema, p.input, 'Regra')
     await assertRequirementInProjectFactory(deps)({
       projectId: p.ruleSet.projectId,
@@ -362,6 +369,74 @@ export const splitRequirementLabel = (label: string) => {
     : { code: label.trim(), title: label.trim() }
 }
 
+/**
+ * Requirement labels ("EIR 4.2 — Pilares ...") -> requirement ids, creating
+ * unknown codes under an "Importado" EIR source. Keys are lowercased codes.
+ */
+export const resolveRequirementLabelsFactory =
+  (deps: { db: Knex }) =>
+  async (p: {
+    projectId: string
+    milestoneId: string | null
+    labels: Array<string | null | undefined>
+  }) => {
+    const createdRequirements: string[] = []
+    const requirementIds = new Map<string, string>()
+    let importedSourceId: string | null = null
+    for (const label of p.labels) {
+      if (!label) continue
+      const { code, title } = splitRequirementLabel(label)
+      const key = code.toLowerCase()
+      if (requirementIds.has(key)) continue
+      const found = await getRequirementByCodeFactory(deps)({
+        projectId: p.projectId,
+        code
+      })
+      if (found) {
+        requirementIds.set(key, found.id)
+        continue
+      }
+      if (!importedSourceId) {
+        const sources = await listRequirementSourcesFactory(deps)({
+          projectId: p.projectId
+        })
+        importedSourceId =
+          sources.find((s) => s.kind === 'EIR' && s.title === IMPORTED_SOURCE_TITLE)
+            ?.id ??
+          (
+            await insertRequirementSourceFactory(deps)({
+              id: newCoordId(),
+              projectId: p.projectId,
+              kind: 'EIR',
+              title: IMPORTED_SOURCE_TITLE,
+              document: null,
+              revision: null,
+              clause: null,
+              parentId: null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+          ).id
+      }
+      const created = await insertRequirementFactory(deps)({
+        id: newCoordId(),
+        projectId: p.projectId,
+        sourceId: importedSourceId,
+        milestoneId: p.milestoneId,
+        code,
+        title,
+        discipline: null,
+        purpose: null,
+        targetPct: 95,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      requirementIds.set(key, created.id)
+      createdRequirements.push(code)
+    }
+    return { requirementIds, createdRequirements }
+  }
+
 export const importRuleSetFactory =
   (deps: { db: Knex }) =>
   async (p: { projectId: string; document: unknown; userId: string }) => {
@@ -399,66 +474,19 @@ export const importRuleSetFactory =
         ).id
     }
 
-    // Requirement labels -> ids, creating unknown codes under an "Importado" EIR source
-    const createdRequirements: string[] = []
-    const requirementIds = new Map<string, string>()
-    let importedSourceId: string | null = null
     for (const rule of doc.rules) {
       if (rule.requirementId) {
         throw new BadRequestError(
           'Use "requirement" (código) no arquivo, não requirementId'
         )
       }
-      if (!rule.requirement) continue
-      const { code, title } = splitRequirementLabel(rule.requirement)
-      const key = code.toLowerCase()
-      if (requirementIds.has(key)) continue
-      const found = await getRequirementByCodeFactory(deps)({
-        projectId: p.projectId,
-        code
-      })
-      if (found) {
-        requirementIds.set(key, found.id)
-        continue
-      }
-      if (!importedSourceId) {
-        const sources = await listRequirementSourcesFactory(deps)({
-          projectId: p.projectId
-        })
-        importedSourceId =
-          sources.find((s) => s.kind === 'EIR' && s.title === IMPORTED_SOURCE_TITLE)
-            ?.id ??
-          (
-            await insertRequirementSourceFactory(deps)({
-              id: newCoordId(),
-              projectId: p.projectId,
-              kind: 'EIR',
-              title: IMPORTED_SOURCE_TITLE,
-              document: null,
-              revision: null,
-              clause: null,
-              parentId: null,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            })
-          ).id
-      }
-      const created = await insertRequirementFactory(deps)({
-        id: newCoordId(),
-        projectId: p.projectId,
-        sourceId: importedSourceId,
-        milestoneId,
-        code,
-        title,
-        discipline: null,
-        purpose: null,
-        targetPct: 95,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })
-      requirementIds.set(key, created.id)
-      createdRequirements.push(code)
     }
+    const { requirementIds, createdRequirements } =
+      await resolveRequirementLabelsFactory(deps)({
+        projectId: p.projectId,
+        milestoneId,
+        labels: doc.rules.map((r) => r.requirement ?? null)
+      })
 
     const ruleSet = await insertRuleSetFactory(deps)({
       id: newCoordId(),
@@ -508,6 +536,12 @@ export const duplicateRuleSetFactory =
     if (from) {
       const rules = await listRulesFactory(deps)({ ruleSetVersionId: from.id })
       await insertRulesFactory(deps)(copyRules(rules, draft.id))
+      if (from.idsXml) {
+        await updateRuleSetVersionFactory(deps)({
+          id: draft.id,
+          update: { idsXml: from.idsXml }
+        })
+      }
     }
     return ruleSet
   }
@@ -527,6 +561,28 @@ const assertRunQuotaFactory =
         'Limite de verificações por hora atingido neste projeto; tente mais tarde'
       )
     }
+  }
+
+/**
+ * Native rule sets run on the Speckle objects; IDS rule sets need the
+ * version's original IFC, resolved now so the Python worker only reads it.
+ */
+const resolveRunSourceFactory =
+  (deps: { projectDb: Knex }) =>
+  async (p: { ruleSet: CoordRuleSetRecord; versionId: string }) => {
+    if (p.ruleSet.format !== 'ids') {
+      return { engine: 'native' as const, ifcObjectKey: null }
+    }
+    const ifcObjectKey = await resolveIfcObjectKeyFactory(deps)({
+      projectId: p.ruleSet.projectId,
+      versionId: p.versionId
+    })
+    if (!ifcObjectKey) {
+      throw new BadRequestError(
+        'Esta versão não veio de um arquivo IFC importado; a validação IDS exige o IFC original'
+      )
+    }
+    return { engine: 'ids' as const, ifcObjectKey }
   }
 
 const enqueueOrBadRequest = async (
@@ -557,6 +613,10 @@ export const runCheckFactory =
       modelId: p.modelId,
       versionId: p.versionId
     })
+    const source = await resolveRunSourceFactory(deps)({
+      ruleSet: p.ruleSet,
+      versionId
+    })
     await assertRunQuotaFactory(deps)({ projectId: p.ruleSet.projectId })
     return await enqueueOrBadRequest(() =>
       enqueueCheckRunFactory(deps)({
@@ -566,7 +626,8 @@ export const runCheckFactory =
         modelId: p.modelId,
         versionId,
         trigger: 'manual',
-        createdBy: p.userId
+        createdBy: p.userId,
+        ...source
       })
     )
   }
@@ -582,6 +643,10 @@ export const previewDraftFactory =
       projectId: p.ruleSet.projectId,
       modelId: p.modelId
     })
+    const source = await resolveRunSourceFactory(deps)({
+      ruleSet: p.ruleSet,
+      versionId
+    })
     await assertRunQuotaFactory(deps)({ projectId: p.ruleSet.projectId })
     return await enqueueOrBadRequest(() =>
       enqueueCheckRunFactory(deps)({
@@ -591,7 +656,8 @@ export const previewDraftFactory =
         modelId: p.modelId,
         versionId,
         trigger: 'preview',
-        createdBy: p.userId
+        createdBy: p.userId,
+        ...source
       })
     )
   }
