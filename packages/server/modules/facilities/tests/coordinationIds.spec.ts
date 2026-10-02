@@ -104,6 +104,16 @@ const upsertRuleMutation = gql`
   }
 `
 
+const editRuleMutation = gql`
+  mutation ($ruleSetId: String!, $ruleId: String, $input: JSONObject!) {
+    coordinationMutations {
+      upsertDraftRule(ruleSetId: $ruleSetId, ruleId: $ruleId, input: $input) {
+        id
+      }
+    }
+  }
+`
+
 const runQuery = gql`
   query ($projectId: String!, $runId: String!) {
     project(id: $projectId) {
@@ -337,6 +347,172 @@ describe('Coordination IDS', () => {
         (i) => i.elementKey === 'door-1'
       )
       expect(door).to.deep.include({ status: 'warn', speckleObjectId: null })
+    })
+  })
+
+  describe('rule metadata editing', () => {
+    const owner: BasicTestUser = { name: 'ids editor', email: '', id: '' }
+    const outsider: BasicTestUser = { name: 'ids outsider', email: '', id: '' }
+    const project: BasicTestStream = {
+      name: 'IDS edit project',
+      isPublic: false,
+      ownerId: '',
+      id: ''
+    }
+    let apollo: TestApolloServer
+    let ruleSetId: string
+    let columnRuleId: string
+
+    const editRule = (ruleId: string, input: Record<string, unknown>, as = apollo) =>
+      as.execute(editRuleMutation, { ruleSetId, ruleId, input })
+
+    before(async () => {
+      await beforeEachContext()
+      await createTestUsers([owner, outsider])
+      await createTestStreams([[project, owner]])
+      apollo = await testApolloServer({ authUserId: owner.id })
+      const res = await apollo.execute(importIdsMutation, {
+        projectId: project.id,
+        xml: sampleIds
+      })
+      expect(res).to.not.haveGraphQLErrors()
+      ruleSetId = res.data!.coordinationMutations.importIdsRuleSet.ruleSet.id
+      expect(
+        await apollo.execute(publishMutation, { ruleSetId })
+      ).to.not.haveGraphQLErrors()
+      const [column] = await db('coord_rules')
+        .where({ ruleSetVersionId: await publishedVersionId(ruleSetId) })
+        .orderBy('position')
+      columnRuleId = column.id
+    })
+
+    it('edits name, severity, weight and requirement of an IDS rule on the draft', async () => {
+      const res = await editRule(columnRuleId, {
+        name: 'Pilares: classe C30/C35',
+        severity: 'warning',
+        weight: 2,
+        requirementId: null
+      })
+      expect(res).to.not.haveGraphQLErrors()
+      const edited = await db('coord_rules')
+        .where({ id: res.data!.coordinationMutations.upsertDraftRule.id })
+        .first()
+      expect(edited).to.include({
+        code: 'EIR 4.2',
+        name: 'Pilares: classe C30/C35',
+        severity: 'warning',
+        weight: 2,
+        requirementId: null
+      })
+      // the IfcTester side of the rule is untouched; edited fields are recorded
+      expect(edited.definition).to.deep.include({
+        kind: 'ids',
+        specIndex: 0,
+        applicability: 'classe IFCCOLUMN',
+        edited: ['name', 'requirementId', 'severity', 'weight']
+      })
+      columnRuleId = edited.id
+    })
+
+    it('refuses validation fields, unknown requirements and outsiders', async () => {
+      const withCheck = await editRule(columnRuleId, {
+        name: 'X',
+        severity: 'error',
+        weight: 1,
+        check: [{ path: 'Name', op: 'exists' }]
+      })
+      expect(withCheck).to.haveGraphQLErrors()
+      expect(withCheck.errors?.[0].message).to.match(
+        /só nome, severidade, peso e requisito/
+      )
+
+      const foreignRequirement = await editRule(columnRuleId, {
+        name: 'X',
+        severity: 'error',
+        weight: 1,
+        requirementId: 'nope123456'
+      })
+      expect(foreignRequirement).to.haveGraphQLErrors()
+
+      const asOutsider = await testApolloServer({ authUserId: outsider.id })
+      const denied = await editRule(
+        columnRuleId,
+        { name: 'X', severity: 'error', weight: 1 },
+        asOutsider
+      )
+      expect(denied).to.haveGraphQLErrors()
+      const unchanged = await db('coord_rules').where({ id: columnRuleId }).first()
+      expect(unchanged.name).to.equal('Pilares: classe C30/C35')
+    })
+
+    it('re-import keeps the edited fields and refreshes the rest from the file', async () => {
+      const xml = sampleIds.replace(
+        'name="Portas com resistência ao fogo"',
+        'name="Portas corta-fogo"'
+      )
+      const res = await apollo.execute(importIdsMutation, {
+        projectId: project.id,
+        xml,
+        ruleSetId
+      })
+      expect(res).to.not.haveGraphQLErrors()
+      const rules = res.data!.coordinationMutations.importIdsRuleSet.ruleSet.draft
+        .rules as Array<Record<string, string | null>>
+      expect(rules[0]).to.include({
+        code: 'EIR 4.2',
+        name: 'Pilares: classe C30/C35',
+        severity: 'warning',
+        requirementId: null
+      })
+      // not edited by the user: follows the new file
+      expect(rules[1]).to.include({ code: 'IDS-2', name: 'Portas corta-fogo' })
+      columnRuleId = rules[0].id!
+    })
+
+    it('an IDS rule edited to warning turns its failures into warnings', async () => {
+      expect(
+        await apollo.execute(publishMutation, { ruleSetId })
+      ).to.not.haveGraphQLErrors()
+      const [column] = await db('coord_rules')
+        .where({ ruleSetVersionId: await publishedVersionId(ruleSetId) })
+        .orderBy('position')
+      const version = await createModelVersion({
+        project,
+        owner,
+        elements: [columnObject('col-bad', 'C25')]
+      })
+      const { run } = await enqueueCheckRunFactory({ db })({
+        projectId: project.id,
+        ruleSetId,
+        ruleSetVersionId: column.ruleSetVersionId,
+        modelId: version.modelId,
+        versionId: version.versionId,
+        trigger: 'manual',
+        createdBy: owner.id,
+        engine: 'ids',
+        ifcObjectKey: 'test/fake.ifc'
+      })
+      await db(CoordCheckResults.name).insert({
+        runId: run.id,
+        ruleId: column.id,
+        elementKey: 'col-bad',
+        status: 'fail',
+        message: 'valor C25 fora da lista'
+      })
+      await db(CoordCheckRuns.name)
+        .where({ id: run.id })
+        .update({ status: 'ids_done', attempt: 1, startedAt: new Date() })
+      await drainCheckRunQueueFactory({ db })()
+
+      const res = await apollo.execute(runQuery, {
+        projectId: project.id,
+        runId: run.id
+      })
+      expect(res).to.not.haveGraphQLErrors()
+      expect(res.data!.project.coordination.checkRun.summary).to.deep.include({
+        failed: 0,
+        warned: 1
+      })
     })
   })
 })
