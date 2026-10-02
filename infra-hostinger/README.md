@@ -35,3 +35,14 @@ docker compose ps
 - Rodar na hora: `systemctl start nextwin-backup && journalctl -u nextwin-backup -n 50`.
 - Restaurar: `source /etc/nextwin-backup/restic.env; RESTIC_PASSWORD_FILE=/etc/nextwin-backup/restic.pw restic restore latest --target /tmp/restore`.
 - Ao copiar arquivos para a VPS com tar, extrair como root com `--no-same-owner` (ou `chown -R root:root /opt/nextwin`): os scripts rodam como root.
+
+## coord-worker (validação IDS)
+
+Serviço sem portas, com usuário Postgres `coord_worker` (privilégio mínimo, `sql/coord_worker_role.sql`) e usuário MinIO `coord-worker` com política só de `s3:GetObject` em `speckle-server/*`. Configuração única, **depois** de o speckle-server aplicar a migração do IDS:
+
+```sh
+bash scripts/configurar-coord-worker.sh   # gera secrets/coord-worker.env
+docker compose up -d coord-worker
+```
+
+Rode `sql/coord_worker_role.sql` de novo após migrações que criem colunas usadas pelo worker.

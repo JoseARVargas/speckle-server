@@ -42,7 +42,7 @@ services:
     mem_limit: 384m
 
   speckle-server:
-    image: ghcr.io/josearvargas/speckle-server:af2b597230
+    image: ghcr.io/josearvargas/speckle-server:8776b16884
     restart: always
     depends_on:
       postgres:
@@ -84,6 +84,26 @@ services:
       speckle-server:
         condition: service_started
     mem_limit: 1g
+
+  coord-worker:
+    # Validação IDS (IfcTester). Sem portas; usuário Postgres restrito e chave S3 só de leitura.
+    image: ghcr.io/josearvargas/coord-worker:8776b16884
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: speckle-server
+    env_file:
+      - ./secrets/coord-worker.env
+    mem_limit: 1536m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
 
   caddy:
     image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
