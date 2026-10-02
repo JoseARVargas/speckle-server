@@ -249,11 +249,22 @@ export const parseIdsDocument = (xml: string): ParsedIds => {
 
 // ---- import ----------------------------------------------------------------
 
-/** Requirement code of a specification: its identifier, or "EIR 4.2 — ..." in the name. */
+/**
+ * Requirement label of a specification: "<identifier> — <name>", or the name
+ * itself when it already reads "EIR 4.2 — ...". The name becomes the title of a
+ * newly created requirement (an identifier alone would title it "EIR 4.2").
+ */
 const requirementLabelOf = (spec: ParsedIdsSpecification) => {
-  if (spec.identifier) return spec.identifier
   const split = splitRequirementLabel(spec.name)
-  return split.code !== split.title ? spec.name : null
+  const nameHasCode = split.code !== split.title
+  if (spec.identifier) {
+    const title =
+      nameHasCode && split.code.toLowerCase() === spec.identifier.toLowerCase()
+        ? split.title
+        : spec.name
+    return `${spec.identifier} — ${title}`
+  }
+  return nameHasCode ? spec.name : null
 }
 
 export const importIdsRuleSetFactory =

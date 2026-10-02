@@ -8,7 +8,11 @@ import { testApolloServer } from '@/test/graphqlHelper'
 import { beforeEachContext } from '@/test/hooks'
 import type { BasicTestStream } from '@/test/speckle-helpers/streamHelper'
 import { createTestStreams } from '@/test/speckle-helpers/streamHelper'
-import { CoordCheckResults, CoordCheckRuns } from '@/modules/core/dbSchema'
+import {
+  CoordCheckResults,
+  CoordCheckRuns,
+  CoordRequirements
+} from '@/modules/core/dbSchema'
 import { parseIdsDocument } from '@/modules/facilities/services/coordinationIds'
 import {
   drainCheckRunQueueFactory,
@@ -212,6 +216,14 @@ describe('Coordination IDS', () => {
       const rules = result.ruleSet.draft.rules as Array<Record<string, string | null>>
       expect(rules.map((r) => r.code)).to.deep.equal(['EIR 4.2', 'IDS-2'])
       expect(rules[0].requirementId).to.be.a('string')
+      // identifier + name: the requirement is titled by the spec name, not "EIR 4.2" twice
+      const requirement = await db(CoordRequirements.name)
+        .where({ id: rules[0].requirementId })
+        .first()
+      expect(requirement).to.include({
+        code: 'EIR 4.2',
+        title: 'Pilares com classe de concreto'
+      })
       expect(rules[0].expected).to.equal('Pset_PHD.ClasseConcreto = um de C30, C35')
       expect(rules[1].severity).to.equal('warning')
       ruleSetId = result.ruleSet.id
