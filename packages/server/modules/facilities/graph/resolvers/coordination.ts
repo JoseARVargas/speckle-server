@@ -14,7 +14,11 @@ import type {
   CoordRuleSetRecord,
   CoordRuleSetVersionRecord
 } from '@/modules/facilities/helpers/coordinationTypes'
-import { coordRuleDefinitionSchema } from '@/modules/facilities/helpers/coordinationTypes'
+import {
+  coordRuleDefinitionSchema,
+  isIdsRuleDefinition
+} from '@/modules/facilities/helpers/coordinationTypes'
+import { importIdsRuleSetFactory } from '@/modules/facilities/services/coordinationIds'
 import {
   countCheckRunsFactory,
   countElementScoresFactory,
@@ -523,6 +527,52 @@ const coordinationMutations = {
     return rule
   },
 
+  async importIdsRuleSet(
+    _parent: unknown,
+    args: {
+      projectId: string
+      xml: string
+      name?: string | null
+      milestoneId?: string | null
+      ruleSetId?: string | null
+    },
+    ctx: GraphQLContext
+  ) {
+    await assertCanManageFacility(ctx, args.projectId)
+    const userId = requireUser(ctx)
+    let ruleSet: CoordRuleSetRecord | null = null
+    if (args.ruleSetId) {
+      ruleSet = await loadManagedRuleSet(ctx, args.ruleSetId)
+      if (ruleSet.projectId !== args.projectId) {
+        throw new BadRequestError('Conjunto de regras não pertence a este projeto')
+      }
+    }
+    await assertMilestoneInProjectFactory({ db })({
+      projectId: args.projectId,
+      milestoneId: args.milestoneId ?? null
+    })
+    const result = await importIdsRuleSetFactory({ db })({
+      projectId: args.projectId,
+      xml: args.xml,
+      userId,
+      name: args.name,
+      milestoneId: args.milestoneId ?? null,
+      ruleSet
+    })
+    await audit({
+      projectId: args.projectId,
+      actorId: userId,
+      action: ruleSet ? 'rule_set.ids_reimported' : 'rule_set.ids_imported',
+      entityType: 'rule_set',
+      entityId: result.ruleSet.id,
+      data: {
+        specifications: result.specifications,
+        createdRequirements: result.createdRequirements
+      }
+    })
+    return result
+  },
+
   async deleteDraftRule(
     _parent: unknown,
     args: { ruleId: string },
@@ -536,6 +586,11 @@ const coordinationMutations = {
     })
     if (!version) throw new NotFoundError('Regra não encontrada')
     const ruleSet = await loadManagedRuleSet(ctx, version.ruleSetId)
+    if (ruleSet.format === 'ids') {
+      throw new BadRequestError(
+        'Regras de um conjunto IDS não são editadas aqui: altere o IDS e importe a nova versão'
+      )
+    }
     const draft = await ensureDraftFactory({ db })(ruleSet)
     const target = await resolveDraftRuleFactory({ db })({ rule, draft })
     await deleteRuleFactory({ db })({ id: target.id })
@@ -741,6 +796,9 @@ async function assertRequirementRefs(
 /** Results of a run are only served once it succeeded (no partial output). */
 const succeeded = (run: CoordCheckRunRecord) => run.status === 'succeeded'
 
+const idsDefinition = (rule: CoordRuleRecord) =>
+  isIdsRuleDefinition(rule.definition) ? rule.definition : null
+
 const ruleDefinition = (rule: CoordRuleRecord) => {
   const parsed = coordRuleDefinitionSchema.safeParse(rule.definition)
   return parsed.success ? parsed.data : null
@@ -904,10 +962,14 @@ export default {
       )
     },
     summary(parent: CoordRuleRecord) {
+      const ids = idsDefinition(parent)
+      if (ids) return `Onde ${ids.applicability}, exigir ${ids.requirements}`
       const definition = ruleDefinition(parent)
       return definition ? describeRule(definition) : ''
     },
     expected(parent: CoordRuleRecord) {
+      const ids = idsDefinition(parent)
+      if (ids) return ids.requirements
       const definition = ruleDefinition(parent)
       return definition ? describeExpected(definition) : ''
     }

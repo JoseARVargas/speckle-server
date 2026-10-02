@@ -10099,6 +10099,7 @@ __metadata:
     express-prom-bundle: "npm:^6.6.0"
     express-session: "npm:^1.17.1"
     extensionless: "npm:^1.9.9"
+    fast-xml-parser: "npm:4.5.3"
     graphql: "npm:^16.6.0"
     graphql-redis-subscriptions: "npm:^2.2.2"
     graphql-scalars: "npm:^1.24.1"
@@ -21002,7 +21003,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-xml-parser@npm:>=4.2.5":
+"fast-xml-parser@npm:4.5.3, fast-xml-parser@npm:>=4.2.5":
   version: 4.5.3
   resolution: "fast-xml-parser@npm:4.5.3"
   dependencies:

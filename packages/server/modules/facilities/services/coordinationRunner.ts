@@ -11,6 +11,7 @@ import type {
   CoordRequirementStatRecord,
   CoordRuleRecord,
   CoordRuleStatRecord,
+  CoordRunEngine,
   CoordRunTrigger
 } from '@/modules/facilities/helpers/coordinationTypes'
 import {
@@ -22,7 +23,9 @@ import {
   clearRunOutputFactory,
   countQueuedRunsFactory,
   deleteOlderPreviewRunsFactory,
+  downgradeWarningFailuresFactory,
   getActiveRunFactory,
+  getRuleSetByIdFactory,
   getBindingFactory,
   getLatestPublishedVersionFactory,
   insertCheckResultsFactory,
@@ -31,6 +34,7 @@ import {
   insertRunStatsFactory,
   listAutoRunBindingsForModelFactory,
   listRulesFactory,
+  listRunResultsFactory,
   pruneOldRunResultsFactory,
   recoverStaleRunsFactory,
   updateCheckRunFactory
@@ -39,7 +43,10 @@ import {
   compileRule,
   evaluateElement
 } from '@/modules/facilities/services/coordinationEngine'
-import { readVersionElementsFactory } from '@/modules/facilities/services/coordinationReader'
+import {
+  readVersionElementsFactory,
+  resolveIfcObjectKeyFactory
+} from '@/modules/facilities/services/coordinationReader'
 
 const WORKER_INTERVAL_SECONDS = 5
 const STALE_RUN_MINUTES = 30
@@ -73,7 +80,15 @@ export const enqueueCheckRunFactory =
     versionId: string
     trigger: CoordRunTrigger
     createdBy: string | null
+    engine?: CoordRunEngine
+    ifcObjectKey?: string | null
   }): Promise<EnqueueResult> => {
+    const engine = params.engine ?? 'native'
+    if (engine === 'ids' && !params.ifcObjectKey) {
+      throw new CoordRunLimitError(
+        'Esta versão não veio de um arquivo IFC importado; a validação IDS exige o IFC original'
+      )
+    }
     const active = await getActiveRunFactory(deps)({
       ruleSetVersionId: params.ruleSetVersionId,
       versionId: params.versionId
@@ -115,7 +130,9 @@ export const enqueueCheckRunFactory =
       naCount: 0,
       unkeyedCount: 0,
       adherence: null,
-      unkeyedSample: []
+      unkeyedSample: [],
+      engine,
+      ifcObjectKey: engine === 'ids' ? params.ifcObjectKey ?? null : null
     })
     return { run, deduplicated: false }
   }
@@ -135,6 +152,17 @@ export const onVersionCreatedFactory =
       })
       if (!published) continue
       try {
+        const ruleSet = await getRuleSetByIdFactory(deps)({ id: binding.ruleSetId })
+        let ifcObjectKey: string | null = null
+        if (ruleSet?.format === 'ids') {
+          const projectDb = await getProjectDbClient({ projectId: params.projectId })
+          ifcObjectKey = await resolveIfcObjectKeyFactory({ projectDb })({
+            projectId: params.projectId,
+            versionId: params.versionId
+          })
+          // e.g. a version published by a connector: nothing for IfcTester to read
+          if (!ifcObjectKey) continue
+        }
         await enqueueCheckRunFactory(deps)({
           projectId: params.projectId,
           ruleSetId: binding.ruleSetId,
@@ -142,7 +170,9 @@ export const onVersionCreatedFactory =
           modelId: params.modelId,
           versionId: params.versionId,
           trigger: 'version_created',
-          createdBy: null
+          createdBy: null,
+          engine: ruleSet?.format === 'ids' ? 'ids' : 'native',
+          ifcObjectKey
         })
       } catch (err) {
         moduleLogger.warn(
@@ -291,23 +321,69 @@ export const processCheckRunFactory =
     }
     await flush()
 
-    const applicable = pass + warn + fail
+    return await finishRunFactory({ db: deps.db })(run, {
+      tally: {
+        elementCount,
+        unkeyedCount,
+        unkeyedSample,
+        pass,
+        warn,
+        fail,
+        na,
+        scoreSum
+      },
+      ruleStats,
+      ruleById
+    })
+  }
+
+type RunTally = {
+  elementCount: number
+  unkeyedCount: number
+  unkeyedSample: string[]
+  pass: number
+  warn: number
+  fail: number
+  na: number
+  scoreSum: number
+}
+
+/**
+ * Shared end of a run, whichever engine produced the results: blocks it
+ * when too many elements lack a stable key (fail closed, no results kept),
+ * otherwise stores per-rule / per-requirement aggregates, marks it
+ * succeeded and applies preview cleanup / result retention.
+ */
+const finishRunFactory =
+  (deps: { db: Knex }) =>
+  async (
+    run: CoordCheckRunRecord,
+    p: {
+      tally: RunTally
+      ruleStats: Map<string, CoordRuleStatRecord>
+      ruleById: Map<string, CoordRuleRecord>
+    }
+  ) => {
+    const { tally } = p
+    const applicable = tally.pass + tally.warn + tally.fail
     const counts = {
-      elementCount,
+      elementCount: tally.elementCount,
       applicableCount: applicable,
-      passCount: pass,
-      warnCount: warn,
-      failCount: fail,
-      naCount: na,
-      unkeyedCount,
-      unkeyedSample,
-      adherence: applicable ? scoreSum / applicable : null
+      passCount: tally.pass,
+      warnCount: tally.warn,
+      failCount: tally.fail,
+      naCount: tally.na,
+      unkeyedCount: tally.unkeyedCount,
+      unkeyedSample: tally.unkeyedSample,
+      adherence: applicable ? tally.scoreSum / applicable : null
     }
 
-    const unkeyedPct = elementCount ? (unkeyedCount / elementCount) * 100 : 0
+    const unkeyedPct = tally.elementCount
+      ? (tally.unkeyedCount / tally.elementCount) * 100
+      : 0
     if (unkeyedPct > run.unkeyedBlockPct) {
-      await clearOutput({ runId: run.id })
-      return await updateCheckRunFactory({ db: deps.db })({
+      await clearRunOutputFactory(deps)({ runId: run.id })
+      return await updateCheckRunFactory(deps)({
         id: run.id,
         update: {
           ...counts,
@@ -321,8 +397,8 @@ export const processCheckRunFactory =
     }
 
     const requirementStats = new Map<string, CoordRequirementStatRecord>()
-    for (const stat of ruleStats.values()) {
-      const requirementId = ruleById.get(stat.ruleId)?.requirementId
+    for (const stat of p.ruleStats.values()) {
+      const requirementId = p.ruleById.get(stat.ruleId)?.requirementId
       if (!requirementId) continue
       const agg = requirementStats.get(requirementId) ?? {
         runId: run.id,
@@ -334,30 +410,158 @@ export const processCheckRunFactory =
       agg.passCount += stat.passCount
       requirementStats.set(requirementId, agg)
     }
-    await insertRunStatsFactory({ db: deps.db })({
-      ruleStats: [...ruleStats.values()],
+    await insertRunStatsFactory(deps)({
+      ruleStats: [...p.ruleStats.values()],
       requirementStats: [...requirementStats.values()]
     })
 
-    const finished = await updateCheckRunFactory({ db: deps.db })({
+    const finished = await updateCheckRunFactory(deps)({
       id: run.id,
       update: { ...counts, status: 'succeeded', finishedAt: new Date(), error: null }
     })
 
     if (run.trigger === 'preview') {
-      await deleteOlderPreviewRunsFactory({ db: deps.db })({
+      await deleteOlderPreviewRunsFactory(deps)({
         ruleSetId: run.ruleSetId,
         modelId: run.modelId,
         keepRunId: run.id
       })
     } else {
-      await pruneOldRunResultsFactory({ db: deps.db })({
+      await pruneOldRunResultsFactory(deps)({
         ruleSetId: run.ruleSetId,
         modelId: run.modelId,
         keep: COORD_LIMITS.keptFullResultRuns
       })
     }
     return finished
+  }
+
+const emptyRuleStat = (runId: string, ruleId: string): CoordRuleStatRecord => ({
+  runId,
+  ruleId,
+  applicableCount: 0,
+  passCount: 0,
+  warnCount: 0,
+  failCount: 0
+})
+
+/**
+ * Second half of an IDS run: the Python worker already wrote IfcTester's
+ * per-specification results (pass/fail by GlobalId). Here they are matched
+ * to the version's Speckle elements (GlobalId = applicationId) and scored
+ * exactly like native results, so Resultados / Relatório work unchanged.
+ */
+export const processIdsRunFactory =
+  (deps: { db: Knex; projectDb: Knex }) => async (run: CoordCheckRunRecord) => {
+    const startedAt = Date.now()
+    const rules = await listRulesFactory({ db: deps.db })({
+      ruleSetVersionId: run.ruleSetVersionId
+    })
+    const ruleById = new Map(rules.map((r) => [r.id, r]))
+    await downgradeWarningFailuresFactory({ db: deps.db })({
+      runId: run.id,
+      ruleIds: rules.filter((r) => r.severity === 'warning').map((r) => r.id)
+    })
+    await clearRunOutputFactory({ db: deps.db })({ runId: run.id, keepResults: true })
+
+    const results = await listRunResultsFactory({ db: deps.db })({ runId: run.id })
+    const byElement = new Map<string, CoordCheckResultRecord[]>()
+    const ruleStats = new Map<string, CoordRuleStatRecord>()
+    for (const result of results) {
+      if (!ruleById.has(result.ruleId)) continue
+      const list = byElement.get(result.elementKey)
+      if (list) list.push(result)
+      else byElement.set(result.elementKey, [result])
+      const stat = ruleStats.get(result.ruleId) ?? emptyRuleStat(run.id, result.ruleId)
+      stat.applicableCount++
+      if (result.status === 'pass') stat.passCount++
+      else if (result.status === 'warn') stat.warnCount++
+      else stat.failCount++
+      ruleStats.set(result.ruleId, stat)
+    }
+
+    const tally: RunTally = {
+      elementCount: 0,
+      unkeyedCount: 0,
+      unkeyedSample: [],
+      pass: 0,
+      warn: 0,
+      fail: 0,
+      na: 0,
+      scoreSum: 0
+    }
+    const scores: CoordElementScoreRecord[] = []
+    const score = (elementKey: string, speckleObjectId: string | null) => {
+      const elementResults = byElement.get(elementKey)
+      byElement.delete(elementKey)
+      if (!elementResults?.length) {
+        tally.na++
+        scores.push({
+          runId: run.id,
+          elementKey,
+          speckleObjectId,
+          status: 'na',
+          score: null
+        })
+        return
+      }
+      let applicableWeight = 0
+      let passedWeight = 0
+      for (const r of elementResults) {
+        const weight = ruleById.get(r.ruleId)?.weight ?? 1
+        applicableWeight += weight
+        if (r.status === 'pass') passedWeight += weight
+      }
+      const status = elementResults.some((r) => r.status === 'fail')
+        ? 'fail'
+        : elementResults.some((r) => r.status === 'warn')
+        ? 'warn'
+        : 'pass'
+      const value = applicableWeight ? passedWeight / applicableWeight : 0
+      tally[status]++
+      tally.scoreSum += value
+      scores.push({ runId: run.id, elementKey, speckleObjectId, status, score: value })
+    }
+
+    const seenKeys = new Set<string>()
+    const elements = readVersionElementsFactory({ projectDb: deps.projectDb })({
+      projectId: run.projectId,
+      versionId: run.versionId
+    })
+    for await (const element of elements) {
+      tally.elementCount++
+      if (tally.elementCount > COORD_LIMITS.maxElementsPerRun) {
+        throw new CoordRunLimitError(
+          'Modelo grande demais para a verificação (limite de elementos excedido)'
+        )
+      }
+      if (tally.elementCount % ELEMENT_BATCH === 0) {
+        await yieldToEventLoop()
+        if ((Date.now() - startedAt) / 1000 > COORD_LIMITS.maxRunSeconds) {
+          throw new CoordRunLimitError(
+            'Modelo grande demais para a verificação (tempo limite excedido)'
+          )
+        }
+      }
+      if (!element.elementKey || seenKeys.has(element.elementKey)) {
+        tally.unkeyedCount++
+        if (tally.unkeyedSample.length < UNKEYED_SAMPLE_SIZE) {
+          tally.unkeyedSample.push(element.speckleObjectId)
+        }
+        continue
+      }
+      seenKeys.add(element.elementKey)
+      score(element.elementKey, element.speckleObjectId)
+    }
+    // IFC entities IfcTester checked that aren't geometry-carrying elements in
+    // Speckle (no displayValue): still scored, just not paintable in the viewer
+    for (const elementKey of [...byElement.keys()]) {
+      tally.elementCount++
+      score(elementKey, null)
+    }
+    await insertElementScoresFactory({ db: deps.db })(scores)
+
+    return await finishRunFactory({ db: deps.db })(run, { tally, ruleStats, ruleById })
   }
 
 /** Claims and processes queued runs until the queue is empty. */
@@ -367,7 +571,9 @@ export const drainCheckRunQueueFactory = (deps: { db: Knex }) => async () => {
     if (!run) return
     try {
       const projectDb = await getProjectDbClient({ projectId: run.projectId })
-      await processCheckRunFactory({ db: deps.db, projectDb })(run)
+      const process =
+        run.engine === 'ids' ? processIdsRunFactory : processCheckRunFactory
+      await process({ db: deps.db, projectDb })(run)
       moduleLogger.info(
         { runId: run.id, projectId: run.projectId },
         'Coordination check run finished'

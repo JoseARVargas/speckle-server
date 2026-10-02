@@ -44,6 +44,15 @@ enum CoordRuleSetVersionStatus {
 enum CoordRunStatus {
   queued
   running
+  """
+  IDS run being validated by the Python worker (IfcTester)
+  """
+  ids_running
+  """
+  IDS run validated, waiting for the Node worker to aggregate it
+  """
+  ids_done
+  processing
   succeeded
   failed
   blocked
@@ -192,6 +201,10 @@ type CoordCheckRun {
   ruleSet: CoordRuleSet
   ruleSetVersion: CoordRuleSetVersion!
   trigger: CoordRunTrigger!
+  """
+  native: rules on the Speckle objects; ids: IfcTester on the original IFC
+  """
+  engine: String!
   status: CoordRunStatus!
   error: String
   queuedAt: DateTime!
@@ -344,6 +357,17 @@ type CoordinationMutations {
   Imports { name, milestone?, purpose?, rules: [...] } as a new rule set draft
   """
   importRuleSet(projectId: String!, document: JSONObject!): CoordRuleSetImportResult!
+  """
+  Imports an IDS 1.0 file (XML text, up to 2 MB). Creates an IDS rule set,
+  or with ruleSetId replaces that IDS rule set's draft with the new file.
+  """
+  importIdsRuleSet(
+    projectId: String!
+    xml: String!
+    name: String
+    milestoneId: String
+    ruleSetId: String
+  ): CoordRuleSetImportResult!
   """
   Creates (ruleId null) or updates a rule of the draft, creating the draft
   from the published version when there's none

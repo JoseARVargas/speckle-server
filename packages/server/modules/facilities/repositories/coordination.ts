@@ -365,6 +365,11 @@ export const updateRuleFactory =
     return res
   }
 
+/** Empties a draft before an IDS re-import replaces its rules. */
+export const deleteRulesOfVersionFactory =
+  (deps: { db: Knex }) => (p: { ruleSetVersionId: string }) =>
+    tables.rules(deps.db).where({ ruleSetVersionId: p.ruleSetVersionId }).del()
+
 export const deleteRuleFactory = (deps: { db: Knex }) => (p: { id: string }) =>
   tables.rules(deps.db).where({ id: p.id }).del()
 
@@ -439,12 +444,21 @@ export const getCheckRunFactory =
   (deps: { db: Knex }) => (p: Scoped & { id: string }) =>
     tables.runs(deps.db).where({ id: p.id, projectId: p.projectId }).first()
 
+/** Statuses of a run that is still being worked on (by Node or Python). */
+export const ACTIVE_RUN_STATUSES: CoordRunStatus[] = [
+  'queued',
+  'running',
+  'ids_running',
+  'ids_done',
+  'processing'
+]
+
 export const getActiveRunFactory =
   (deps: { db: Knex }) => (p: { ruleSetVersionId: string; versionId: string }) =>
     tables
       .runs(deps.db)
       .where({ ruleSetVersionId: p.ruleSetVersionId, versionId: p.versionId })
-      .whereIn('status', ['queued', 'running'] satisfies CoordRunStatus[])
+      .whereIn('status', ACTIVE_RUN_STATUSES)
       .first()
 
 export const countQueuedRunsFactory = (deps: { db: Knex }) => async (p: Scoped) => {
@@ -528,52 +542,64 @@ export const getLatestRunFactory =
     runsQuery(deps.db, p).orderBy('queuedAt', 'desc').first()
 
 /**
- * Claims the oldest queued run (queued -> running) without blocking other
- * workers: SKIP LOCKED makes concurrent claimers pass over a locked row.
+ * Claims the oldest run the Node worker can process, without blocking other
+ * workers (SKIP LOCKED makes concurrent claimers pass over a locked row):
+ * native runs waiting in the queue (queued -> running) and IDS runs the
+ * Python worker already validated (ids_done -> processing). Queued IDS runs
+ * belong to the Python worker and are never claimed here.
  */
 export const claimNextQueuedRunFactory = (deps: { db: Knex }) => async () =>
   await deps.db.transaction(async (trx) => {
     const next = await tables
       .runs(trx)
-      .where({ status: 'queued' })
+      .where((q) =>
+        q.where({ status: 'queued', engine: 'native' }).orWhere({ status: 'ids_done' })
+      )
       .orderBy('queuedAt', 'asc')
       .forUpdate()
       .skipLocked()
       .first()
     if (!next) return null
+    const native = next.engine === 'native'
     const [claimed] = await tables
       .runs(trx)
       .where({ id: next.id })
       .update({
-        status: 'running',
-        attempt: next.attempt + 1,
-        startedAt: new Date(),
+        status: native ? 'running' : 'processing',
+        // the Python worker already counted the attempt of an ids run
+        attempt: native ? next.attempt + 1 : next.attempt,
+        startedAt: native ? new Date() : next.startedAt,
         error: null
       })
       .returning('*')
     return claimed
   })
 
-/** Runs left `running` by a dead process: retry while attempts remain. */
+/**
+ * Runs left mid-flight by a dead process: retry while attempts remain.
+ * running / ids_running go back to the queue; processing (Node aggregation
+ * of an IDS run) goes back to ids_done, keeping the Python results.
+ */
 export const recoverStaleRunsFactory =
   (deps: { db: Knex }) => async (p: { staleBefore: Date; maxAttempts: number }) => {
-    const requeued = await tables
-      .runs(deps.db)
-      .where({ status: 'running' })
-      .andWhere('startedAt', '<', p.staleBefore)
+    const stale = () => tables.runs(deps.db).andWhere('startedAt', '<', p.staleBefore)
+    const requeued = await stale()
+      .whereIn('status', ['running', 'ids_running'])
       .andWhere('attempt', '<', p.maxAttempts)
       .update({ status: 'queued', startedAt: null })
-    const failed = await tables
-      .runs(deps.db)
-      .where({ status: 'running' })
-      .andWhere('startedAt', '<', p.staleBefore)
+    const reprocessed = await stale()
+      .where({ status: 'processing' })
+      .andWhere('attempt', '<', p.maxAttempts)
+      .update({ status: 'ids_done' })
+    const failed = await stale()
+      .whereIn('status', ['running', 'ids_running', 'processing'])
       .andWhere('attempt', '>=', p.maxAttempts)
       .update({
         status: 'failed',
         finishedAt: new Date(),
         error: 'Falha ao executar a verificação'
       })
-    return { requeued, failed }
+    return { requeued: requeued + reprocessed, failed }
   }
 
 /** Keeps only the newest preview run per (rule set, model). */
@@ -584,7 +610,7 @@ export const deleteOlderPreviewRunsFactory =
       .runs(deps.db)
       .where({ ruleSetId: p.ruleSetId, modelId: p.modelId, trigger: 'preview' })
       .whereNot({ id: p.keepRunId })
-      .whereNotIn('status', ['queued', 'running'])
+      .whereNotIn('status', ACTIVE_RUN_STATUSES)
       .del()
 
 /** Drops per-rule results of all but the newest N runs; aggregates stay. */
@@ -646,14 +672,32 @@ export const insertRunStatsFactory =
     }
   }
 
-/** Clears partial output of a run attempt before (re)processing it. */
+/**
+ * Clears partial output of a run attempt before (re)processing it. IDS runs
+ * keep the per-rule results, which come from the Python worker.
+ */
 export const clearRunOutputFactory =
-  (deps: { db: Knex }) => async (p: { runId: string }) => {
-    await tables.results(deps.db).where({ runId: p.runId }).del()
+  (deps: { db: Knex }) => async (p: { runId: string; keepResults?: boolean }) => {
+    if (!p.keepResults) await tables.results(deps.db).where({ runId: p.runId }).del()
     await tables.scores(deps.db).where({ runId: p.runId }).del()
     await tables.requirementStats(deps.db).where({ runId: p.runId }).del()
     await tables.ruleStats(deps.db).where({ runId: p.runId }).del()
   }
+
+/** Every per-rule result of a run (IDS aggregation reads what Python wrote). */
+export const listRunResultsFactory = (deps: { db: Knex }) => (p: { runId: string }) =>
+  tables.results(deps.db).where({ runId: p.runId })
+
+/** IDS results come as pass/fail; failures of warning rules become warn. */
+export const downgradeWarningFailuresFactory =
+  (deps: { db: Knex }) => (p: { runId: string; ruleIds: string[] }) =>
+    p.ruleIds.length
+      ? tables
+          .results(deps.db)
+          .where({ runId: p.runId, status: 'fail' })
+          .whereIn('ruleId', p.ruleIds)
+          .update({ status: 'warn' })
+      : Promise.resolve(0)
 
 export const listRequirementStatsFactory =
   (deps: { db: Knex }) => (p: { runIds: string[] }) =>

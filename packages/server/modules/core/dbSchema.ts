@@ -863,6 +863,7 @@ export const CoordRuleSetVersions = buildTableHelper('coord_rule_set_versions', 
   'status',
   'publishedAt',
   'publishedBy',
+  'idsXml',
   'createdAt',
   'updatedAt'
 ])
@@ -916,7 +917,9 @@ export const CoordCheckRuns = buildTableHelper('coord_check_runs', [
   'naCount',
   'unkeyedCount',
   'adherence',
-  'unkeyedSample'
+  'unkeyedSample',
+  'engine',
+  'ifcObjectKey'
 ])
 
 export const CoordCheckResults = buildTableHelper('coord_check_results', [

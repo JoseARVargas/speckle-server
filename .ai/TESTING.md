@@ -21,6 +21,17 @@ npx cross-env TSX=true NODE_ENV=test LOG_FILTER=test POSTGRES_DB=speckle2_test y
   modules/facilities/tests/<arquivo>.spec.ts -g "<describe>"
 ```
 
+## Worker Python (`packages/coord-worker`)
+
+Sem Python local; testes e lint em container (ver README do pacote):
+
+```bash
+cd packages/coord-worker
+docker run --rm -v "$PWD:/src" -w /src -e UV_PROJECT_ENVIRONMENT=/tmp/venv \
+  ghcr.io/astral-sh/uv:python3.12-bookworm-slim \
+  sh -c "uv sync --frozen && uv run pytest -q && uv run ruff check . && uv run ruff format --check ."
+```
+
 ## Validação obrigatória antes de concluir
 
 1. `gqlgen` sem diferença pendente, se o schema mudou.
