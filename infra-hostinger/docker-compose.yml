@@ -1,0 +1,129 @@
+# NexTwin - produção na VPS Hostinger KVM 1 (1 vCPU, 4 GB + 2 GB swap).
+# Só o Caddy publica portas: o Docker ignora o ufw em portas publicadas.
+# Imagens fixadas por digest; atualizar trocando o digest de propósito.
+# Segredos ficam em ./secrets/ (gerados na VPS por scripts/gerar-segredos.sh, fora do git).
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    restart: always
+    environment:
+      POSTGRES_DB: speckle
+      POSTGRES_USER: speckle
+    env_file:
+      - ./secrets/postgres.env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    command: postgres -c max_prepared_transactions=150
+    mem_limit: 768m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U speckle -d speckle']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: valkey/valkey:8.1-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+    restart: always
+    volumes:
+      - redis-data:/data
+    mem_limit: 128m
+
+  minio:
+    # Imagem copiada da EC2 (o registry não serve mais essa tag); nunca buscar de fora.
+    # Substituição pelo Garage é tarefa separada.
+    image: quay.io/minio/minio:latest
+    pull_policy: never
+    restart: always
+    command: server /data
+    env_file:
+      - ./secrets/minio.env
+    volumes:
+      - minio-data:/data
+    mem_limit: 384m
+
+  speckle-server:
+    image: ghcr.io/josearvargas/speckle-server:8776b16884
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    env_file:
+      - ./config/server.env
+      - ./secrets/server.env
+    mem_limit: 1g
+
+  speckle-frontend-2:
+    image: speckle/speckle-frontend-2:2.31.14@sha256:0becacf171acd8e566b8cf6ff6884bc2a433a0d2828ab145c54ea163f9a91276
+    restart: always
+    environment:
+      NUXT_PUBLIC_SERVER_NAME: 'NexTwin'
+      NUXT_PUBLIC_API_ORIGIN: 'https://nextwin.officio.net.br'
+      NUXT_PUBLIC_BASE_URL: 'https://nextwin.officio.net.br'
+      NUXT_PUBLIC_BACKEND_API_ORIGIN: 'http://speckle-server:3000'
+      NUXT_REDIS_URL: 'redis://redis:6379'
+      LOG_LEVEL: 'info'
+    depends_on:
+      - speckle-server
+      - redis
+    mem_limit: 512m
+
+  ifc-import-service:
+    image: speckle/speckle-ifc-import-service:2.31.15-alpha.1277@sha256:a8a67cceafcd50974761bfd6825d7570b3533d2f00a83b199e128c941a5fcfc8
+    restart: always
+    environment:
+      LOG_LEVEL: 'info'
+    env_file:
+      - ./secrets/ifc-import.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      speckle-server:
+        condition: service_started
+    mem_limit: 1g
+
+  coord-worker:
+    # Validação IDS (IfcTester). Sem portas; usuário Postgres restrito e chave S3 só de leitura.
+    image: ghcr.io/josearvargas/coord-worker:8776b16884
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: speckle-server
+    env_file:
+      - ./secrets/coord-worker.env
+    mem_limit: 1536m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  caddy:
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - speckle-server
+      - speckle-frontend-2
+    mem_limit: 128m
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  caddy-data:
+  caddy-config:

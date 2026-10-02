@@ -8,6 +8,14 @@ test-queries
 Contributing.md
 ISSUE_TEMPLATE.md
 **/.env
+**/.env.*
+!**/.env.example
+**/*.env
+**/*.pem
+**/*.key
+**/secrets
+infra-*
+.ai
 .env.example
 .eslintrc.json
 .mocharc.js
