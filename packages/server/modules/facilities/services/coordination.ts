@@ -12,6 +12,7 @@ import {
 } from '@/modules/core/repositories/commits'
 import type {
   CoordCheckRunRecord,
+  CoordIdsEditableField,
   CoordRequirementRecord,
   CoordRuleInput,
   CoordRuleRecord,
@@ -20,8 +21,10 @@ import type {
 } from '@/modules/facilities/helpers/coordinationTypes'
 import {
   COORD_LIMITS,
+  coordIdsRuleMetadataSchema,
   coordRuleInputSchema,
-  coordRuleSetImportSchema
+  coordRuleSetImportSchema,
+  isIdsRuleDefinition
 } from '@/modules/facilities/helpers/coordinationTypes'
 import {
   countRulesFactory,
@@ -286,6 +289,56 @@ export const resolveDraftRuleFactory =
     return match
   }
 
+/**
+ * IDS rules: only the metadata is editable (the IfcTester validation comes
+ * from the IDS XML). Changed fields are recorded in definition.edited so a
+ * re-import of the IDS keeps them.
+ */
+const updateIdsRuleMetadataFactory =
+  (deps: { db: Knex }) =>
+  async (p: {
+    ruleSet: CoordRuleSetRecord
+    existingRule: CoordRuleRecord | null
+    input: unknown
+  }) => {
+    if (!p.existingRule) {
+      throw new BadRequestError(
+        'Um conjunto IDS não aceita regras novas: adicione a especificação no IDS e importe a nova versão'
+      )
+    }
+    const input = parseOrBadRequest(
+      coordIdsRuleMetadataSchema,
+      p.input,
+      'Regra IDS (só nome, severidade, peso e requisito são editáveis)'
+    )
+    await assertRequirementInProjectFactory(deps)({
+      projectId: p.ruleSet.projectId,
+      requirementId: input.requirementId
+    })
+    const draft = await ensureDraftFactory(deps)(p.ruleSet)
+    const target = await resolveDraftRuleFactory(deps)({ rule: p.existingRule, draft })
+    if (!isIdsRuleDefinition(target.definition)) {
+      throw new BadRequestError('Regra IDS inválida')
+    }
+    const next = {
+      name: input.name,
+      severity: input.severity,
+      weight: input.weight,
+      requirementId: input.requirementId ?? null
+    }
+    const edited = new Set<CoordIdsEditableField>(target.definition.edited ?? [])
+    for (const field of Object.keys(next) as CoordIdsEditableField[]) {
+      if (next[field] !== target[field]) edited.add(field)
+    }
+    return await updateRuleFactory(deps)({
+      id: target.id,
+      update: {
+        ...next,
+        definition: { ...target.definition, edited: [...edited].sort() }
+      }
+    })
+  }
+
 export const upsertDraftRuleFactory =
   (deps: { db: Knex }) =>
   async (p: {
@@ -294,9 +347,11 @@ export const upsertDraftRuleFactory =
     input: unknown
   }) => {
     if (p.ruleSet.format === 'ids') {
-      throw new BadRequestError(
-        'Regras de um conjunto IDS não são editadas aqui: altere o IDS e importe a nova versão'
-      )
+      return await updateIdsRuleMetadataFactory(deps)({
+        ruleSet: p.ruleSet,
+        existingRule: p.existingRule,
+        input: p.input
+      })
     }
     const input = parseOrBadRequest(coordRuleInputSchema, p.input, 'Regra')
     await assertRequirementInProjectFactory(deps)({

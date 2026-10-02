@@ -2,19 +2,25 @@ import type { Knex } from 'knex'
 import { XMLParser, XMLValidator } from 'fast-xml-parser'
 import { BadRequestError } from '@/modules/shared/errors'
 import type {
+  CoordIdsEditableField,
   CoordIdsRuleDefinition,
   CoordRuleRecord,
   CoordRuleSetRecord,
   CoordSeverity
 } from '@/modules/facilities/helpers/coordinationTypes'
-import { COORD_LIMITS } from '@/modules/facilities/helpers/coordinationTypes'
+import {
+  COORD_LIMITS,
+  isIdsRuleDefinition
+} from '@/modules/facilities/helpers/coordinationTypes'
 import {
   deleteRulesOfVersionFactory,
   getDraftVersionFactory,
+  getLatestPublishedVersionFactory,
   getMaxVersionNumberFactory,
   insertRuleSetFactory,
   insertRuleSetVersionFactory,
   insertRulesFactory,
+  listRulesFactory,
   updateRuleSetVersionFactory
 } from '@/modules/facilities/repositories/coordination'
 import {
@@ -267,6 +273,33 @@ const requirementLabelOf = (spec: ParsedIdsSpecification) => {
   return nameHasCode ? spec.name : null
 }
 
+/**
+ * Re-import keeps what the user edited on the matching previous rule. Rules
+ * match by code when it comes from the spec identifier; for generated codes
+ * (IDS-n, position based) the spec summary must also be identical.
+ */
+const carryEditedMetadata = (
+  rule: CoordRuleRecord,
+  previousRules: CoordRuleRecord[]
+): CoordRuleRecord => {
+  const definition = rule.definition as CoordIdsRuleDefinition
+  const previous = previousRules.find((r) => r.code === rule.code)
+  if (!previous || !isIdsRuleDefinition(previous.definition)) return rule
+  const edited = previous.definition.edited ?? []
+  if (!edited.length) return rule
+  const generatedCode = /^IDS-d+(-d+)?$/.test(rule.code)
+  if (
+    generatedCode &&
+    (previous.definition.applicability !== definition.applicability ||
+      previous.definition.requirements !== definition.requirements)
+  ) {
+    return rule
+  }
+  const carried: Partial<Pick<CoordRuleRecord, CoordIdsEditableField>> = {}
+  for (const field of edited) Object.assign(carried, { [field]: previous[field] })
+  return { ...rule, ...carried, definition: { ...definition, edited } }
+}
+
 export const importIdsRuleSetFactory =
   (deps: { db: Knex }) =>
   async (p: {
@@ -307,6 +340,12 @@ export const importIdsRuleSetFactory =
 
     // The IDS replaces the whole draft: drop the old draft's rules, keep its row
     let draft = await getDraftVersionFactory(deps)({ ruleSetId: ruleSet.id })
+    // ...but metadata the user edited on the previous rules carries over
+    const previousVersion =
+      draft ?? (await getLatestPublishedVersionFactory(deps)({ ruleSetId: ruleSet.id }))
+    const previousRules = previousVersion
+      ? await listRulesFactory(deps)({ ruleSetVersionId: previousVersion.id })
+      : []
     if (draft) {
       await deleteRulesOfVersionFactory(deps)({ ruleSetVersionId: draft.id })
       draft = await updateRuleSetVersionFactory(deps)({
@@ -365,7 +404,9 @@ export const importIdsRuleSetFactory =
         updatedAt: new Date()
       }
     })
-    await insertRulesFactory(deps)(rules)
+    await insertRulesFactory(deps)(
+      rules.map((rule) => carryEditedMetadata(rule, previousRules))
+    )
 
     return {
       ruleSet,

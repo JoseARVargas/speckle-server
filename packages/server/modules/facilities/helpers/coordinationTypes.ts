@@ -176,11 +176,30 @@ export const coordIdsRuleDefinitionSchema = z
     specIndex: z.number().int().min(0),
     ifcVersion: z.string().max(100).nullable(),
     applicability: z.string().max(4000),
-    requirements: z.string().max(4000)
+    requirements: z.string().max(4000),
+    /** Metadata fields the user changed after import (kept on re-import) */
+    edited: z.array(z.enum(['name', 'severity', 'weight', 'requirementId'])).optional()
   })
   .strict()
 
 export type CoordIdsRuleDefinition = z.infer<typeof coordIdsRuleDefinitionSchema>
+
+/**
+ * What can be edited on an IDS rule: its metadata. The validation itself
+ * (entities, Psets, values) comes from the IDS XML - change it by re-importing.
+ */
+export const coordIdsRuleMetadataSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    severity: z.enum(['error', 'warning']),
+    weight: z.number().positive().max(100),
+    requirementId: z.string().max(10).optional().nullable()
+  })
+  .strict()
+
+export type CoordIdsEditableField = NonNullable<
+  CoordIdsRuleDefinition['edited']
+>[number]
 
 export type CoordAnyRuleDefinition = CoordRuleDefinition | CoordIdsRuleDefinition
 
