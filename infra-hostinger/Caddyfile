@@ -1,0 +1,29 @@
+{
+	email jaribeirovargas@gmail.com
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+nextwin.officio.net.br {
+	import security_headers
+	encode zstd gzip
+	# API/backend vão para o speckle-server; o resto é a UI do frontend-2.
+	@speckleServer path /graphql* /explorer* /auth/* /preview/* /api/* /static/* /objects/*
+	reverse_proxy @speckleServer speckle-server:3000
+	reverse_proxy speckle-frontend-2:8080
+}
+
+# Só o bucket do Speckle (URLs pré-assinadas). Console e API admin do MinIO ficam fechados.
+files.nextwin.officio.net.br {
+	import security_headers
+	@bucket path /speckle-server/*
+	reverse_proxy @bucket minio:9000
+	respond 404
+}
