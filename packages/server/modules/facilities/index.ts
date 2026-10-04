@@ -1,10 +1,8 @@
 import { moduleLogger } from '@/observability/logging'
 import type { SpeckleModule } from '@/modules/shared/helpers/typeHelper'
 import { db } from '@/db/knex'
-import { isTestEnv } from '@/modules/shared/helpers/envHelper'
 import { startSimulationWorker } from '@/modules/facilities/services/simulation'
 import { sensorsRouterFactory } from '@/modules/facilities/rest/router'
-import { startCoordinationWorker } from '@/modules/facilities/services/coordinationRunner'
 
 export const init: SpeckleModule['init'] = ({ isInitial, app }) => {
   moduleLogger.info('🏢 Init facilities module')
@@ -12,7 +10,6 @@ export const init: SpeckleModule['init'] = ({ isInitial, app }) => {
   // re-init.
   if (isInitial) {
     startSimulationWorker({ db })
-    startCoordinationWorker({ db, pollQueue: !isTestEnv() })
   }
   app.use(sensorsRouterFactory())
 }

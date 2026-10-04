@@ -13,7 +13,7 @@ import {
   importRuleSetMutation,
   publishMutation,
   runCheckMutation
-} from '@/modules/facilities/tests/coordinationHelpers'
+} from '@/modules/coordination/tests/coordinationHelpers'
 
 const ruleSetQuery = gql`
   query ($projectId: String!, $ruleSetId: String!) {

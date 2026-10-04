@@ -8,7 +8,7 @@ import { testApolloServer } from '@/test/graphqlHelper'
 import { beforeEachContext } from '@/test/hooks'
 import type { BasicTestStream } from '@/test/speckle-helpers/streamHelper'
 import { createTestStreams } from '@/test/speckle-helpers/streamHelper'
-import { drainCheckRunQueueFactory } from '@/modules/facilities/services/coordinationRunner'
+import { drainCheckRunQueueFactory } from '@/modules/coordination/services/coordinationRunner'
 import {
   bindingMutation,
   columnObject,
@@ -18,7 +18,7 @@ import {
   publishMutation,
   runCheckMutation,
   wallObject
-} from '@/modules/facilities/tests/coordinationHelpers'
+} from '@/modules/coordination/tests/coordinationHelpers'
 
 const runQuery = gql`
   query ($projectId: String!, $runId: String!) {

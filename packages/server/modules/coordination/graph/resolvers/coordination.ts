@@ -3,7 +3,7 @@ import { getProjectDbClient } from '@/modules/multiregion/utils/dbSelector'
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/modules/shared/errors'
 import type { GraphQLContext } from '@/modules/shared/helpers/typeHelper'
 import { getProjectModelByIdFactory } from '@/modules/core/repositories/branches'
-import { assertCanManageFacility } from '@/modules/facilities/graph/resolvers/facilities'
+import { assertCanManageCoordination } from '@/modules/coordination/helpers/access'
 import type {
   CoordCheckRunRecord,
   CoordElementStatus,
@@ -13,12 +13,12 @@ import type {
   CoordRuleSetBindingRecord,
   CoordRuleSetRecord,
   CoordRuleSetVersionRecord
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   coordRuleDefinitionSchema,
   isIdsRuleDefinition
-} from '@/modules/facilities/helpers/coordinationTypes'
-import { importIdsRuleSetFactory } from '@/modules/facilities/services/coordinationIds'
+} from '@/modules/coordination/helpers/coordinationTypes'
+import { importIdsRuleSetFactory } from '@/modules/coordination/services/coordinationIds'
 import {
   countCheckRunsFactory,
   countElementScoresFactory,
@@ -69,7 +69,7 @@ import {
   updateRuleFactory,
   updateRuleSetFactory,
   upsertBindingFactory
-} from '@/modules/facilities/repositories/coordination'
+} from '@/modules/coordination/repositories/coordination'
 import {
   assertMilestoneInProjectFactory,
   assertModelInProjectFactory,
@@ -91,11 +91,11 @@ import {
   ruleSetInputSchema,
   runCheckFactory,
   upsertDraftRuleFactory
-} from '@/modules/facilities/services/coordination'
+} from '@/modules/coordination/services/coordination'
 import {
   describeExpected,
   describeRule
-} from '@/modules/facilities/services/coordinationEngine'
+} from '@/modules/coordination/services/coordinationEngine'
 
 /**
  * All coord_* tables live in the main database (the queue worker polls it,
@@ -106,7 +106,7 @@ import {
  * caller can read the project) and every lookup is scoped by that projectId,
  * so ids from another project resolve to null. Mutations resolve the
  * projectId from the stored record, never from the client, and go through
- * assertCanManageFacility.
+ * assertCanManageCoordination.
  */
 
 type CoordParent = { projectId: string }
@@ -122,7 +122,7 @@ const requireUser = (ctx: GraphQLContext) => {
 async function loadManagedRuleSet(ctx: GraphQLContext, ruleSetId: string) {
   const ruleSet = await getRuleSetByIdFactory({ db })({ id: ruleSetId })
   if (!ruleSet) throw new NotFoundError('Conjunto de regras não encontrado')
-  await assertCanManageFacility(ctx, ruleSet.projectId)
+  await assertCanManageCoordination(ctx, ruleSet.projectId)
   return ruleSet
 }
 
@@ -169,7 +169,7 @@ const coordinationMutations = {
     args: { projectId: string; input: unknown },
     ctx: GraphQLContext
   ) {
-    await assertCanManageFacility(ctx, args.projectId)
+    await assertCanManageCoordination(ctx, args.projectId)
     const input = parseOrBadRequest(requirementSourceInputSchema, args.input, 'Origem')
     await assertSourceParent(args.projectId, null, input.parentId)
     const row = await insertRequirementSourceFactory({ db })({
@@ -195,7 +195,7 @@ const coordinationMutations = {
     ctx: GraphQLContext
   ) {
     const source = await getRequirementSourceByIdOrThrow(args.id)
-    await assertCanManageFacility(ctx, source.projectId)
+    await assertCanManageCoordination(ctx, source.projectId)
     const input = parseOrBadRequest(requirementSourceInputSchema, args.input, 'Origem')
     await assertSourceParent(source.projectId, source.id, input.parentId)
     const row = await updateRequirementSourceFactory({ db })({
@@ -218,7 +218,7 @@ const coordinationMutations = {
     ctx: GraphQLContext
   ) {
     const source = await getRequirementSourceByIdOrThrow(args.id)
-    await assertCanManageFacility(ctx, source.projectId)
+    await assertCanManageCoordination(ctx, source.projectId)
     if (await countRequirementsBySourceFactory({ db })({ sourceId: source.id })) {
       throw new BadRequestError('Remova antes os requisitos ligados a esta origem')
     }
@@ -239,7 +239,7 @@ const coordinationMutations = {
     args: { projectId: string; input: unknown },
     ctx: GraphQLContext
   ) {
-    await assertCanManageFacility(ctx, args.projectId)
+    await assertCanManageCoordination(ctx, args.projectId)
     const input = parseOrBadRequest(milestoneInputSchema, args.input, 'Marco')
     const row = await withUniqueMessage('Já existe um marco com esse nome', () =>
       insertMilestoneFactory({ db })({
@@ -266,7 +266,7 @@ const coordinationMutations = {
     ctx: GraphQLContext
   ) {
     const milestone = await getMilestoneByIdOrThrow(args.id)
-    await assertCanManageFacility(ctx, milestone.projectId)
+    await assertCanManageCoordination(ctx, milestone.projectId)
     const input = parseOrBadRequest(milestoneInputSchema, args.input, 'Marco')
     const row = await withUniqueMessage('Já existe um marco com esse nome', () =>
       updateMilestoneFactory({ db })({ id: milestone.id, update: input })
@@ -283,7 +283,7 @@ const coordinationMutations = {
 
   async deleteMilestone(_parent: unknown, args: { id: string }, ctx: GraphQLContext) {
     const milestone = await getMilestoneByIdOrThrow(args.id)
-    await assertCanManageFacility(ctx, milestone.projectId)
+    await assertCanManageCoordination(ctx, milestone.projectId)
     await deleteMilestoneFactory({ db })({ id: milestone.id })
     await audit({
       projectId: milestone.projectId,
@@ -301,7 +301,7 @@ const coordinationMutations = {
     args: { projectId: string; input: unknown },
     ctx: GraphQLContext
   ) {
-    await assertCanManageFacility(ctx, args.projectId)
+    await assertCanManageCoordination(ctx, args.projectId)
     const input = parseOrBadRequest(requirementInputSchema, args.input, 'Requisito')
     await assertRequirementRefs(args.projectId, input.sourceId, input.milestoneId)
     const row = await withUniqueMessage(`Já existe um requisito ${input.code}`, () =>
@@ -330,7 +330,7 @@ const coordinationMutations = {
     ctx: GraphQLContext
   ) {
     const requirement = await getRequirementByIdOrThrow(args.id)
-    await assertCanManageFacility(ctx, requirement.projectId)
+    await assertCanManageCoordination(ctx, requirement.projectId)
     const input = parseOrBadRequest(requirementInputSchema, args.input, 'Requisito')
     await assertRequirementRefs(
       requirement.projectId,
@@ -355,7 +355,7 @@ const coordinationMutations = {
 
   async deleteRequirement(_parent: unknown, args: { id: string }, ctx: GraphQLContext) {
     const requirement = await getRequirementByIdOrThrow(args.id)
-    await assertCanManageFacility(ctx, requirement.projectId)
+    await assertCanManageCoordination(ctx, requirement.projectId)
     await deleteRequirementFactory({ db })({ id: requirement.id })
     await audit({
       projectId: requirement.projectId,
@@ -373,7 +373,7 @@ const coordinationMutations = {
     args: { projectId: string; input: unknown },
     ctx: GraphQLContext
   ) {
-    await assertCanManageFacility(ctx, args.projectId)
+    await assertCanManageCoordination(ctx, args.projectId)
     const userId = requireUser(ctx)
     const input = parseOrBadRequest(
       ruleSetInputSchema,
@@ -470,7 +470,7 @@ const coordinationMutations = {
     args: { projectId: string; document: unknown },
     ctx: GraphQLContext
   ) {
-    await assertCanManageFacility(ctx, args.projectId)
+    await assertCanManageCoordination(ctx, args.projectId)
     const userId = requireUser(ctx)
     const result = await importRuleSetFactory({ db })({
       projectId: args.projectId,
@@ -538,7 +538,7 @@ const coordinationMutations = {
     },
     ctx: GraphQLContext
   ) {
-    await assertCanManageFacility(ctx, args.projectId)
+    await assertCanManageCoordination(ctx, args.projectId)
     const userId = requireUser(ctx)
     let ruleSet: CoordRuleSetRecord | null = null
     if (args.ruleSetId) {

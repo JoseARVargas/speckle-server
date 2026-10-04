@@ -13,17 +13,17 @@ import {
   CoordCheckRuns,
   CoordRequirements
 } from '@/modules/core/dbSchema'
-import { parseIdsDocument } from '@/modules/facilities/services/coordinationIds'
+import { parseIdsDocument } from '@/modules/coordination/services/coordinationIds'
 import {
   drainCheckRunQueueFactory,
   enqueueCheckRunFactory
-} from '@/modules/facilities/services/coordinationRunner'
+} from '@/modules/coordination/services/coordinationRunner'
 import {
   columnObject,
   createModelVersion,
   publishMutation,
   runCheckMutation
-} from '@/modules/facilities/tests/coordinationHelpers'
+} from '@/modules/coordination/tests/coordinationHelpers'
 
 /**
  * IDS rule sets: import (shape validation, XXE refusal) and the Node half of

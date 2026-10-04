@@ -13,11 +13,11 @@ import type {
   CoordRuleStatRecord,
   CoordRunEngine,
   CoordRunTrigger
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   COORD_LIMITS,
   coordRuleDefinitionSchema
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   claimNextQueuedRunFactory,
   clearRunOutputFactory,
@@ -38,15 +38,15 @@ import {
   pruneOldRunResultsFactory,
   recoverStaleRunsFactory,
   updateCheckRunFactory
-} from '@/modules/facilities/repositories/coordination'
+} from '@/modules/coordination/repositories/coordination'
 import {
   compileRule,
   evaluateElement
-} from '@/modules/facilities/services/coordinationEngine'
+} from '@/modules/coordination/services/coordinationEngine'
 import {
   readVersionElementsFactory,
   resolveIfcObjectKeyFactory
-} from '@/modules/facilities/services/coordinationReader'
+} from '@/modules/coordination/services/coordinationReader'
 
 const WORKER_INTERVAL_SECONDS = 5
 const STALE_RUN_MINUTES = 30

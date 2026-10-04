@@ -7,11 +7,11 @@ import type {
   CoordRuleRecord,
   CoordRuleSetRecord,
   CoordSeverity
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   COORD_LIMITS,
   isIdsRuleDefinition
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   deleteRulesOfVersionFactory,
   getDraftVersionFactory,
@@ -22,12 +22,12 @@ import {
   insertRulesFactory,
   listRulesFactory,
   updateRuleSetVersionFactory
-} from '@/modules/facilities/repositories/coordination'
+} from '@/modules/coordination/repositories/coordination'
 import {
   newCoordId,
   resolveRequirementLabelsFactory,
   splitRequirementLabel
-} from '@/modules/facilities/services/coordination'
+} from '@/modules/coordination/services/coordination'
 
 /**
  * IDS 1.0 (buildingSMART Information Delivery Specification) import. The
