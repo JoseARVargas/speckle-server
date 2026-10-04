@@ -18,14 +18,14 @@ import type {
   CoordRuleRecord,
   CoordRuleSetRecord,
   CoordRuleSetVersionRecord
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   COORD_LIMITS,
   coordIdsRuleMetadataSchema,
   coordRuleInputSchema,
   coordRuleSetImportSchema,
   isIdsRuleDefinition
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   countRulesFactory,
   countUserTriggeredRunsSinceFactory,
@@ -54,12 +54,12 @@ import {
   listRunModelIdsFactory,
   updateRuleFactory,
   updateRuleSetVersionFactory
-} from '@/modules/facilities/repositories/coordination'
+} from '@/modules/coordination/repositories/coordination'
 import {
   CoordRunLimitError,
   enqueueCheckRunFactory
-} from '@/modules/facilities/services/coordinationRunner'
-import { resolveIfcObjectKeyFactory } from '@/modules/facilities/services/coordinationReader'
+} from '@/modules/coordination/services/coordinationRunner'
+import { resolveIfcObjectKeyFactory } from '@/modules/coordination/services/coordinationReader'
 
 export const newCoordId = () => cryptoRandomString({ length: 10 })
 

@@ -3,7 +3,7 @@
 ## Situação atual
 
 - O upstream tem uma suíte Mocha em `packages/server` (`*.spec.ts`, helpers em `packages/server/test/`), que precisa das dependências Docker (Postgres, Redis, MinIO).
-- Testes do módulo `facilities` ficam em `packages/server/modules/facilities/tests/`. Por enquanto só existe `rootQueryAccess.spec.ts` (acesso às queries raiz por ID). Ao planejar feature ou correção no módulo, incluir testes Mocha seguindo os padrões do upstream e desse arquivo (`testApolloServer`, `createTestUsers`, `createTestStreams`, inserção direta pelos repositórios), priorizando autorização (usuário sem acesso recebe erro) e regras de negócio.
+- Testes dos módulos do fork ficam em `packages/server/modules/facilities/tests/` (digital twin) e `packages/server/modules/coordination/tests/` (Coordenação BIM; `-g "Coordination"` roda a suíte toda). Por enquanto só existe `rootQueryAccess.spec.ts` (acesso às queries raiz por ID). Ao planejar feature ou correção no módulo, incluir testes Mocha seguindo os padrões do upstream e desse arquivo (`testApolloServer`, `createTestUsers`, `createTestStreams`, inserção direta pelos repositórios), priorizando autorização (usuário sem acesso recebe erro) e regras de negócio.
 - Pré-requisitos: Docker Desktop rodando e `packages/server/.env.test` (fora do Git; criar com `cp .env.test-example .env.test`). Sem o `.env.test`, o Mocha sai com código 0 e **sem rodar nenhum teste**: sempre conferir a contagem de "passing" na saída.
 - **Cuidado com o banco:** o `.env.test` local deixa `POSTGRES_URL` comentado, então os testes herdam `POSTGRES_DB="speckle"` do `.env` e **truncam o banco de desenvolvimento**. Até o `.env.test` apontar para `speckle2_test`, rodar os testes com `POSTGRES_DB=speckle2_test` no `cross-env` (ver comando abaixo).
 
@@ -18,7 +18,7 @@ yarn workspace @speckle/server build        # build
 
 # um arquivo de teste (dentro de packages/server), sem rodar a suíte inteira:
 npx cross-env TSX=true NODE_ENV=test LOG_FILTER=test POSTGRES_DB=speckle2_test yarn ts-mocha --reporter spec \
-  modules/facilities/tests/<arquivo>.spec.ts -g "<describe>"
+  modules/<facilities|coordination>/tests/<arquivo>.spec.ts -g "<describe>"
 ```
 
 ## Worker Python (`packages/coord-worker`)

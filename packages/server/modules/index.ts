@@ -18,7 +18,10 @@ import { scalarResolvers } from '@/modules/core/graph/scalars'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import { moduleLogger } from '@/observability/logging'
 import { addMocksToSchema } from '@graphql-tools/mock'
-import { getFeatureFlags } from '@/modules/shared/helpers/envHelper'
+import {
+  getFeatureFlags,
+  isFacilitiesModuleEnabled
+} from '@/modules/shared/helpers/envHelper'
 import type { Optional } from '@speckle/shared'
 import { Authz, isNonNullable, TIME_MS } from '@speckle/shared'
 import type { SpeckleModule } from '@/modules/shared/helpers/typeHelper'
@@ -104,7 +107,7 @@ const getEnabledModuleNames = () => {
     'cross-server-sync',
     'dashboards',
     'emails',
-    'facilities',
+    'coordination',
     'fileuploads',
     'notifications',
     'previews',
@@ -121,6 +124,7 @@ const getEnabledModuleNames = () => {
   // TODO: add acc with feature flag?
   if (FF_AUTOMATE_MODULE_ENABLED) moduleNames.push('automate')
   if (FF_GENDOAI_MODULE_ENABLED) moduleNames.push('gendo')
+  if (isFacilitiesModuleEnabled()) moduleNames.push('facilities')
   // the order of the event listeners matters
   if (FF_GATEKEEPER_MODULE_ENABLED) moduleNames.push('gatekeeper')
   if (FF_WORKSPACES_MODULE_ENABLED) moduleNames.push('workspaces')

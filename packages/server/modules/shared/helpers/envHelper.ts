@@ -563,3 +563,11 @@ export function getOdaUserSecret() {
 
 export const areSavedViewsEnabled = (): boolean =>
   getFeatureFlags().FF_SAVED_VIEWS_ENABLED
+
+/**
+ * Fork-only: the facilities (digital twin) module. On by default (NexTwin);
+ * off for a coordination-only server.
+ */
+export function isFacilitiesModuleEnabled() {
+  return getBooleanFromEnv('FF_FACILITIES_MODULE_ENABLED', true)
+}

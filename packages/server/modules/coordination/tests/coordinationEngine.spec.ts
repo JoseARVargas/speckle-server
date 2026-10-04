@@ -1,19 +1,19 @@
 /* eslint-disable camelcase */
 // Fixtures use Speckle's object format (speckle_type).
 import { expect } from 'chai'
-import type { CoordCondition } from '@/modules/facilities/helpers/coordinationTypes'
+import type { CoordCondition } from '@/modules/coordination/helpers/coordinationTypes'
 import {
   coordConditionSchema,
   coordRuleInputSchema,
   getUnsafeRegexReason
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 import {
   compileRule,
   describeRule,
   evaluateElement,
   flattenLeaves,
   toNumber
-} from '@/modules/facilities/services/coordinationEngine'
+} from '@/modules/coordination/services/coordinationEngine'
 
 /**
  * Pure WHERE/CHECK engine behind the coordination "model check" - see

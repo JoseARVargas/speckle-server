@@ -4,7 +4,7 @@ Worker Python do módulo de Coordenação BIM do NexTwin. Hoje executa a **valid
 
 ## Como funciona
 
-1. O servidor (`modules/facilities`, motor `ids`) enfileira o run em `coord_check_runs` com `status = 'queued'`, `engine = 'ids'` e `ifcObjectKey` (o IFC original no MinIO).
+1. O servidor (`modules/coordination`, motor `ids`) enfileira o run em `coord_check_runs` com `status = 'queued'`, `engine = 'ids'` e `ifcObjectKey` (o IFC original no MinIO).
 2. O worker reivindica o run (`SKIP LOCKED`) → `ids_running`. Baixa o IFC e valida o IDS guardado em `coord_rule_set_versions.idsXml`. Grava um resultado por (especificação, GlobalId) em `coord_check_results` e marca `ids_done`.
 3. O servidor reivindica `ids_done`, liga os GlobalIds aos elementos do Speckle (`applicationId`), calcula status e score e marca `succeeded`.
 

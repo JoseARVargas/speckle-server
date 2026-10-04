@@ -30,7 +30,7 @@ import type {
   CoordRuleSetVersionRecord,
   CoordRuleStatRecord,
   CoordRunStatus
-} from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
 
 const tables = {
   sources: (db: Knex) => db<CoordRequirementSourceRecord>(CoordRequirementSources.name),

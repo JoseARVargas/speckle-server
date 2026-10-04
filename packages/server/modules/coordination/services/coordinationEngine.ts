@@ -7,8 +7,8 @@ import type {
   CoordResultStatus,
   CoordRuleDefinition,
   CoordSeverity
-} from '@/modules/facilities/helpers/coordinationTypes'
-import { inferPathMatch } from '@/modules/facilities/helpers/coordinationTypes'
+} from '@/modules/coordination/helpers/coordinationTypes'
+import { inferPathMatch } from '@/modules/coordination/helpers/coordinationTypes'
 
 /**
  * Pure evaluation of WHERE/CHECK rules (the native "model check" format,
