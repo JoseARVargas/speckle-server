@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Credenciais do coord-worker (rodar na VPS, em /opt/nextwin, DEPOIS da migração do IDS):
+# Credenciais do coord-worker (rodar na VPS, na pasta da pilha, DEPOIS da migração do IDS):
 # usuário Postgres coord_worker (privilégio mínimo) e usuário MinIO só leitura do bucket.
 # Senhas passam por stdin, nunca por argumentos de comando.
 set -euo pipefail

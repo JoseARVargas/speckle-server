@@ -46,3 +46,12 @@ docker compose up -d coord-worker
 ```
 
 Rode `sql/coord_worker_role.sql` de novo após migrações que criem colunas usadas pelo worker.
+
+## Segunda pilha: OFFICIO Coordenação BIM (`/opt/officio`)
+
+A mesma VPS roda a pilha da OFFICIO (`officio/docker-compose.yml`, projeto compose `officio`). Ela tem banco, MinIO, segredos e backup próprios, e o servidor sobe com `FF_FACILITIES_MODULE_ENABLED=false` (só coordenação). Domínios: `speckle.officio.net.br` (servidor), `files.speckle.officio.net.br` (bucket) e `bim.officio.net.br` (app na Vercel).
+
+- **Rede `edge`:** só o Caddy do nextwin publica 80/443. Ele chega à pilha officio pela rede externa `edge` (`docker network create edge`), pelos aliases `officio-*`. Os sites do nextwin usam os nomes de container (`nextwin-*-1`), porque na `edge` o nome de serviço `speckle-server` também resolveria para a officio.
+- **Scripts compartilhados:** `scripts/` vale para as duas pilhas; o nome da pilha vem da pasta (`/opt/<pilha>`). Backup em `/etc/<pilha>-backup`, timer `<pilha>-backup.timer` (officio às 04:15 de Brasília).
+- **E-mail:** `scripts/configurar-email.sh` liga o SMTP do Resend (convites e verificação). A key é digitada no terminal e só fica em `secrets/server.env`.
+- **Só por convite:** depois que o dono cria a conta de admin (a primeira conta do servidor vira admin), ligar `inviteOnly` nas configurações do servidor.

@@ -11,19 +11,38 @@
 	}
 }
 
+# Nomes de container (nextwin-*-1), não de serviço: com a rede "edge", o nome de serviço
+# "speckle-server" também resolveria para a pilha officio.
 nextwin.officio.net.br {
 	import security_headers
 	encode zstd gzip
 	# API/backend vão para o speckle-server; o resto é a UI do frontend-2.
 	@speckleServer path /graphql* /explorer* /auth/* /preview/* /api/* /static/* /objects/*
-	reverse_proxy @speckleServer speckle-server:3000
-	reverse_proxy speckle-frontend-2:8080
+	reverse_proxy @speckleServer nextwin-speckle-server-1:3000
+	reverse_proxy nextwin-speckle-frontend-2-1:8080
 }
 
 # Só o bucket do Speckle (URLs pré-assinadas). Console e API admin do MinIO ficam fechados.
 files.nextwin.officio.net.br {
 	import security_headers
 	@bucket path /speckle-server/*
-	reverse_proxy @bucket minio:9000
+	reverse_proxy @bucket nextwin-minio-1:9000
+	respond 404
+}
+
+# ---- OFFICIO Coordenação BIM (pilha /opt/officio, pela rede "edge") ----------
+
+speckle.officio.net.br {
+	import security_headers
+	encode zstd gzip
+	@speckleServer path /graphql* /explorer* /auth/* /preview/* /api/* /static/* /objects/*
+	reverse_proxy @speckleServer officio-speckle-server:3000
+	reverse_proxy officio-speckle-frontend-2:8080
+}
+
+files.speckle.officio.net.br {
+	import security_headers
+	@bucket path /speckle-server/*
+	reverse_proxy @bucket officio-minio:9000
 	respond 404
 }

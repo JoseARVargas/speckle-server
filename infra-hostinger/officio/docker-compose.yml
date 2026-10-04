@@ -1,7 +1,11 @@
-# NexTwin - produção na VPS Hostinger KVM 1 (1 vCPU, 4 GB + 2 GB swap).
-# Só o Caddy publica portas: o Docker ignora o ufw em portas publicadas.
-# Imagens fixadas por digest; atualizar trocando o digest de propósito.
-# Segredos ficam em ./secrets/ (gerados na VPS por scripts/gerar-segredos.sh, fora do git).
+# OFFICIO Coordenação BIM - segunda pilha na mesma VPS do NexTwin (plano
+# speckle-digitaltwin-console/.ai/plans/2026-10-04-officio-coordenacao-produto.md, opção 1).
+# Banco, MinIO, segredos e backup próprios; mesma imagem do servidor, com o
+# módulo de digital twin desligado (FF_FACILITIES_MODULE_ENABLED=false).
+# Sem portas: o Caddy da pilha nextwin publica 80/443 e chega aqui pela rede
+# "edge" (docker network create edge), pelos aliases officio-*.
+name: officio
+
 services:
   postgres:
     image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
@@ -14,7 +18,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     command: postgres -c max_prepared_transactions=150
-    mem_limit: 768m
+    mem_limit: 384m
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U speckle -d speckle']
       interval: 10s
@@ -26,11 +30,10 @@ services:
     restart: always
     volumes:
       - redis-data:/data
-    mem_limit: 128m
+    mem_limit: 64m
 
   minio:
-    # Imagem copiada da EC2 (o registry não serve mais essa tag); nunca buscar de fora.
-    # Substituição pelo Garage é tarefa separada.
+    # Mesma imagem local da pilha nextwin (copiada da EC2); nunca buscar de fora.
     image: quay.io/minio/minio:latest
     pull_policy: never
     restart: always
@@ -39,7 +42,11 @@ services:
       - ./secrets/minio.env
     volumes:
       - minio-data:/data
-    mem_limit: 384m
+    mem_limit: 256m
+    networks:
+      default:
+      edge:
+        aliases: [officio-minio]
 
   speckle-server:
     image: ghcr.io/josearvargas/speckle-server:8df556b163
@@ -54,22 +61,30 @@ services:
     env_file:
       - ./config/server.env
       - ./secrets/server.env
-    mem_limit: 1g
+    mem_limit: 768m
+    networks:
+      default:
+      edge:
+        aliases: [officio-speckle-server]
 
   speckle-frontend-2:
     image: speckle/speckle-frontend-2:2.31.14@sha256:0becacf171acd8e566b8cf6ff6884bc2a433a0d2828ab145c54ea163f9a91276
     restart: always
     environment:
-      NUXT_PUBLIC_SERVER_NAME: 'NexTwin'
-      NUXT_PUBLIC_API_ORIGIN: 'https://nextwin.officio.net.br'
-      NUXT_PUBLIC_BASE_URL: 'https://nextwin.officio.net.br'
+      NUXT_PUBLIC_SERVER_NAME: 'OFFICIO'
+      NUXT_PUBLIC_API_ORIGIN: 'https://speckle.officio.net.br'
+      NUXT_PUBLIC_BASE_URL: 'https://speckle.officio.net.br'
       NUXT_PUBLIC_BACKEND_API_ORIGIN: 'http://speckle-server:3000'
       NUXT_REDIS_URL: 'redis://redis:6379'
       LOG_LEVEL: 'info'
     depends_on:
       - speckle-server
       - redis
-    mem_limit: 512m
+    mem_limit: 384m
+    networks:
+      default:
+      edge:
+        aliases: [officio-speckle-frontend-2]
 
   ifc-import-service:
     image: speckle/speckle-ifc-import-service:2.31.15-alpha.1277@sha256:a8a67cceafcd50974761bfd6825d7570b3533d2f00a83b199e128c941a5fcfc8
@@ -99,31 +114,11 @@ services:
       S3_BUCKET: speckle-server
     env_file:
       - ./secrets/coord-worker.env
-    mem_limit: 1536m
+    mem_limit: 1g
     cpus: 1.0
     read_only: true
     tmpfs:
       - /tmp
-
-  caddy:
-    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
-    restart: always
-    ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp'
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - speckle-server
-      - speckle-frontend-2
-    mem_limit: 128m
-    # "edge": rede compartilhada com a pilha officio (/opt/officio), que não publica portas.
-    networks:
-      - default
-      - edge
 
 networks:
   edge:
@@ -133,5 +128,3 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
-  caddy-data:
-  caddy-config:
