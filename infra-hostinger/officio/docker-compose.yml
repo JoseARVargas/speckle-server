@@ -49,7 +49,7 @@ services:
         aliases: [officio-minio]
 
   speckle-server:
-    image: ghcr.io/josearvargas/speckle-server:aadc2ac5a0
+    image: ghcr.io/josearvargas/speckle-server:d471f2617b
     restart: always
     depends_on:
       postgres:
@@ -104,8 +104,10 @@ services:
     memswap_limit: 5g
 
   coord-worker:
-    # Validação IDS (IfcTester). Sem portas; usuário Postgres restrito e chave S3 só de leitura.
-    image: ghcr.io/josearvargas/coord-worker:8776b16884
+    # Validação IDS (IfcTester) e geometria do clash (IfcOpenShell). Sem portas; usuário Postgres
+    # restrito e chave S3 só de leitura. O clash pode passar de 1 GB em modelos grandes: memória
+    # extra vai para a swap (mais lento, sem matar o processo).
+    image: ghcr.io/josearvargas/coord-worker:d471f2617b
     restart: always
     depends_on:
       postgres:
@@ -117,7 +119,8 @@ services:
       S3_BUCKET: speckle-server
     env_file:
       - ./secrets/coord-worker.env
-    mem_limit: 1g
+    mem_limit: 2560m
+    memswap_limit: 5g
     cpus: 1.0
     read_only: true
     tmpfs:
