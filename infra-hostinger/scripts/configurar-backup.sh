@@ -3,7 +3,9 @@
 # As credenciais do B2 são digitadas aqui e não aparecem na tela nem saem da VPS.
 set -euo pipefail
 umask 077
-CONF=/etc/nextwin-backup
+DIR=$(cd "$(dirname "$0")/.." && pwd)
+STACK=$(basename "$DIR")
+CONF="/etc/$STACK-backup"
 if [ -e "$CONF/restic.env" ]; then
   echo "$CONF/restic.env já existe; nada foi alterado." >&2
   exit 1
@@ -23,7 +25,7 @@ ENDPOINT=${ENDPOINT#https://}
 
 mkdir -p "$CONF" && chmod 700 "$CONF"
 printf 'export RESTIC_REPOSITORY=%q\nexport AWS_ACCESS_KEY_ID=%q\nexport AWS_SECRET_ACCESS_KEY=%q\n' \
-  "s3:https://$ENDPOINT/$BUCKET/nextwin" "$KEY_ID" "$APP_KEY" > "$CONF/restic.env"
+  "s3:https://$ENDPOINT/$BUCKET/$STACK" "$KEY_ID" "$APP_KEY" > "$CONF/restic.env"
 openssl rand -base64 33 | tr -d '\n' > "$CONF/restic.pw"
 chmod 600 "$CONF"/*
 
@@ -32,9 +34,9 @@ source "$CONF/restic.env"
 export RESTIC_PASSWORD_FILE="$CONF/restic.pw"
 restic init
 
-cp /opt/nextwin/systemd/nextwin-backup.service /opt/nextwin/systemd/nextwin-backup.timer /etc/systemd/system/
+cp "$DIR/systemd/$STACK-backup.service" "$DIR/systemd/$STACK-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now nextwin-backup.timer
+systemctl enable --now "$STACK-backup.timer"
 
 echo
 echo "================= SENHA DO BACKUP (aparece só agora) ================="

@@ -1,1 +1,4 @@
 secrets/
+# server.env de config/ não tem segredo (os segredos ficam em secrets/); o *.env da raiz os ignoraria
+!config/server.env
+!officio/config/server.env
