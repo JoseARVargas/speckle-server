@@ -1,6 +1,7 @@
 """One clash run end to end: wait for memory, claim, download the IFC(s),
-compute the geometry, store the raw pairs. Database, storage and the memory
-probe are injected, so the flow is testable without Postgres, MinIO or load.
+compute the geometry (in a child process, see isolated.py), store the raw
+pairs. Database, storage and the memory probe are injected, so the flow is
+testable without Postgres, MinIO or load.
 """
 
 import logging
@@ -15,9 +16,9 @@ from coord_worker.clash import (
     ClashSettings,
     RawPair,
     compute_clashes,
-    peak_rss_mb,
 )
-from coord_worker.jobs import JobLimitError, Storage, _with_timeout
+from coord_worker.isolated import run_isolated
+from coord_worker.jobs import JobLimitError, Storage
 
 log = logging.getLogger("coord_worker")
 
@@ -100,23 +101,23 @@ def process_next_clash_run(
             paths[key] = path
             storage.download(key, path)
 
-        pairs = _with_timeout(
-            max_seconds,
-            lambda: compute_clashes(
-                path_a=paths[run.object_key_a],
-                path_b=paths[run.object_key_b],
-                keys_a=keys_a,
-                keys_b=keys_b,
-                settings=settings,
-                slice_size=slice_size,
-                max_pairs=max_pairs,
+        pairs, peak_mb = run_isolated(
+            compute_clashes,
+            timeout=max_seconds,
+            timeout_message=(
+                "O cálculo do clash excedeu o tempo limite; refine os grupos"
             ),
-            "O cálculo do clash excedeu o tempo limite; refine os grupos",
+            oom_message="O clash ficou sem memória; refine os grupos do teste",
+            path_a=paths[run.object_key_a],
+            path_b=paths[run.object_key_b],
+            keys_a=keys_a,
+            keys_b=keys_b,
+            settings=settings,
+            slice_size=slice_size,
+            max_pairs=max_pairs,
         )
         repo.replace_raw(run.id, pairs)
-        repo.mark_clash_done(
-            run.id, round(time.monotonic() - started, 1), peak_rss_mb()
-        )
+        repo.mark_clash_done(run.id, round(time.monotonic() - started, 1), peak_mb)
         log.info("clash run computed", extra={"run_id": run.id, "pairs": len(pairs)})
     except (JobLimitError, ClashLimitError) as err:
         log.warning("clash run refused", extra={"run_id": run.id, "reason": str(err)})
