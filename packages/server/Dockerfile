@@ -4,14 +4,18 @@ FROM node:22-bookworm-slim@sha256:221ee67425de7a3c11ce4e81e63e50caaec82ede3a7d34
 
 WORKDIR /speckle-server
 
-# install tini
+# install tini (checksum from the release's tini.sha256sum; the build fails if it changes).
+# ca-certificates/curl stay unpinned: they only fetch tini in this stage and never reach
+# the final image, and pinned Debian versions break the build on every security update.
 ARG TINI_VERSION=v0.19.0
+ARG TINI_SHA256=93dcc18adc78c65a028a84799ecf8ad40c936fdfc5f2a57b1acda5a8117fa82c
 RUN apt-get update -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y \
      --no-install-recommends \
-     ca-certificates=20230311+deb12u1 \
-     curl=7.88.1-10+deb12u14 \
+     ca-certificates \
+     curl \
     && curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/bin/tini \
+    && echo "${TINI_SHA256}  /usr/bin/tini" | sha256sum -c - \
     && chmod +x /usr/bin/tini \
     && apt-get remove -y curl \
     && apt-get autoremove -y \

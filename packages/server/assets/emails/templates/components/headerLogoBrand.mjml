@@ -1,0 +1,10 @@
+<mj-section padding-bottom="0">
+  <mj-column>
+    <mj-image
+      width="160px"
+      src="<%= params.brand.logoUrl %>"
+      alt="<%= params.brand.name %>"
+      href="<%= params.brand.siteUrl || params.serverInfo.canonicalUrl %>"
+    />
+  </mj-column>
+</mj-section>

@@ -55,3 +55,29 @@ A mesma VPS roda a pilha da OFFICIO (`officio/docker-compose.yml`, projeto compo
 - **Scripts compartilhados:** `scripts/` vale para as duas pilhas; o nome da pilha vem da pasta (`/opt/<pilha>`). Backup em `/etc/<pilha>-backup`, timer `<pilha>-backup.timer` (officio às 04:15 de Brasília).
 - **E-mail:** `scripts/configurar-email.sh` liga o SMTP do Resend (convites e verificação). A key é digitada no terminal e só fica em `secrets/server.env`.
 - **Só por convite:** depois que o dono cria a conta de admin (a primeira conta do servidor vira admin), ligar `inviteOnly` nas configurações do servidor.
+
+## Monitoramento (Better Stack + Healthchecks.io)
+
+**Better Stack Uptime** (quedas vistas de fora, a cada 3 min; plano grátis, sem cartão). Crie uma conta em betterstack.com e adicione quatro monitores do tipo "URL becomes unavailable", com alerta por e-mail:
+
+| Monitor          | Tipo                                                                                                                         | URL                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| OFFICIO app      | HTTP(s)                                                                                                                      | `https://bim.officio.net.br`             |
+| NexTwin app      | HTTP(s)                                                                                                                      | `https://app.nextwin.officio.net.br`     |
+| OFFICIO servidor | HTTP(s); em Advanced settings: método POST, request body `{"query":"{__typename}"}`, header `Content-Type: application/json` | `https://speckle.officio.net.br/graphql` |
+| NexTwin servidor | idem                                                                                                                         | `https://nextwin.officio.net.br/graphql` |
+
+**Healthchecks.io** (o que só a VPS sabe; alerta pela **falta** de sinal). Crie uma conta grátis em healthchecks.io e três checks:
+
+| Check            | Period     | Grace      | Usado por                                                                   |
+| ---------------- | ---------- | ---------- | --------------------------------------------------------------------------- |
+| `backup-nextwin` | 1 day      | 2 hours    | `backup.sh` da pilha nextwin                                                |
+| `backup-officio` | 1 day      | 2 hours    | `backup.sh` da pilha officio                                                |
+| `vps-saude`      | 15 minutes | 15 minutes | `saude.sh` (disco ≥ 85%, memória < 300 MB, container parado ou reiniciando) |
+
+Copie a "ping URL" de cada um (`https://hc-ping.com/<uuid>`) e cole no terminal da VPS. Ela não aparece ao digitar, porque funciona como senha:
+
+```sh
+bash /opt/nextwin/scripts/configurar-monitoramento.sh   # backup-nextwin + (s) vps-saude
+bash /opt/officio/scripts/configurar-monitoramento.sh   # backup-officio (responda N à saúde)
+```

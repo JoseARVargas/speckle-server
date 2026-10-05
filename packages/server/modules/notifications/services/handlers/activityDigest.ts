@@ -11,6 +11,8 @@ import { StreamActionTypes } from '@/modules/activitystream/helpers/types'
 import type { ServerInfo, UserRecord } from '@/modules/core/helpers/types'
 import type { SendEmailParams } from '@/modules/emails/services/sending'
 import { sendEmail } from '@/modules/emails/services/sending'
+import { getEmailBrand } from '@/modules/shared/helpers/envHelper'
+import { brandEmailCopy } from '@/modules/emails/helpers/brand'
 import { groupBy } from 'lodash-es'
 import { packageRoot } from '@/bootstrap'
 import path from 'path'
@@ -385,7 +387,10 @@ export const prepareSummaryEmailFactory =
       title: 'Check activities',
       url: serverInfo.canonicalUrl
     }
-    const subject = 'Speckle weekly digest'
+    const brand = getEmailBrand()
+    const subject = brand
+      ? brandEmailCopy.weeklyDigestSubject(brand)
+      : 'Speckle weekly digest'
     const { text, html } = await deps.renderEmail(
       { mjml: { bodyStart: body.mjml }, text: { bodyStart: body.text }, cta },
       serverInfo,

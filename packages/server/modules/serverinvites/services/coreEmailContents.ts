@@ -16,7 +16,8 @@ import {
   isServerResourceTarget
 } from '@/modules/serverinvites/helpers/core'
 import type { BuildInviteEmailContents } from '@/modules/serverinvites/services/operations'
-import { getFrontendOrigin } from '@/modules/shared/helpers/envHelper'
+import { getEmailBrand, getFrontendOrigin } from '@/modules/shared/helpers/envHelper'
+import { brandEmailCopy } from '@/modules/emails/helpers/brand'
 
 function buildServerMjmlPreamble(params: Parameters<BuildInviteEmailContents>[0]) {
   const { invite, serverInfo, inviter } = params
@@ -80,6 +81,23 @@ const buildServerEmailTemplateParams = (
 
 const buildServerInviteContentsFactory = (): BuildInviteEmailContents => (params) => {
   const { inviter } = params
+  const brand = getEmailBrand()
+  if (brand) {
+    const copy = brandEmailCopy.serverInvite({
+      brand,
+      inviterName: inviter.name,
+      message: params.invite.message
+    })
+    const base = buildServerEmailTemplateParams(params)
+    return {
+      emailParams: {
+        mjml: copy.mjml,
+        text: copy.text,
+        cta: base.cta && { ...base.cta, title: brandEmailCopy.acceptInvite }
+      },
+      subject: copy.subject
+    }
+  }
   const subject = 'Speckle Invitation from ' + inviter.name
 
   return {
@@ -173,6 +191,25 @@ const buildProjectInviteContentsFactory =
       throw new InviteCreateValidationError(
         'Attempting to invite into a non-existant project'
       )
+    }
+
+    const brand = getEmailBrand()
+    if (brand) {
+      const copy = brandEmailCopy.projectInvite({
+        brand,
+        inviterName: inviter.name,
+        projectName: project.name,
+        message: params.invite.message
+      })
+      const base = buildProjectEmailTemplateParams({ ...params, project })
+      return {
+        emailParams: {
+          mjml: copy.mjml,
+          text: copy.text,
+          cta: base.cta && { ...base.cta, title: brandEmailCopy.acceptInvite }
+        },
+        subject: copy.subject
+      }
     }
 
     const subject = `${inviter.name} wants to share the project "${project.name}" on Speckle with you`

@@ -8,7 +8,8 @@ import type { sendEmail } from '@/modules/emails/services/sending'
 import type { CreateToken, GetPendingToken } from '@/modules/pwdreset/domain/operations'
 import { InvalidPasswordRecoveryRequestError } from '@/modules/pwdreset/errors'
 import type { PasswordResetTokenRecord } from '@/modules/pwdreset/repositories'
-import { getFrontendOrigin } from '@/modules/shared/helpers/envHelper'
+import { getEmailBrand, getFrontendOrigin } from '@/modules/shared/helpers/envHelper'
+import { brandEmailCopy } from '@/modules/emails/helpers/brand'
 
 const EMAIL_SUBJECT = 'Speckle Account Password Reset'
 
@@ -85,6 +86,15 @@ function buildEmailTemplateParams(
   state: PasswordRecoveryRequestState
 ): EmailTemplateParams {
   const { newToken } = state
+  const brand = getEmailBrand()
+  if (brand) {
+    const copy = brandEmailCopy.passwordReset({ brand })
+    return {
+      mjml: copy.mjml,
+      text: copy.text,
+      cta: { title: copy.cta, url: buildResetLink(newToken) }
+    }
+  }
 
   return {
     mjml: buildMjmlBody(),
@@ -111,7 +121,10 @@ const sendResetEmailFactory =
     )
     await deps.sendEmail({
       to: state.email,
-      subject: EMAIL_SUBJECT,
+      subject: (() => {
+        const brand = getEmailBrand()
+        return brand ? brandEmailCopy.passwordReset({ brand }).subject : EMAIL_SUBJECT
+      })(),
       text,
       html
     })

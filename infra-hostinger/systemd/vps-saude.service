@@ -1,0 +1,9 @@
+[Unit]
+Description=Saúde da VPS (disco, memória, containers) -> Healthchecks.io
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/nextwin/scripts/saude.sh
+Nice=10
