@@ -29,3 +29,16 @@ GRANT SELECT (id, "ruleSetVersionId", definition) ON coord_rules TO coord_worker
 -- Write per-element results (DELETE clears a previous attempt of the run).
 GRANT INSERT, DELETE ON coord_check_results TO coord_worker;
 GRANT SELECT ("runId") ON coord_check_results TO coord_worker;
+
+-- Clash runs: claim geometry runs and move them through geometry_running /
+-- geometry_done / failed, recording geometrySeconds and peakRssMb.
+GRANT SELECT ON coord_clash_runs TO coord_worker;
+GRANT UPDATE (status, attempt, "startedAt", "finishedAt", error, "geometrySeconds", "peakRssMb")
+  ON coord_clash_runs TO coord_worker;
+
+-- Read the GlobalIds selected for each side of the run.
+GRANT SELECT ("runId", side, "elementKey") ON coord_clash_run_elements TO coord_worker;
+
+-- Write raw pairs (DELETE clears a previous attempt of the run).
+GRANT INSERT, DELETE ON coord_clash_raw TO coord_worker;
+GRANT SELECT ("runId") ON coord_clash_raw TO coord_worker;

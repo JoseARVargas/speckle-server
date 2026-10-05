@@ -967,6 +967,88 @@ export const CoordAuditEvents = buildTableHelper('coord_audit_events', [
   'createdAt'
 ])
 
+export const CoordClashTests = buildTableHelper('coord_clash_tests', [
+  'id',
+  'projectId',
+  'name',
+  'type',
+  'toleranceMm',
+  'clearanceMm',
+  'groupA',
+  'groupB',
+  'ignore',
+  'autoRun',
+  'createdBy',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordClashRuns = buildTableHelper('coord_clash_runs', [
+  'id',
+  'projectId',
+  'testId',
+  'modelIdA',
+  'versionIdA',
+  'objectKeyA',
+  'modelIdB',
+  'versionIdB',
+  'objectKeyB',
+  'trigger',
+  'status',
+  'attempt',
+  'createdBy',
+  'settings',
+  'queuedAt',
+  'startedAt',
+  'finishedAt',
+  'error',
+  'countA',
+  'countB',
+  'rawCount',
+  'ignoredCount',
+  'clashCount',
+  'geometrySeconds',
+  'peakRssMb'
+])
+
+export const CoordClashRunElements = buildTableHelper('coord_clash_run_elements', [
+  'runId',
+  'side',
+  'elementKey',
+  'speckleObjectId',
+  'plannedOpening'
+])
+
+export const CoordClashRaw = buildTableHelper('coord_clash_raw', [
+  'runId',
+  'keyA',
+  'keyB',
+  'distanceMm',
+  'point',
+  'clashType',
+  'relation'
+])
+
+export const CoordClashes = buildTableHelper('coord_clashes', [
+  'id',
+  'projectId',
+  'runId',
+  'testId',
+  'fingerprint',
+  'keyA',
+  'keyB',
+  'speckleObjectIdA',
+  'speckleObjectIdB',
+  'distanceMm',
+  'point',
+  'clashType',
+  'status',
+  'assignee',
+  'comment',
+  'createdAt',
+  'updatedAt'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'

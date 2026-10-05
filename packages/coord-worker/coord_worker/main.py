@@ -1,4 +1,5 @@
-"""Polling loop: drains queued IDS runs, then sleeps. Never exits on a job
+"""Polling loop: drains queued IDS runs, then clash runs (one at a time,
+only with enough free memory), then sleeps. Never exits on a job
 error (A10); stops cleanly on SIGTERM/SIGINT."""
 
 import logging
@@ -8,6 +9,8 @@ import time
 
 import psycopg
 
+from coord_worker.clash_db import ClashRepository
+from coord_worker.clash_jobs import process_next_clash_run
 from coord_worker.config import Settings
 from coord_worker.db import PostgresRepository
 from coord_worker.jobs import process_next_ids_run
@@ -50,6 +53,17 @@ def main() -> int:
                     storage,
                     max_ifc_mb=settings.max_ifc_mb,
                     max_validation_seconds=settings.max_validation_seconds,
+                ):
+                    pass
+                clash_repo = ClashRepository(conn)
+                while not _stopping and process_next_clash_run(
+                    clash_repo,
+                    storage,
+                    max_ifc_mb=settings.max_ifc_mb,
+                    max_seconds=settings.max_clash_seconds,
+                    min_free_mb=settings.clash_min_free_mb,
+                    slice_size=settings.clash_slice_size,
+                    max_pairs=settings.clash_max_pairs,
                 ):
                     pass
         except Exception:

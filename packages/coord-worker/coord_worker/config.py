@@ -22,6 +22,11 @@ class Settings:
     poll_seconds: float
     max_ifc_mb: int
     max_validation_seconds: int
+    # clash (sized for a 1 vCPU / 4 GB VPS, see the clash plan)
+    max_clash_seconds: int
+    clash_min_free_mb: int
+    clash_slice_size: int
+    clash_max_pairs: int
 
     @staticmethod
     def from_env() -> "Settings":
@@ -37,5 +42,16 @@ class Settings:
             max_ifc_mb=int(os.environ.get("COORD_WORKER_MAX_IFC_MB", "200")),
             max_validation_seconds=int(
                 os.environ.get("COORD_WORKER_MAX_VALIDATION_SECONDS", "900")
+            ),
+            max_clash_seconds=int(
+                os.environ.get("COORD_WORKER_MAX_CLASH_SECONDS", "3600")
+            ),
+            # don't start clash geometry below this much free host memory
+            clash_min_free_mb=int(
+                os.environ.get("COORD_WORKER_CLASH_MIN_FREE_MB", "1200")
+            ),
+            clash_slice_size=int(os.environ.get("COORD_WORKER_CLASH_SLICE", "1500")),
+            clash_max_pairs=int(
+                os.environ.get("COORD_WORKER_CLASH_MAX_PAIRS", "50000")
             ),
         )

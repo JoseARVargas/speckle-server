@@ -1425,6 +1425,95 @@ export const CoordCheckStatus = {
 } as const;
 
 export type CoordCheckStatus = typeof CoordCheckStatus[keyof typeof CoordCheckStatus];
+export type CoordClash = {
+  __typename?: 'CoordClash';
+  assignee?: Maybe<Scalars['String']['output']>;
+  clashType: Scalars['String']['output'];
+  comment?: Maybe<Scalars['String']['output']>;
+  /** hard: negative = penetration depth; clearance: the clearance found */
+  distanceMm: Scalars['Float']['output'];
+  id: Scalars['String']['output'];
+  keyA: Scalars['String']['output'];
+  keyB: Scalars['String']['output'];
+  point?: Maybe<Array<Scalars['Float']['output']>>;
+  speckleObjectIdA?: Maybe<Scalars['String']['output']>;
+  speckleObjectIdB?: Maybe<Scalars['String']['output']>;
+  /** new | active | reviewed | approved | resolved */
+  status: Scalars['String']['output'];
+};
+
+export type CoordClashAssignee = {
+  __typename?: 'CoordClashAssignee';
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type CoordClashRun = {
+  __typename?: 'CoordClashRun';
+  clashCount: Scalars['Int']['output'];
+  clashes: Array<CoordClash>;
+  countA: Scalars['Int']['output'];
+  countB: Scalars['Int']['output'];
+  error?: Maybe<Scalars['String']['output']>;
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  geometrySeconds?: Maybe<Scalars['Float']['output']>;
+  id: Scalars['String']['output'];
+  ignoredCount: Scalars['Int']['output'];
+  modelIdA: Scalars['String']['output'];
+  modelIdB: Scalars['String']['output'];
+  peakRssMb?: Maybe<Scalars['Int']['output']>;
+  queuedAt: Scalars['DateTime']['output'];
+  rawCount: Scalars['Int']['output'];
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** queued | geometry | geometry_running | geometry_done | processing | succeeded | failed */
+  status: Scalars['String']['output'];
+  statusCounts: Array<CoordClashStatusCount>;
+  testId: Scalars['String']['output'];
+  trigger: Scalars['String']['output'];
+  versionIdA: Scalars['String']['output'];
+  versionIdB: Scalars['String']['output'];
+};
+
+
+export type CoordClashRunClashesArgs = {
+  keyA?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  statuses?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type CoordClashStatusCount = {
+  __typename?: 'CoordClashStatusCount';
+  count: Scalars['Int']['output'];
+  status: Scalars['String']['output'];
+};
+
+export type CoordClashTest = {
+  __typename?: 'CoordClashTest';
+  autoRun: Scalars['Boolean']['output'];
+  clearanceMm?: Maybe<Scalars['Float']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  /** { modelId, where: [condition] } */
+  groupA: Scalars['JSONObject']['output'];
+  /** null = A x A */
+  groupB?: Maybe<Scalars['JSONObject']['output']>;
+  id: Scalars['String']['output'];
+  /** { sameElement, hosted, connected, sameSystem, plannedOpening } */
+  ignore: Scalars['JSONObject']['output'];
+  lastRun?: Maybe<CoordClashRun>;
+  name: Scalars['String']['output'];
+  runs: Array<CoordClashRun>;
+  toleranceMm: Scalars['Float']['output'];
+  /** hard | clearance */
+  type: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+
+export type CoordClashTestRunsArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type CoordElementDetail = {
   __typename?: 'CoordElementDetail';
   elementKey: Scalars['String']['output'];
@@ -1669,10 +1758,13 @@ export const CoordSeverity = {
 export type CoordSeverity = typeof CoordSeverity[keyof typeof CoordSeverity];
 export type CoordinationMutations = {
   __typename?: 'CoordinationMutations';
+  assignClashes: Scalars['Int']['output'];
+  createClashTest: CoordClashTest;
   createMilestone: CoordMilestone;
   createRequirement: CoordRequirement;
   createRequirementSource: CoordRequirementSource;
   createRuleSet: CoordRuleSet;
+  deleteClashTest: Scalars['Boolean']['output'];
   deleteDraftRule: Scalars['Boolean']['output'];
   deleteMilestone: Scalars['Boolean']['output'];
   deleteRequirement: Scalars['Boolean']['output'];
@@ -1693,7 +1785,12 @@ export type CoordinationMutations = {
   reorderDraftRules: Array<CoordRule>;
   /** Runs the published version on a model version (latest when versionId is null) */
   runCheck: CoordCheckRun;
+  /** Runs the test on the latest version of each model */
+  runClashTest: CoordClashRun;
+  /** Returns how many clashes were updated */
+  setClashStatus: Scalars['Int']['output'];
   setRuleSetBinding: CoordRuleSetBinding;
+  updateClashTest: CoordClashTest;
   updateMilestone: CoordMilestone;
   updateRequirement: CoordRequirement;
   updateRequirementSource: CoordRequirementSource;
@@ -1703,6 +1800,18 @@ export type CoordinationMutations = {
    * from the published version when there's none
    */
   upsertDraftRule: CoordRule;
+};
+
+
+export type CoordinationMutationsAssignClashesArgs = {
+  assignee?: InputMaybe<Scalars['String']['input']>;
+  ids: Array<Scalars['String']['input']>;
+};
+
+
+export type CoordinationMutationsCreateClashTestArgs = {
+  input: Scalars['JSONObject']['input'];
+  projectId: Scalars['String']['input'];
 };
 
 
@@ -1727,6 +1836,11 @@ export type CoordinationMutationsCreateRequirementSourceArgs = {
 export type CoordinationMutationsCreateRuleSetArgs = {
   input: CoordRuleSetInput;
   projectId: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteClashTestArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -1806,11 +1920,29 @@ export type CoordinationMutationsRunCheckArgs = {
 };
 
 
+export type CoordinationMutationsRunClashTestArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsSetClashStatusArgs = {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  ids: Array<Scalars['String']['input']>;
+  status: Scalars['String']['input'];
+};
+
+
 export type CoordinationMutationsSetRuleSetBindingArgs = {
   autoRun: Scalars['Boolean']['input'];
   modelId: Scalars['String']['input'];
   ruleSetId: Scalars['String']['input'];
   unkeyedBlockPct?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type CoordinationMutationsUpdateClashTestArgs = {
+  id: Scalars['String']['input'];
+  input: Scalars['JSONObject']['input'];
 };
 
 
@@ -4666,6 +4798,11 @@ export type ProjectCoordination = {
   __typename?: 'ProjectCoordination';
   checkRun?: Maybe<CoordCheckRun>;
   checkRuns: CoordCheckRunCollection;
+  /** Collaborators of the project, for assigning clashes */
+  clashAssignees: Array<CoordClashAssignee>;
+  clashRun?: Maybe<CoordClashRun>;
+  clashTest?: Maybe<CoordClashTest>;
+  clashTests: Array<CoordClashTest>;
   milestoneReport?: Maybe<CoordMilestoneReport>;
   milestones: Array<CoordMilestone>;
   requirementSources: Array<CoordRequirementSource>;
@@ -4686,6 +4823,16 @@ export type ProjectCoordinationCheckRunsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   modelId?: InputMaybe<Scalars['String']['input']>;
   ruleSetId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type ProjectCoordinationClashRunArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type ProjectCoordinationClashTestArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -8492,6 +8639,11 @@ export type ResolversTypes = {
   CoordCheckRun: ResolverTypeWrapper<CoordCheckRun>;
   CoordCheckRunCollection: ResolverTypeWrapper<CoordCheckRunCollection>;
   CoordCheckStatus: CoordCheckStatus;
+  CoordClash: ResolverTypeWrapper<CoordClash>;
+  CoordClashAssignee: ResolverTypeWrapper<CoordClashAssignee>;
+  CoordClashRun: ResolverTypeWrapper<CoordClashRun>;
+  CoordClashStatusCount: ResolverTypeWrapper<CoordClashStatusCount>;
+  CoordClashTest: ResolverTypeWrapper<CoordClashTest>;
   CoordElementDetail: ResolverTypeWrapper<CoordElementDetail>;
   CoordElementResult: ResolverTypeWrapper<CoordElementResult>;
   CoordElementResultCollection: ResolverTypeWrapper<CoordElementResultCollection>;
@@ -9019,6 +9171,11 @@ export type ResolversParentTypes = {
   CommitsMoveInput: CommitsMoveInput;
   CoordCheckRun: CoordCheckRun;
   CoordCheckRunCollection: CoordCheckRunCollection;
+  CoordClash: CoordClash;
+  CoordClashAssignee: CoordClashAssignee;
+  CoordClashRun: CoordClashRun;
+  CoordClashStatusCount: CoordClashStatusCount;
+  CoordClashTest: CoordClashTest;
   CoordElementDetail: CoordElementDetail;
   CoordElementResult: CoordElementResult;
   CoordElementResultCollection: CoordElementResultCollection;
@@ -10090,6 +10247,75 @@ export type CoordCheckRunCollectionResolvers<ContextType = GraphQLContext, Paren
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type CoordClashResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordClash'] = ResolversParentTypes['CoordClash']> = {
+  assignee?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  clashType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  comment?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  distanceMm?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  keyA?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  keyB?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  point?: Resolver<Maybe<Array<ResolversTypes['Float']>>, ParentType, ContextType>;
+  speckleObjectIdA?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  speckleObjectIdB?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordClashAssigneeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordClashAssignee'] = ResolversParentTypes['CoordClashAssignee']> = {
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordClashRunResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordClashRun'] = ResolversParentTypes['CoordClashRun']> = {
+  clashCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  clashes?: Resolver<Array<ResolversTypes['CoordClash']>, ParentType, ContextType, RequireFields<CoordClashRunClashesArgs, 'limit' | 'offset'>>;
+  countA?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  countB?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  error?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  finishedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  geometrySeconds?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ignoredCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  modelIdA?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelIdB?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  peakRssMb?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  queuedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  rawCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  startedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  statusCounts?: Resolver<Array<ResolversTypes['CoordClashStatusCount']>, ParentType, ContextType>;
+  testId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  trigger?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionIdA?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionIdB?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordClashStatusCountResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordClashStatusCount'] = ResolversParentTypes['CoordClashStatusCount']> = {
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordClashTestResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordClashTest'] = ResolversParentTypes['CoordClashTest']> = {
+  autoRun?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  clearanceMm?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  groupA?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
+  groupB?: Resolver<Maybe<ResolversTypes['JSONObject']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ignore?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
+  lastRun?: Resolver<Maybe<ResolversTypes['CoordClashRun']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  runs?: Resolver<Array<ResolversTypes['CoordClashRun']>, ParentType, ContextType, RequireFields<CoordClashTestRunsArgs, 'limit'>>;
+  toleranceMm?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CoordElementDetailResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordElementDetail'] = ResolversParentTypes['CoordElementDetail']> = {
   elementKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   results?: Resolver<Array<ResolversTypes['CoordRuleResult']>, ParentType, ContextType>;
@@ -10250,10 +10476,13 @@ export type CoordRunSummaryResolvers<ContextType = GraphQLContext, ParentType ex
 };
 
 export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordinationMutations'] = ResolversParentTypes['CoordinationMutations']> = {
+  assignClashes?: Resolver<ResolversTypes['Int'], ParentType, ContextType, RequireFields<CoordinationMutationsAssignClashesArgs, 'ids'>>;
+  createClashTest?: Resolver<ResolversTypes['CoordClashTest'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateClashTestArgs, 'input' | 'projectId'>>;
   createMilestone?: Resolver<ResolversTypes['CoordMilestone'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateMilestoneArgs, 'input' | 'projectId'>>;
   createRequirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRequirementArgs, 'input' | 'projectId'>>;
   createRequirementSource?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRequirementSourceArgs, 'input' | 'projectId'>>;
   createRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRuleSetArgs, 'input' | 'projectId'>>;
+  deleteClashTest?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteClashTestArgs, 'id'>>;
   deleteDraftRule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteDraftRuleArgs, 'ruleId'>>;
   deleteMilestone?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteMilestoneArgs, 'id'>>;
   deleteRequirement?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRequirementArgs, 'id'>>;
@@ -10267,7 +10496,10 @@ export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentT
   removeRuleSetBinding?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsRemoveRuleSetBindingArgs, 'modelId' | 'ruleSetId'>>;
   reorderDraftRules?: Resolver<Array<ResolversTypes['CoordRule']>, ParentType, ContextType, RequireFields<CoordinationMutationsReorderDraftRulesArgs, 'ruleIds' | 'ruleSetId'>>;
   runCheck?: Resolver<ResolversTypes['CoordCheckRun'], ParentType, ContextType, RequireFields<CoordinationMutationsRunCheckArgs, 'modelId' | 'ruleSetId'>>;
+  runClashTest?: Resolver<ResolversTypes['CoordClashRun'], ParentType, ContextType, RequireFields<CoordinationMutationsRunClashTestArgs, 'id'>>;
+  setClashStatus?: Resolver<ResolversTypes['Int'], ParentType, ContextType, RequireFields<CoordinationMutationsSetClashStatusArgs, 'ids' | 'status'>>;
   setRuleSetBinding?: Resolver<ResolversTypes['CoordRuleSetBinding'], ParentType, ContextType, RequireFields<CoordinationMutationsSetRuleSetBindingArgs, 'autoRun' | 'modelId' | 'ruleSetId'>>;
+  updateClashTest?: Resolver<ResolversTypes['CoordClashTest'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateClashTestArgs, 'id' | 'input'>>;
   updateMilestone?: Resolver<ResolversTypes['CoordMilestone'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateMilestoneArgs, 'id' | 'input'>>;
   updateRequirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRequirementArgs, 'id' | 'input'>>;
   updateRequirementSource?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRequirementSourceArgs, 'id' | 'input'>>;
@@ -11143,6 +11375,10 @@ export type ProjectCommentsUpdatedMessageResolvers<ContextType = GraphQLContext,
 export type ProjectCoordinationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProjectCoordination'] = ResolversParentTypes['ProjectCoordination']> = {
   checkRun?: Resolver<Maybe<ResolversTypes['CoordCheckRun']>, ParentType, ContextType, RequireFields<ProjectCoordinationCheckRunArgs, 'id'>>;
   checkRuns?: Resolver<ResolversTypes['CoordCheckRunCollection'], ParentType, ContextType, RequireFields<ProjectCoordinationCheckRunsArgs, 'includePreview' | 'limit'>>;
+  clashAssignees?: Resolver<Array<ResolversTypes['CoordClashAssignee']>, ParentType, ContextType>;
+  clashRun?: Resolver<Maybe<ResolversTypes['CoordClashRun']>, ParentType, ContextType, RequireFields<ProjectCoordinationClashRunArgs, 'id'>>;
+  clashTest?: Resolver<Maybe<ResolversTypes['CoordClashTest']>, ParentType, ContextType, RequireFields<ProjectCoordinationClashTestArgs, 'id'>>;
+  clashTests?: Resolver<Array<ResolversTypes['CoordClashTest']>, ParentType, ContextType>;
   milestoneReport?: Resolver<Maybe<ResolversTypes['CoordMilestoneReport']>, ParentType, ContextType, RequireFields<ProjectCoordinationMilestoneReportArgs, 'milestoneId'>>;
   milestones?: Resolver<Array<ResolversTypes['CoordMilestone']>, ParentType, ContextType>;
   requirementSources?: Resolver<Array<ResolversTypes['CoordRequirementSource']>, ParentType, ContextType>;
@@ -12394,6 +12630,11 @@ export type Resolvers<ContextType = GraphQLContext> = {
   CommitCollection?: CommitCollectionResolvers<ContextType>;
   CoordCheckRun?: CoordCheckRunResolvers<ContextType>;
   CoordCheckRunCollection?: CoordCheckRunCollectionResolvers<ContextType>;
+  CoordClash?: CoordClashResolvers<ContextType>;
+  CoordClashAssignee?: CoordClashAssigneeResolvers<ContextType>;
+  CoordClashRun?: CoordClashRunResolvers<ContextType>;
+  CoordClashStatusCount?: CoordClashStatusCountResolvers<ContextType>;
+  CoordClashTest?: CoordClashTestResolvers<ContextType>;
   CoordElementDetail?: CoordElementDetailResolvers<ContextType>;
   CoordElementResult?: CoordElementResultResolvers<ContextType>;
   CoordElementResultCollection?: CoordElementResultCollectionResolvers<ContextType>;

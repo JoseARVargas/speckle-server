@@ -42,12 +42,16 @@ class Storage(Protocol):
     def download(self, key: str, path: str) -> None: ...
 
 
-def _with_timeout(seconds: int, fn: Callable[[], list[IdsResult]]) -> list[IdsResult]:
-    """Hard time limit for the validation (A06): IDS regexes and large models
-    can take very long; SIGALRM interrupts the main thread."""
+def _with_timeout[T](
+    seconds: int,
+    fn: Callable[[], T],
+    message: str = "Validação IDS excedeu o tempo limite para este modelo",
+) -> T:
+    """Hard time limit for a job (A06): IDS regexes, clash geometry and large
+    models can take very long; SIGALRM interrupts the main thread."""
 
     def on_timeout(_signum, _frame):
-        raise JobLimitError("Validação IDS excedeu o tempo limite para este modelo")
+        raise JobLimitError(message)
 
     previous = signal.signal(signal.SIGALRM, on_timeout)
     signal.alarm(seconds)
