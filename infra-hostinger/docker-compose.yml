@@ -90,7 +90,7 @@ services:
 
   coord-worker:
     # Validação IDS (IfcTester). Sem portas; usuário Postgres restrito e chave S3 só de leitura.
-    image: ghcr.io/josearvargas/coord-worker:d471f2617b
+    image: ghcr.io/josearvargas/coord-worker:d1d8826dc0
     restart: always
     depends_on:
       postgres:

@@ -107,7 +107,7 @@ services:
     # Validação IDS (IfcTester) e geometria do clash (IfcOpenShell). Sem portas; usuário Postgres
     # restrito e chave S3 só de leitura. O clash pode passar de 1 GB em modelos grandes: memória
     # extra vai para a swap (mais lento, sem matar o processo).
-    image: ghcr.io/josearvargas/coord-worker:d471f2617b
+    image: ghcr.io/josearvargas/coord-worker:d1d8826dc0
     restart: always
     depends_on:
       postgres:
