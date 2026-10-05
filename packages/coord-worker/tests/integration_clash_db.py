@@ -23,12 +23,14 @@ run_id, test_id = "itclashrun", "itclashtst"
 admin.execute("DELETE FROM coord_clash_tests WHERE id = %s", (test_id,))
 group = {"modelId": "m1", "where": []}
 admin.execute(
-    """INSERT INTO coord_clash_tests (id, "projectId", name, type, "groupA", "groupB", ignore)
+    """INSERT INTO coord_clash_tests
+       (id, "projectId", name, type, "groupA", "groupB", ignore)
        VALUES (%s, 'itproj', 'it', 'hard', %s, %s, '{}')""",
     (test_id, json.dumps(group), json.dumps(group)),
 )
 admin.execute(
-    """INSERT INTO coord_clash_runs (id, "projectId", "testId", "modelIdA", "versionIdA",
+    """INSERT INTO coord_clash_runs
+       (id, "projectId", "testId", "modelIdA", "versionIdA",
        "objectKeyA", "modelIdB", "versionIdB", "objectKeyB", trigger, status, settings)
        VALUES (%s, 'itproj', %s, 'm1', 'v1', 'struct.ifc', 'm2', 'v2', 'arch.ifc',
                'manual', 'geometry', %s)""",

@@ -196,3 +196,12 @@ def test_job_refuses_oversized_ifc_with_a_clear_message(models):
     )
     assert "grande demais" in repo.failed
     assert repo.raw is None
+
+
+def test_job_reports_a_limit_raised_in_the_child_process(models):
+    repo = FakeRepo(FakeRun(models), ([models["column"]], [models["slab"]]))
+    storage = FakeStorage({"struct.ifc": models["struct"], "arch.ifc": models["arch"]})
+    job = {**JOB, "max_pairs": 0}
+    assert process_next_clash_run(repo, storage, **job, free_memory=lambda: 4000)
+    assert "mais de 0 pares" in repo.failed
+    assert repo.raw is None
