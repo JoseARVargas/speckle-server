@@ -83,7 +83,10 @@ services:
         condition: service_healthy
       speckle-server:
         condition: service_started
-    mem_limit: 1g
+    # IFCs de ~60 MB passam de 1 GB na conversão (OOM em 2026-10-05). No KVM 1 o excedente vai
+    # para a swap: mais lento, mas não mata o processo (memswap = memória + swap permitida).
+    mem_limit: 2560m
+    memswap_limit: 5g
 
   coord-worker:
     # Validação IDS (IfcTester). Sem portas; usuário Postgres restrito e chave S3 só de leitura.
