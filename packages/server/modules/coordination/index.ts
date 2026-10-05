@@ -3,6 +3,7 @@ import type { SpeckleModule } from '@/modules/shared/helpers/typeHelper'
 import { db } from '@/db/knex'
 import { isTestEnv } from '@/modules/shared/helpers/envHelper'
 import { startCoordinationWorker } from '@/modules/coordination/services/coordinationRunner'
+import { startClashWorker } from '@/modules/coordination/services/coordinationClash'
 
 /**
  * BIM coordination (Model Check + IDS). Independent of the facilities
@@ -13,5 +14,6 @@ export const init: SpeckleModule['init'] = ({ isInitial }) => {
   // Only start the queue worker once per process, not on every test re-init.
   if (isInitial) {
     startCoordinationWorker({ db, pollQueue: !isTestEnv() })
+    startClashWorker({ db, pollQueue: !isTestEnv() })
   }
 }

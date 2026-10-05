@@ -1,0 +1,119 @@
+# BIM coordination - clash detection between discipline models (IFC).
+# Tests define two groups (model + WHERE conditions); runs compute the
+# geometry in the Python coord-worker. Clashes are keyed by the elements'
+# GlobalIds (= applicationId), so status survives new versions.
+
+extend type ProjectCoordination {
+  clashTests: [CoordClashTest!]!
+  clashTest(id: String!): CoordClashTest
+  clashRun(id: String!): CoordClashRun
+  """
+  Collaborators of the project, for assigning clashes
+  """
+  clashAssignees: [CoordClashAssignee!]!
+}
+
+type CoordClashAssignee {
+  id: String!
+  name: String!
+}
+
+type CoordClashTest {
+  id: String!
+  name: String!
+  """
+  hard | clearance
+  """
+  type: String!
+  toleranceMm: Float!
+  clearanceMm: Float
+  """
+  { modelId, where: [condition] }
+  """
+  groupA: JSONObject!
+  """
+  null = A x A
+  """
+  groupB: JSONObject
+  """
+  { sameElement, hosted, connected, sameSystem, plannedOpening }
+  """
+  ignore: JSONObject!
+  autoRun: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  runs(limit: Int = 10): [CoordClashRun!]!
+  lastRun: CoordClashRun
+}
+
+type CoordClashStatusCount {
+  status: String!
+  count: Int!
+}
+
+type CoordClashRun {
+  id: String!
+  testId: String!
+  """
+  queued | geometry | geometry_running | geometry_done | processing | succeeded | failed
+  """
+  status: String!
+  trigger: String!
+  error: String
+  modelIdA: String!
+  versionIdA: String!
+  modelIdB: String!
+  versionIdB: String!
+  queuedAt: DateTime!
+  startedAt: DateTime
+  finishedAt: DateTime
+  countA: Int!
+  countB: Int!
+  rawCount: Int!
+  ignoredCount: Int!
+  clashCount: Int!
+  geometrySeconds: Float
+  peakRssMb: Int
+  statusCounts: [CoordClashStatusCount!]!
+  clashes(
+    statuses: [String!]
+    keyA: String
+    limit: Int = 500
+    offset: Int = 0
+  ): [CoordClash!]!
+}
+
+type CoordClash {
+  id: String!
+  keyA: String!
+  keyB: String!
+  speckleObjectIdA: String
+  speckleObjectIdB: String
+  """
+  hard: negative = penetration depth; clearance: the clearance found
+  """
+  distanceMm: Float!
+  point: [Float!]
+  clashType: String!
+  """
+  new | active | reviewed | approved | resolved
+  """
+  status: String!
+  assignee: String
+  comment: String
+}
+
+extend type CoordinationMutations {
+  createClashTest(projectId: String!, input: JSONObject!): CoordClashTest!
+  updateClashTest(id: String!, input: JSONObject!): CoordClashTest!
+  deleteClashTest(id: String!): Boolean!
+  """
+  Runs the test on the latest version of each model
+  """
+  runClashTest(id: String!): CoordClashRun!
+  """
+  Returns how many clashes were updated
+  """
+  setClashStatus(ids: [String!]!, status: String!, comment: String): Int!
+  assignClashes(ids: [String!]!, assignee: String): Int!
+}

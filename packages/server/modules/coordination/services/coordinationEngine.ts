@@ -147,7 +147,7 @@ type CompiledCondition = {
   evaluate: (leaves: Leaf[]) => ConditionOutcome
 }
 
-const compileCondition = (cond: CoordCondition): CompiledCondition => {
+export const compileCondition = (cond: CoordCondition): CompiledCondition => {
   const matches = compilePathMatcher(cond.path, cond.match ?? inferPathMatch(cond.path))
   const mapEntries = cond.map
     ? Object.entries(cond.map).map(([k, v]) => [norm(k), v] as const)
