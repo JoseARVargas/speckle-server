@@ -1,6 +1,7 @@
 import { expect } from 'chai'
 import type { EmailTemplateServerInfo } from '@/modules/emails/domain/operations'
 import { renderEmail } from '@/modules/emails/services/emailRendering'
+import { defaultFromHeader } from '@/modules/emails/services/sending'
 import { buildCoreInviteEmailContentsFactory } from '@/modules/serverinvites/services/coreEmailContents'
 import type { ServerInviteRecord } from '@/modules/serverinvites/domain/types'
 import type { ServerInfo, StreamRecord } from '@/modules/core/helpers/types'
@@ -14,7 +15,8 @@ const BRAND_ENV = {
   EMAIL_BRAND_NAME: 'OFFICIO Coordenação BIM',
   EMAIL_BRAND_LOGO_URL: 'https://bim.officio.net.br/brand/officio-tecnologia-gray.png',
   EMAIL_BRAND_SITE_URL: 'https://bim.officio.net.br',
-  EMAIL_BRAND_FOOTER_TEXT: 'OFFICIO Tecnologia'
+  EMAIL_BRAND_FOOTER_TEXT: 'OFFICIO Tecnologia',
+  EMAIL_BRAND_COLOR: '#067757'
 }
 
 const server: EmailTemplateServerInfo = {
@@ -83,6 +85,30 @@ describe('Email branding (EMAIL_BRAND_*) @emails', () => {
     expect(html).to.not.contain('speckle-email-logo.png')
     expect(text).to.contain('Enviado por OFFICIO Coordenação BIM')
     expect(text).to.not.contain('deployed and managed by')
+  })
+
+  it('uses the brand color on the call to action and the brand as sender name', async () => {
+    setBrand(false)
+    const plain = await renderEmail(template, server)
+    expect(plain.html).to.contain('#146CFF')
+    expect(defaultFromHeader('c@mail.officio.net.br')).to.equal(
+      '"Speckle" <c@mail.officio.net.br>'
+    )
+
+    setBrand(true)
+    const branded = await renderEmail(template, server)
+    expect(branded.html).to.contain('#067757')
+    expect(branded.html).to.not.contain('#146CFF')
+    expect(defaultFromHeader('c@mail.officio.net.br')).to.equal(
+      '"OFFICIO Coordenação BIM" <c@mail.officio.net.br>'
+    )
+
+    // invalid colors are ignored (the value lands in inline styles)
+    process.env.EMAIL_BRAND_COLOR = 'red;background:url(x)'
+    expect((await renderEmail(template, server)).html).to.contain('#146CFF')
+    // quotes and line breaks can't break the From header
+    process.env.EMAIL_BRAND_NAME = 'Evil"\r\nBcc: x@y.z'
+    expect(defaultFromHeader('c@d.e')).to.equal('"EvilBcc: x@y.z" <c@d.e>')
   })
 
   it('falls back to a text header when the brand has no logo', async () => {

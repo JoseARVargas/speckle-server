@@ -16,7 +16,11 @@
     </mj-section>
 
     <% if (params.cta) { %>
+    <% if (params.brand) { %>
+    <mj-include path="./components/ctaButtonBrand.mjml" />
+    <% } else { %>
     <mj-include path="./components/ctaButton.mjml" />
+    <% } %>
     <% } %>
 
     <!-- Body - End -->
