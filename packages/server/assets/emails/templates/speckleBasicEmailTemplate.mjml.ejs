@@ -2,7 +2,13 @@
   <mj-include path="./components/head.mjml" />
   <mj-body>
     <!-- Header -->
+    <% if (params.brand?.logoUrl) { %>
+    <mj-include path="./components/headerLogoBrand.mjml" />
+    <% } else if (params.brand) { %>
+    <mj-include path="./components/headerTextBrand.mjml" />
+    <% } else { %>
     <mj-include path="./components/headerLogo.mjml" />
+    <% } %>
 
     <!-- Body -->
     <mj-section>
@@ -23,11 +29,11 @@
       <mj-column>
         <mj-text font-size="12px" color="#626263" align="center" padding="0px">
           <p>
-            If you don't want to receive these emails, update your preferences
+            <% if (params.brand) { %>Para não receber estes e-mails, ajuste suas preferências<% } else { %>If you don't want to receive these emails, update your preferences<% } %>
             <a
               href="<%- params.serverInfo.canonicalUrl -%>/profile/<%- params.user.id -%>"
             >
-              here
+              <% if (params.brand) { %>aqui<% } else { %>here<% } %>
             </a>
             .
           </p>
@@ -36,6 +42,10 @@
     </mj-section>
     <% } %>
 
+    <% if (params.brand) { %>
+    <mj-include path="./components/footerBrand.mjml" />
+    <% } else { %>
     <mj-include path="./components/footer.mjml" />
+    <% } %>
   </mj-body>
 </mjml>

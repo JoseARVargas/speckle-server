@@ -15,6 +15,11 @@ import type {
 } from '@/modules/emails/domain/operations'
 import type { GetUser } from '@/modules/core/domain/users/operations'
 import type { GetServerInfo } from '@/modules/core/domain/server/operations'
+import {
+  emailVerificationTimeoutMinutes,
+  getEmailBrand
+} from '@/modules/shared/helpers/envHelper'
+import { brandEmailCopy } from '@/modules/emails/helpers/brand'
 
 const EMAIL_SUBJECT = 'Speckle account email verification'
 
@@ -130,7 +135,17 @@ type SendVerificationEmailDeps = {
 
 const sendVerificationEmailFactory =
   (deps: SendVerificationEmailDeps) => async (state: VerificationRequestContext) => {
-    const emailTemplateParams = buildEmailTemplateParams(state.verificationCode)
+    const brand = getEmailBrand()
+    const branded = brand
+      ? brandEmailCopy.emailVerification({
+          brand,
+          code: state.verificationCode,
+          timeoutMinutes: emailVerificationTimeoutMinutes()
+        })
+      : null
+    const emailTemplateParams = branded
+      ? { mjml: branded.mjml, text: buildTextBody() }
+      : buildEmailTemplateParams(state.verificationCode)
     const { html, text } = await deps.renderEmail(
       emailTemplateParams,
       state.serverInfo,
@@ -139,7 +154,7 @@ const sendVerificationEmailFactory =
     )
     await deps.sendEmail({
       to: state.email.email,
-      subject: EMAIL_SUBJECT,
+      subject: branded?.subject ?? EMAIL_SUBJECT,
       text,
       html
     })

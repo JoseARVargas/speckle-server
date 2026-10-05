@@ -571,3 +571,21 @@ export const areSavedViewsEnabled = (): boolean =>
 export function isFacilitiesModuleEnabled() {
   return getBooleanFromEnv('FF_FACILITIES_MODULE_ENABLED', true)
 }
+
+/**
+ * Fork-only: per-server branding of outgoing emails (NexTwin, OFFICIO). Unset
+ * EMAIL_BRAND_NAME keeps the upstream Speckle emails untouched.
+ */
+export function getEmailBrand() {
+  const name = process.env.EMAIL_BRAND_NAME?.trim()
+  if (!name) return null
+  const optional = (key: string) => process.env[key]?.trim() || null
+  return {
+    name,
+    logoUrl: optional('EMAIL_BRAND_LOGO_URL'),
+    siteUrl: optional('EMAIL_BRAND_SITE_URL'),
+    footerText: optional('EMAIL_BRAND_FOOTER_TEXT')
+  }
+}
+
+export type EmailBrand = NonNullable<ReturnType<typeof getEmailBrand>>

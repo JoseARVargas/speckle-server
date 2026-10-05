@@ -1,0 +1,22 @@
+<mj-section padding-top="10px" padding-bottom="30px" border-top="1px solid #e0e0e0">
+  <mj-column>
+    <mj-text font-size="10px" line-height="16px" align="center" color="#626263">
+      Enviado por <%= params.serverInfo.name %> em
+      <a href="<%= params.serverInfo.canonicalUrl %>">
+        <%= params.serverInfo.canonicalUrl %>
+      </a>
+      . <% if (params.serverInfo.adminContact) { %>
+      <br />
+      Contato do administrador:
+      <a href="mailto:<%= params.serverInfo.adminContact %>">
+        <%= params.serverInfo.adminContact %>
+      </a>
+      . <% } %> <% if (params.brand.footerText || params.brand.siteUrl) { %>
+      <br />
+      <br />
+      <%= params.brand.footerText || '' %> <% if (params.brand.siteUrl) { %>
+      <a href="<%= params.brand.siteUrl %>"><%= params.brand.siteUrl %></a>
+      <% } %> <% } %>
+    </mj-text>
+  </mj-column>
+</mj-section>

@@ -3,4 +3,8 @@
 <%_ if (params.text?.bodyEnd?.length) print("\n" + params.text.bodyEnd + "\n"); _%>
 
 ------------------------------------------------------
+<%_ if (params.brand) { _%>
+Enviado por <%= params.server.name %> em <%= params.server.canonicalUrl %>.<% if (params.server.adminContact) { %> Contato do administrador: <%= params.server.adminContact %>.<% } %><% if (params.brand.siteUrl) { %> <%= params.brand.siteUrl %><% } %>
+<%_ } else { _%>
 Sent from <%= params.server.name || 'Speckle Server' %> at <%= params.server.canonicalUrl %>, deployed and managed by <%= params.server.company %>. Your admin contact is <%= params.server.adminContact %>.
+<%_ } _%>
