@@ -584,7 +584,11 @@ export function getEmailBrand() {
     name,
     logoUrl: optional('EMAIL_BRAND_LOGO_URL'),
     siteUrl: optional('EMAIL_BRAND_SITE_URL'),
-    footerText: optional('EMAIL_BRAND_FOOTER_TEXT')
+    footerText: optional('EMAIL_BRAND_FOOTER_TEXT'),
+    // only a #rrggbb hex color: the value lands in inline styles of the email
+    color: /^#[0-9a-fA-F]{6}$/.test(optional('EMAIL_BRAND_COLOR') ?? '')
+      ? (optional('EMAIL_BRAND_COLOR') as string)
+      : null
   }
 }
 
