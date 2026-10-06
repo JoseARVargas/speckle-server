@@ -1,0 +1,119 @@
+# BIM coordination - information delivery planning (ISO 19650 MIDP/TIDP).
+# One table of deliverables is the MIDP; a TIDP is the same table filtered by
+# originator (task team). Container names follow the ISO 19650-2 fields
+# Project-Originator-Volume-Level-Type-Role-Number, with codes from lists
+# kept per project.
+
+extend type ProjectCoordination {
+  """
+  Codes allowed in each naming field (project, originator, volume, level, type, role)
+  """
+  namingCodes: [CoordNamingCode!]!
+  deliverables(
+    originator: String
+    role: String
+    milestoneId: String
+    status: String
+    limit: Int = 500
+    offset: Int = 0
+  ): [CoordDeliverable!]!
+  deliverableCount(
+    originator: String
+    role: String
+    milestoneId: String
+    status: String
+  ): Int!
+  deliverable(id: String!): CoordDeliverable
+}
+
+type CoordNamingCode {
+  """
+  project | originator | volume | level | type | role
+  """
+  field: String!
+  code: String!
+  description: String
+}
+
+type CoordDeliverable {
+  id: String!
+  """
+  Project-Originator-Volume-Level-Type-Role-Number
+  """
+  containerName: String!
+  title: String!
+  """
+  model | drawing | document | schedule | other
+  """
+  kind: String!
+  project: String!
+  originator: String!
+  volume: String!
+  level: String!
+  type: String!
+  role: String!
+  number: Int!
+  milestoneId: String
+  milestone: CoordMilestone
+  """
+  The deliverable's own due date, or else its milestone's
+  """
+  dueDate: DateTime
+  effectiveDueDate: DateTime
+  responsibleUserId: String
+  responsibleName: String
+  """
+  Speckle model that delivers this information (optional)
+  """
+  modelId: String
+  """
+  planned | in_progress | delivered | accepted | rejected
+  """
+  status: String!
+  notes: String
+  requirementIds: [String!]!
+  requirements: [CoordRequirement!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+extend type CoordRequirement {
+  """
+  Deliverables of the MIDP that must meet this requirement
+  """
+  deliverables: [CoordDeliverable!]!
+}
+
+type CoordDeliverableImportError {
+  """
+  1 = first data row of the file
+  """
+  row: Int!
+  message: String!
+}
+
+type CoordDeliverableImportResult {
+  """
+  0 when there was any error: the import is all or nothing
+  """
+  imported: Int!
+  errors: [CoordDeliverableImportError!]!
+}
+
+extend type CoordinationMutations {
+  """
+  Replaces the naming lists: { project: [{code, description}], originator: [...], ... }
+  """
+  setNamingCodes(projectId: String!, input: JSONObject!): [CoordNamingCode!]!
+  createDeliverable(projectId: String!, input: JSONObject!): CoordDeliverable!
+  updateDeliverable(id: String!, input: JSONObject!): CoordDeliverable!
+  deleteDeliverable(id: String!): Boolean!
+  setDeliverableStatus(id: String!, status: String!): CoordDeliverable!
+  """
+  Rows already mapped from a CSV; all or nothing
+  """
+  importDeliverables(
+    projectId: String!
+    rows: [JSONObject!]!
+  ): CoordDeliverableImportResult!
+}

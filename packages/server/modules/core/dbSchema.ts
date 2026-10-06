@@ -1049,6 +1049,43 @@ export const CoordClashes = buildTableHelper('coord_clashes', [
   'updatedAt'
 ])
 
+export const CoordNamingCodes = buildTableHelper('coord_naming_codes', [
+  'projectId',
+  'field',
+  'code',
+  'description',
+  'position'
+])
+
+export const CoordDeliverables = buildTableHelper('coord_deliverables', [
+  'id',
+  'projectId',
+  'containerName',
+  'title',
+  'kind',
+  'project',
+  'originator',
+  'volume',
+  'level',
+  'type',
+  'role',
+  'number',
+  'milestoneId',
+  'responsibleUserId',
+  'modelId',
+  'dueDate',
+  'status',
+  'notes',
+  'createdBy',
+  'createdAt',
+  'updatedAt'
+])
+
+export const CoordDeliverableRequirements = buildTableHelper(
+  'coord_deliverable_requirements',
+  ['deliverableId', 'requirementId']
+)
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'
