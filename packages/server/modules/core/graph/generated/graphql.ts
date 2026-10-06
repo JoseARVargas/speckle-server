@@ -504,7 +504,7 @@ export type Asset = {
   healthSignals: Array<DeviceHealthSignal>;
   id: Scalars['String']['output'];
   /**
-   * System-generated global identity code (PHD-NNNNNN-C, Luhn check digit) -
+   * System-generated global identity code (NXT-NNNNNN-C, Luhn check digit) -
    * distinct from tagNumber, which tracks the BIM model's own tag property.
    * Assigned once at creation and never editable via the API.
    */

@@ -63,7 +63,7 @@ describe('Facilities root queries by id', () => {
       projectId: privateProject.id,
       facilityId: facility.id,
       tagNumber: 'AC-01',
-      identityCode: `PHD-TEST-${assetId}`,
+      identityCode: `NXT-TEST-${assetId}`,
       name: 'Split AC',
       assetTypeId: null,
       assetClassId: null,

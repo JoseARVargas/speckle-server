@@ -277,7 +277,7 @@ describe('Coordination engine', () => {
       expect(getUnsafeRegexReason('[')).to.be.a('string')
       expect(getUnsafeRegexReason('a'.repeat(201))).to.be.a('string')
       expect(getUnsafeRegexReason('^(AF|AQ|ESG)')).to.equal(null)
-      expect(getUnsafeRegexReason('^PHD-[A-Z]{3}-\\d{5}$')).to.equal(null)
+      expect(getUnsafeRegexReason('^NXT-[A-Z]{3}-\\d{5}$')).to.equal(null)
     })
 
     it('rejects a regex condition with an unsafe pattern', () => {

@@ -33,7 +33,7 @@ import {
 
 const sampleIds = `<?xml version="1.0" encoding="UTF-8"?>
 <ids:ids xmlns:ids="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <ids:info><ids:title>IDS PHD — Teste</ids:title></ids:info>
+  <ids:info><ids:title>IDS NexTwin — Teste</ids:title></ids:info>
   <ids:specifications>
     <ids:specification name="Pilares com classe de concreto" ifcVersion="IFC4" identifier="EIR 4.2">
       <ids:applicability minOccurs="0" maxOccurs="unbounded">
@@ -41,7 +41,7 @@ const sampleIds = `<?xml version="1.0" encoding="UTF-8"?>
       </ids:applicability>
       <ids:requirements>
         <ids:property dataType="IFCLABEL" cardinality="required">
-          <ids:propertySet><ids:simpleValue>Pset_PHD</ids:simpleValue></ids:propertySet>
+          <ids:propertySet><ids:simpleValue>Pset_Teste</ids:simpleValue></ids:propertySet>
           <ids:baseName><ids:simpleValue>ClasseConcreto</ids:simpleValue></ids:baseName>
           <ids:value>
             <xs:restriction base="xs:string">
@@ -154,7 +154,7 @@ describe('Coordination IDS', () => {
   describe('parseIdsDocument', () => {
     it('summarizes specifications and maps optional requirements to warnings', () => {
       const parsed = parseIdsDocument(sampleIds)
-      expect(parsed.title).to.equal('IDS PHD — Teste')
+      expect(parsed.title).to.equal('IDS NexTwin — Teste')
       expect(parsed.specifications).to.have.length(2)
       const [columns, doors] = parsed.specifications
       expect(columns).to.deep.include({
@@ -162,7 +162,7 @@ describe('Coordination IDS', () => {
         severity: 'error',
         ifcVersion: 'IFC4',
         applicability: 'classe IFCCOLUMN',
-        requirements: 'Pset_PHD.ClasseConcreto = um de C30, C35'
+        requirements: 'Pset_Teste.ClasseConcreto = um de C30, C35'
       })
       expect(doors.severity).to.equal('warning')
       expect(doors.requirements).to.equal(
@@ -222,7 +222,7 @@ describe('Coordination IDS', () => {
       expect(res).to.not.haveGraphQLErrors()
       const result = res.data!.coordinationMutations.importIdsRuleSet
       expect(result.createdRequirements).to.deep.equal(['EIR 4.2'])
-      expect(result.ruleSet).to.include({ name: 'IDS PHD — Teste', format: 'ids' })
+      expect(result.ruleSet).to.include({ name: 'IDS NexTwin — Teste', format: 'ids' })
       const rules = result.ruleSet.draft.rules as Array<Record<string, string | null>>
       expect(rules.map((r) => r.code)).to.deep.equal(['EIR 4.2', 'IDS-2'])
       expect(rules[0].requirementId).to.be.a('string')
@@ -234,7 +234,7 @@ describe('Coordination IDS', () => {
         code: 'EIR 4.2',
         title: 'Pilares com classe de concreto'
       })
-      expect(rules[0].expected).to.equal('Pset_PHD.ClasseConcreto = um de C30, C35')
+      expect(rules[0].expected).to.equal('Pset_Teste.ClasseConcreto = um de C30, C35')
       expect(rules[1].severity).to.equal('warning')
       ruleSetId = result.ruleSet.id
       columnRuleId = rules[0].id!

@@ -23,7 +23,7 @@ export function luhnCheckDigit(payload: string): number {
 }
 
 /**
- * Generates the next PHD-NNNNNN-C asset identity code: a global sequential
+ * Generates the next NXT-NNNNNN-C asset identity code: a global sequential
  * number (6 digits, zero-padded) plus a Luhn check digit - never reused,
  * never edited after creation. Per the "Princípios da codificação" spec
  * (ISO/IEC 81346-style separation of identity/location/function), this
@@ -41,5 +41,5 @@ export const generateAssetIdentityCodeFactory =
     const result = await deps.db.raw(`SELECT nextval('${SEQUENCE}') AS n`)
     const n = Number(result.rows[0].n)
     const payload = String(n).padStart(6, '0')
-    return `PHD-${payload}-${luhnCheckDigit(payload)}`
+    return `NXT-${payload}-${luhnCheckDigit(payload)}`
   }
