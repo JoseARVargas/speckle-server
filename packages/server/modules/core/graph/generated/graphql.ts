@@ -1519,6 +1519,8 @@ export type CoordDeliverable = {
   /** Project-Originator-Volume-Level-Type-Role-Number */
   containerName: Scalars['String']['output'];
   createdAt: Scalars['DateTime']['output'];
+  /** Deliverables of the same project this one depends on */
+  dependsOnIds: Array<Scalars['String']['output']>;
   /** The deliverable's own due date, or else its milestone's */
   dueDate?: Maybe<Scalars['DateTime']['output']>;
   effectiveDueDate?: Maybe<Scalars['DateTime']['output']>;
@@ -1539,7 +1541,11 @@ export type CoordDeliverable = {
   responsibleName?: Maybe<Scalars['String']['output']>;
   responsibleUserId?: Maybe<Scalars['String']['output']>;
   role: Scalars['String']['output'];
-  /** planned | in_progress | delivered | accepted | rejected */
+  /**
+   * MIDP traffic light tied to the CDE states:
+   * not_started | in_progress (WIP) | in_review (Shared) | published | blocked.
+   * "Late" is derived by clients (past effectiveDueDate and not published).
+   */
   status: Scalars['String']['output'];
   title: Scalars['String']['output'];
   type: Scalars['String']['output'];
@@ -10455,6 +10461,7 @@ export type CoordClashTestResolvers<ContextType = GraphQLContext, ParentType ext
 export type CoordDeliverableResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordDeliverable'] = ResolversParentTypes['CoordDeliverable']> = {
   containerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  dependsOnIds?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   dueDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   effectiveDueDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

@@ -1081,6 +1081,11 @@ export const CoordDeliverables = buildTableHelper('coord_deliverables', [
   'updatedAt'
 ])
 
+export const CoordDeliverableDependencies = buildTableHelper(
+  'coord_deliverable_dependencies',
+  ['deliverableId', 'dependsOnId']
+)
+
 export const CoordDeliverableRequirements = buildTableHelper(
   'coord_deliverable_requirements',
   ['deliverableId', 'requirementId']

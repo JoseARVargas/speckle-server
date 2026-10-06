@@ -13,6 +13,7 @@ export const PLANNING_LIMITS = {
   maxDeliverablesPerProject: 5_000,
   maxImportRows: 5_000,
   maxRequirementsPerDeliverable: 200,
+  maxDependenciesPerDeliverable: 50,
   maxDeliverablesPage: 500,
   /** retries when two writers take the same sequential number */
   numberRetries: 3
@@ -99,12 +100,17 @@ export const DeliverableKinds = [
 ] as const
 export type DeliverableKind = (typeof DeliverableKinds)[number]
 
+/**
+ * MIDP traffic light tied to the ISO 19650 CDE states: WIP (in_progress),
+ * Shared (in_review), Published. "Late" is derived (past due date and not
+ * published), never stored.
+ */
 export const DeliverableStatuses = [
-  'planned',
+  'not_started',
   'in_progress',
-  'delivered',
-  'accepted',
-  'rejected'
+  'in_review',
+  'published',
+  'blocked'
 ] as const
 export type DeliverableStatus = (typeof DeliverableStatuses)[number]
 
@@ -126,11 +132,15 @@ export const deliverableInputSchema = z
     responsibleUserId: idSchema.nullish(),
     modelId: idSchema.nullish(),
     dueDate: z.coerce.date().nullish(),
-    status: z.enum(DeliverableStatuses).default('planned'),
+    status: z.enum(DeliverableStatuses).default('not_started'),
     notes: optionalText(2000),
     requirementIds: z
       .array(idSchema)
       .max(PLANNING_LIMITS.maxRequirementsPerDeliverable)
+      .default([]),
+    dependsOnIds: z
+      .array(idSchema)
+      .max(PLANNING_LIMITS.maxDependenciesPerDeliverable)
       .default([])
   })
   .strict()
@@ -154,6 +164,12 @@ export const deliverableImportRowSchema = z
     milestone: optionalText(200),
     dueDate: z.coerce.date().nullish(),
     requirementCodes: z.array(z.string().trim().min(1).max(100)).max(200).default([]),
+    status: z.enum(DeliverableStatuses).default('not_started'),
+    /** container names of deliverables in the database or in the same batch */
+    dependsOn: z
+      .array(z.string().trim().min(1).max(100))
+      .max(PLANNING_LIMITS.maxDependenciesPerDeliverable)
+      .default([]),
     notes: optionalText(2000)
   })
   .strict()
@@ -196,6 +212,11 @@ export type CoordDeliverableRecord = {
 export type CoordDeliverableRequirementRecord = {
   deliverableId: string
   requirementId: string
+}
+
+export type CoordDeliverableDependencyRecord = {
+  deliverableId: string
+  dependsOnId: string
 }
 
 export type DeliverableFilter = {

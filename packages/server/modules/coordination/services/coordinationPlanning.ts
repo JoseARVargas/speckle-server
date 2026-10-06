@@ -19,12 +19,15 @@ import {
 import {
   countDeliverablesFactory,
   existingContainerNamesFactory,
+  findProjectDeliverablesFactory,
   findProjectMilestonesFactory,
   findProjectRequirementsFactory,
   insertDeliverablesFactory,
   listNamingCodesFactory,
   listUsedCodesFactory,
   maxDeliverableNumberFactory,
+  listProjectDependenciesFactory,
+  replaceDeliverableDependenciesFactory,
   replaceDeliverableRequirementsFactory,
   replaceNamingCodesFactory,
   updateDeliverableFactory
@@ -119,9 +122,37 @@ export const setNamingCodesFactory =
 
 // ---- references -----------------------------------------------------------------
 
+/**
+ * True when following the dependency edges from any of "from" reaches
+ * "target" - i.e. making target depend on "from" would close a cycle.
+ */
+export const reachesTarget = (
+  edges: Map<string, string[]>,
+  from: string[],
+  target: string
+) => {
+  const seen = new Set<string>()
+  const stack = [...from]
+  while (stack.length) {
+    const node = stack.pop()!
+    if (node === target) return true
+    if (seen.has(node)) continue
+    seen.add(node)
+    stack.push(...(edges.get(node) ?? []))
+  }
+  return false
+}
+
+const edgeMap = (rows: { deliverableId: string; dependsOnId: string }[]) => {
+  const edges = new Map<string, string[]>()
+  for (const r of rows)
+    edges.set(r.deliverableId, [...(edges.get(r.deliverableId) ?? []), r.dependsOnId])
+  return edges
+}
+
 const assertReferencesFactory =
   (deps: { db: Knex; projectDb: Knex }) =>
-  async (p: { projectId: string; input: DeliverableInput }) => {
+  async (p: { projectId: string; input: DeliverableInput; selfId?: string }) => {
     const { input, projectId } = p
     const message = invalidCode(await loadCodeMapFactory(deps)({ projectId }), input)
     if (message) throw new BadRequestError(message)
@@ -155,7 +186,30 @@ const assertReferencesFactory =
     if (input.modelId) {
       await assertModelInProjectFactory(deps)({ projectId, modelId: input.modelId })
     }
-    return requirementIds
+    const dependsOnIds = [...new Set(input.dependsOnIds)]
+    if (p.selfId && dependsOnIds.includes(p.selfId)) {
+      throw new BadRequestError('Um entregável não pode depender de si mesmo')
+    }
+    if (dependsOnIds.length) {
+      const found = await findProjectDeliverablesFactory(deps)({
+        projectId,
+        ids: dependsOnIds
+      })
+      if (found.length !== dependsOnIds.length) {
+        throw new BadRequestError('Dependência não pertence a este projeto')
+      }
+      // A06: only an existing deliverable can be part of a cycle
+      if (p.selfId) {
+        const edges = edgeMap(await listProjectDependenciesFactory(deps)({ projectId }))
+        edges.delete(p.selfId)
+        if (reachesTarget(edges, dependsOnIds, p.selfId)) {
+          throw new BadRequestError(
+            'Essa dependência cria um ciclo: um dos entregáveis já depende deste'
+          )
+        }
+      }
+    }
+    return { requirementIds, dependsOnIds }
   }
 
 const assertCapacityFactory =
@@ -180,7 +234,7 @@ export const createDeliverableFactory =
   (deps: { db: Knex; projectDb: Knex }) =>
   async (p: { projectId: string; userId: string; input: unknown }) => {
     const input = parseOrBadRequest(deliverableInputSchema, p.input, 'Entregável')
-    const requirementIds = await assertReferencesFactory(deps)({
+    const { requirementIds, dependsOnIds } = await assertReferencesFactory(deps)({
       projectId: p.projectId,
       input
     })
@@ -220,6 +274,10 @@ export const createDeliverableFactory =
             deliverableId: row.id,
             requirementIds
           })
+          await replaceDeliverableDependenciesFactory({ db: trx })({
+            deliverableId: row.id,
+            dependsOnIds
+          })
           return row
         })
       } catch (err) {
@@ -236,7 +294,11 @@ export const updateDeliverableServiceFactory =
   async (p: { current: CoordDeliverableRecord; input: unknown }) => {
     const input = parseOrBadRequest(deliverableInputSchema, p.input, 'Entregável')
     const projectId = p.current.projectId
-    const requirementIds = await assertReferencesFactory(deps)({ projectId, input })
+    const { requirementIds, dependsOnIds } = await assertReferencesFactory(deps)({
+      projectId,
+      input,
+      selfId: p.current.id
+    })
     const codes = codesOf(input)
     const sameCodes = NamingFields.every((f) => codes[f] === p.current[f])
 
@@ -269,6 +331,10 @@ export const updateDeliverableServiceFactory =
           await replaceDeliverableRequirementsFactory({ db: trx })({
             deliverableId: p.current.id,
             requirementIds
+          })
+          await replaceDeliverableDependenciesFactory({ db: trx })({
+            deliverableId: p.current.id,
+            dependsOnIds
           })
           return row
         })
@@ -356,8 +422,13 @@ export const importDeliverablesFactory =
     // 3. numbers and container names (in the batch and against the database)
     const nextNumber = new Map<string, number>()
     const seen = new Map<string, number>()
-    const records: { row: number; record: CoordDeliverableRecord; links: string[] }[] =
-      []
+    const records: {
+      row: number
+      record: CoordDeliverableRecord
+      links: string[]
+      dependsOn: string[]
+      dependsOnIds: string[]
+    }[] = []
     for (const { row, data } of parsed) {
       const codeError = invalidCode(codes, data)
       if (codeError) {
@@ -405,13 +476,15 @@ export const importDeliverablesFactory =
           responsibleUserId: null,
           modelId: null,
           dueDate: data.dueDate ?? null,
-          status: 'planned',
+          status: data.status,
           notes: data.notes,
           createdBy: p.userId,
           createdAt: new Date(),
           updatedAt: new Date()
         },
-        links: [...new Set(data.requirementCodes)].map((c) => requirements.get(c)!)
+        links: [...new Set(data.requirementCodes)].map((c) => requirements.get(c)!),
+        dependsOn: [...new Set(data.dependsOn)],
+        dependsOnIds: []
       })
     }
     const existing = new Set(
@@ -423,6 +496,42 @@ export const importDeliverablesFactory =
     for (const r of records) {
       if (existing.has(r.record.containerName)) {
         fail(r.row, duplicateMessage(r.record.containerName))
+      }
+    }
+
+    // 4. dependencies: codes of rows in this file or of deliverables already saved
+    const inBatch = new Map(records.map((r) => [r.record.containerName, r.record.id]))
+    const wanted = [...new Set(records.flatMap((r) => r.dependsOn))].filter(
+      (name) => !inBatch.has(name)
+    )
+    const inDatabase = new Map(
+      (wanted.length
+        ? await findProjectDeliverablesFactory(deps)({
+            projectId: p.projectId,
+            names: wanted
+          })
+        : []
+      ).map((d) => [d.containerName, d.id])
+    )
+    for (const r of records) {
+      for (const name of r.dependsOn) {
+        const id = inBatch.get(name) ?? inDatabase.get(name)
+        if (!id) {
+          fail(r.row, `Dependência "${name}" não existe no projeto nem no arquivo`)
+        } else if (id === r.record.id) {
+          fail(r.row, `O entregável ${name} não pode depender de si mesmo`)
+        } else {
+          r.dependsOnIds.push(id)
+        }
+      }
+    }
+    // saved deliverables never depend on new ones: a cycle can only be in the file
+    const batchEdges = new Map(records.map((r) => [r.record.id, r.dependsOnIds]))
+    for (const r of records) {
+      const others = new Map(batchEdges)
+      others.delete(r.record.id)
+      if (reachesTarget(others, r.dependsOnIds, r.record.id)) {
+        fail(r.row, `As dependências de ${r.record.containerName} formam um ciclo`)
       }
     }
 
@@ -444,6 +553,12 @@ export const importDeliverablesFactory =
             await replaceDeliverableRequirementsFactory({ db: trx })({
               deliverableId: r.record.id,
               requirementIds: r.links
+            })
+          }
+          if (r.dependsOnIds.length) {
+            await replaceDeliverableDependenciesFactory({ db: trx })({
+              deliverableId: r.record.id,
+              dependsOnIds: r.dependsOnIds
             })
           }
         }

@@ -1,5 +1,6 @@
 import type { Knex } from 'knex'
 import {
+  CoordDeliverableDependencies,
   CoordDeliverableRequirements,
   CoordDeliverables,
   CoordMilestones,
@@ -7,6 +8,7 @@ import {
   CoordRequirements
 } from '@/modules/core/dbSchema'
 import type {
+  CoordDeliverableDependencyRecord,
   CoordDeliverableRecord,
   CoordDeliverableRequirementRecord,
   CoordNamingCodeRecord,
@@ -23,7 +25,9 @@ const tables = {
   codes: (db: Knex) => db<CoordNamingCodeRecord>(CoordNamingCodes.name),
   deliverables: (db: Knex) => db<CoordDeliverableRecord>(CoordDeliverables.name),
   links: (db: Knex) =>
-    db<CoordDeliverableRequirementRecord>(CoordDeliverableRequirements.name)
+    db<CoordDeliverableRequirementRecord>(CoordDeliverableRequirements.name),
+  dependencies: (db: Knex) =>
+    db<CoordDeliverableDependencyRecord>(CoordDeliverableDependencies.name)
 }
 
 type Scoped = { projectId: string }
@@ -183,7 +187,63 @@ export const listDeliverablesOfRequirementFactory =
       .select<CoordDeliverableRecord[]>(`${CoordDeliverables.name}.*`)
       .orderBy(CoordDeliverables.col.containerName)
 
+// ---- dependencies -------------------------------------------------------------------
+
+export const replaceDeliverableDependenciesFactory =
+  (deps: { db: Knex }) =>
+  async (p: { deliverableId: string; dependsOnIds: string[] }) => {
+    await tables
+      .dependencies(deps.db)
+      .where({ deliverableId: p.deliverableId })
+      .delete()
+    if (p.dependsOnIds.length) {
+      await tables.dependencies(deps.db).insert(
+        p.dependsOnIds.map((dependsOnId) => ({
+          deliverableId: p.deliverableId,
+          dependsOnId
+        }))
+      )
+    }
+  }
+
+export const listDependencyIdsOfDeliverableFactory =
+  (deps: { db: Knex }) => async (p: { deliverableId: string }) =>
+    (
+      await tables
+        .dependencies(deps.db)
+        .where({ deliverableId: p.deliverableId })
+        .select('dependsOnId')
+    ).map((r) => r.dependsOnId)
+
+/** Every dependency edge of the project (for cycle checks). */
+export const listProjectDependenciesFactory =
+  (deps: { db: Knex }) =>
+  (p: Scoped): Promise<CoordDeliverableDependencyRecord[]> =>
+    tables
+      .dependencies(deps.db)
+      .join(
+        CoordDeliverables.name,
+        CoordDeliverables.col.id,
+        CoordDeliverableDependencies.col.deliverableId
+      )
+      .where(CoordDeliverables.col.projectId, p.projectId)
+      .select([
+        CoordDeliverableDependencies.col.deliverableId,
+        CoordDeliverableDependencies.col.dependsOnId
+      ])
+
 // ---- references in the same project (A01) ---------------------------------------
+
+export const findProjectDeliverablesFactory =
+  (deps: { db: Knex }) => (p: Scoped & { ids?: string[]; names?: string[] }) => {
+    const q = tables
+      .deliverables(deps.db)
+      .where({ projectId: p.projectId })
+      .select<{ id: string; containerName: string }[]>(['id', 'containerName'])
+    if (p.ids) q.whereIn('id', p.ids)
+    if (p.names) q.whereIn('containerName', p.names)
+    return q
+  }
 
 export const findProjectRequirementsFactory =
   (deps: { db: Knex }) => (p: Scoped & { ids?: string[]; codes?: string[] }) => {

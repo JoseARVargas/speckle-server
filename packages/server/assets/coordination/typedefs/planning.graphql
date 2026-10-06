@@ -67,12 +67,18 @@ type CoordDeliverable {
   """
   modelId: String
   """
-  planned | in_progress | delivered | accepted | rejected
+  MIDP traffic light tied to the CDE states:
+  not_started | in_progress (WIP) | in_review (Shared) | published | blocked.
+  "Late" is derived by clients (past effectiveDueDate and not published).
   """
   status: String!
   notes: String
   requirementIds: [String!]!
   requirements: [CoordRequirement!]!
+  """
+  Deliverables of the same project this one depends on
+  """
+  dependsOnIds: [String!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
