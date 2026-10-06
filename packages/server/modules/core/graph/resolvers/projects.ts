@@ -1,5 +1,9 @@
 import { db } from '@/db/knex'
 import {
+  assertUniqueProjectNameFactory,
+  getProjectOwnerIdsFactory
+} from '@/modules/core/helpers/projectNames'
+import {
   getBatchedStreamCommentsFactory,
   getCommentLinksFactory,
   insertCommentLinksFactory,
@@ -416,6 +420,14 @@ const resolvers: Resolvers = {
       })
       throwIfAuthNotOk(canUpdate)
 
+      if (update.name !== undefined && update.name !== null) {
+        await assertUniqueProjectNameFactory({ db })({
+          ownerIds: await getProjectOwnerIdsFactory({ db })({ projectId }),
+          name: update.name,
+          exceptProjectId: projectId
+        })
+      }
+
       const res = await asMultiregionalOperation(
         async ({ mainDb, allDbs, emit }) => {
           const updateStreamAndNotify = updateStreamAndNotifyFactory({
@@ -455,6 +467,11 @@ const resolvers: Resolvers = {
         userId: context.userId
       })
       throwIfAuthNotOk(canCreate)
+
+      await assertUniqueProjectNameFactory({ db })({
+        ownerIds: [context.userId!],
+        name: args.input?.name
+      })
 
       const regionKey = await getValidDefaultProjectRegionKey()
       const project = await asMultiregionalOperation(
