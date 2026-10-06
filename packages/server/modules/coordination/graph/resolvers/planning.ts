@@ -25,6 +25,7 @@ import {
   getDeliverableFactory,
   listDeliverablesFactory,
   listDeliverablesOfRequirementFactory,
+  listDependencyIdsOfDeliverableFactory,
   listNamingCodesFactory,
   listRequirementIdsOfDeliverableFactory,
   updateDeliverableFactory
@@ -143,6 +144,9 @@ export default {
         .where(Users.col.id, parent.responsibleUserId)
         .first<{ name: string } | undefined>(Users.col.name)
       return user?.name ?? null
+    },
+    dependsOnIds(parent: CoordDeliverableRecord) {
+      return listDependencyIdsOfDeliverableFactory({ db })({ deliverableId: parent.id })
     },
     requirementIds(parent: CoordDeliverableRecord) {
       return listRequirementIdsOfDeliverableFactory({ db })({

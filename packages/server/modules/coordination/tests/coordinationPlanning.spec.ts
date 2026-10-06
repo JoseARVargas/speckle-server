@@ -13,6 +13,7 @@ import { createTestBranch } from '@/test/speckle-helpers/branchHelper'
 import { CoordDeliverableRequirements } from '@/modules/core/dbSchema'
 import type { CoordDeliverableRecord } from '@/modules/coordination/helpers/planningTypes'
 import { buildContainerName } from '@/modules/coordination/helpers/planningTypes'
+import { reachesTarget } from '@/modules/coordination/services/coordinationPlanning'
 
 /**
  * Information delivery planning (ISO 19650 MIDP/TIDP): naming lists,
@@ -47,6 +48,7 @@ const DELIVERABLE_FIELDS = `
   responsibleName
   modelId
   requirementIds
+  dependsOnIds
 `
 
 const createMutation = gql`
@@ -320,7 +322,7 @@ describe('Coordination planning @coordination', () => {
     expect(first.errors).to.be.undefined
     const d1 = first.data!.coordinationMutations.createDeliverable
     expect(d1.containerName).to.equal('TEA-PHD-ZZ-ZZ-M3-S-0001')
-    expect(d1.status).to.equal('planned')
+    expect(d1.status).to.equal('not_started')
     expect(d1.responsibleName).to.equal(owner.name)
     // no own due date: the milestone's applies
     expect(d1.dueDate).to.equal(null)
@@ -527,10 +529,10 @@ describe('Coordination planning @coordination', () => {
     expect(invalid.errors?.[0].message).to.contain('Status de entregável inválido')
     const accepted = await apollo.execute(statusMutation, {
       id: row.id,
-      status: 'accepted'
+      status: 'published'
     })
     expect(accepted.data!.coordinationMutations.setDeliverableStatus.status).to.equal(
-      'accepted'
+      'published'
     )
 
     const outsiderDelete = await outsiderApollo.execute(deleteMutation, { id: row.id })
@@ -538,5 +540,132 @@ describe('Coordination planning @coordination', () => {
     const deleted = await apollo.execute(deleteMutation, { id: row.id })
     expect(deleted.data!.coordinationMutations.deleteDeliverable).to.equal(true)
     expect(await links(row.id)).to.have.length(0)
+  })
+
+  it('detects dependency cycles', () => {
+    const edges = new Map([
+      ['b', ['c']],
+      ['c', ['a']]
+    ])
+    expect(reachesTarget(edges, ['b'], 'a')).to.equal(true)
+    expect(reachesTarget(edges, ['c'], 'b')).to.equal(false)
+    expect(reachesTarget(new Map(), ['x'], 'a')).to.equal(false)
+  })
+
+  it('links dependencies in the same project and refuses self and cycles', async () => {
+    const create = async (title: string, extra: Record<string, unknown> = {}) => {
+      const res = await apollo.execute(createMutation, {
+        projectId: project.id,
+        input: { ...base, type: 'DR', kind: 'drawing', title, ...extra }
+      })
+      expect(res.errors, title).to.be.undefined
+      return res.data!.coordinationMutations.createDeliverable as {
+        id: string
+        containerName: string
+        dependsOnIds: string[]
+      }
+    }
+    const structure = await create('Estrutura base')
+    const hydraulics = await create('Hidráulica', { dependsOnIds: [structure.id] })
+    expect(hydraulics.dependsOnIds).to.deep.equal([structure.id])
+
+    // A01: a deliverable of another project can't be a dependency
+    const foreign = await apollo.execute(createMutation, {
+      projectId: project.id,
+      input: { ...base, title: 'x', dependsOnIds: ['nope000000'] }
+    })
+    expect(foreign.errors?.[0].message).to.contain('Dependência não pertence')
+
+    const self = await apollo.execute(updateMutation, {
+      id: structure.id,
+      input: {
+        ...base,
+        type: 'DR',
+        kind: 'drawing',
+        title: 'Estrutura base',
+        number: 2,
+        dependsOnIds: [structure.id]
+      }
+    })
+    expect(self.errors?.[0].message).to.contain('si mesmo')
+
+    // structure -> hydraulics would close hydraulics -> structure
+    const cycle = await apollo.execute(updateMutation, {
+      id: structure.id,
+      input: {
+        ...base,
+        type: 'DR',
+        kind: 'drawing',
+        title: 'Estrutura base',
+        dependsOnIds: [hydraulics.id]
+      }
+    })
+    expect(cycle.errors?.[0].message).to.contain('ciclo')
+  })
+
+  it('imports status and dependencies from the file and the database', async () => {
+    const saved = await byName('TEA-PHD-ZZ-ZZ-M3-S-0002')
+    const rows = [
+      { ...base, role: 'A', title: 'ARQ G100', number: 101, status: 'published' },
+      {
+        ...base,
+        role: 'A',
+        title: 'ARQ G200',
+        number: 102,
+        status: 'in_review',
+        dependsOn: ['TEA-PHD-ZZ-ZZ-M3-A-0101', saved.containerName]
+      }
+    ]
+    const res = await apollo.execute(importMutation, { projectId: project.id, rows })
+    expect(res.data!.coordinationMutations.importDeliverables).to.deep.equal({
+      imported: 2,
+      errors: []
+    })
+    const g200 = await byName('TEA-PHD-ZZ-ZZ-M3-A-0102')
+    const g100 = await byName('TEA-PHD-ZZ-ZZ-M3-A-0101')
+    expect(g100.status).to.equal('published')
+    expect(g200.status).to.equal('in_review')
+    const edges = await db('coord_deliverable_dependencies')
+      .where({ deliverableId: g200.id })
+      .orderBy('dependsOnId')
+    expect(
+      edges.map((e: { dependsOnId: string }) => e.dependsOnId).sort()
+    ).to.deep.equal([g100.id, saved.id].sort())
+
+    const bad = await apollo.execute(importMutation, {
+      projectId: project.id,
+      rows: [
+        {
+          ...base,
+          role: 'A',
+          title: 'c1',
+          number: 201,
+          dependsOn: ['TEA-PHD-ZZ-ZZ-M3-A-0202']
+        },
+        {
+          ...base,
+          role: 'A',
+          title: 'c2',
+          number: 202,
+          dependsOn: ['TEA-PHD-ZZ-ZZ-M3-A-0201']
+        },
+        {
+          ...base,
+          role: 'A',
+          title: 'fantasma',
+          number: 203,
+          dependsOn: ['NAO-EXISTE']
+        },
+        { ...base, role: 'A', title: 'status', number: 204, status: 'accepted' }
+      ]
+    })
+    const errors = bad.data!.coordinationMutations.importDeliverables.errors as {
+      row: number
+      message: string
+    }[]
+    expect(errors.map((e) => e.row)).to.deep.equal([1, 2, 3, 4])
+    expect(errors[0].message).to.contain('ciclo')
+    expect(errors[2].message).to.contain('"NAO-EXISTE" não existe')
+    expect(errors[3].message).to.contain('status')
   })
 })
