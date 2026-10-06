@@ -1,6 +1,6 @@
 # Arquitetura: speckle-app
 
-Fork do [Speckle Server](https://github.com/specklesystems/speckle-server) (monorepo Yarn 4 workspaces, Node 22) estendido pela PHD Engenharia com um **módulo de gestão de facilities / gêmeo digital**. O frontend dessas funcionalidades **não** é o `frontend-2` do Speckle, e sim o repositório separado `C:\dev\speckle-digitaltwin-console` (NexTwin), que consome esta API GraphQL.
+Fork do [Speckle Server](https://github.com/specklesystems/speckle-server) (monorepo Yarn 4 workspaces, Node 22) estendido pela OFFICIO com um **módulo de gestão de facilities / gêmeo digital**. O frontend dessas funcionalidades **não** é o `frontend-2` do Speckle, e sim o repositório separado `C:\dev\speckle-digitaltwin-console` (NexTwin), que consome esta API GraphQL.
 
 ## O que é upstream e o que é nosso
 
@@ -25,7 +25,7 @@ Fork do [Speckle Server](https://github.com/specklesystems/speckle-server) (mono
 | `rest/router.ts`       | Ingestão de leituras de sensores físicos: `POST /api/facilities/sensors/:projectId/:sensorId/readings`, autenticada por chave de API do dispositivo com hash bcrypt. |
 | `helpers/types.ts`     | Tipos de registro do banco e de domínio.                                                                                                                             |
 
-Domínios: coordenação BIM (model check ISO 19650: requisitos OIR/AIR/PIR/EIR, marcos, conjuntos de regras WHERE/CHECK versionados, runs sobre versões de modelo; arquivos `*/coordination*.ts`, tabelas `coord_*`), facility (andares, espaços, sistemas, ativos, tipos de ativo com classificação IFC/COBie), código de identidade do ativo (`PHD-NNNNNN-C`), simulação de dispositivos (estado, telemetria, energia), manutenção (ordens), documentos (plantas, manuais, ARTs, com status e revisão), sensores, manutenção preditiva (injeção de falhas, sinais de saúde, relatórios de IA).
+Domínios: coordenação BIM (model check ISO 19650: requisitos OIR/AIR/PIR/EIR, marcos, conjuntos de regras WHERE/CHECK versionados, runs sobre versões de modelo; arquivos `*/coordination*.ts`, tabelas `coord_*`), facility (andares, espaços, sistemas, ativos, tipos de ativo com classificação IFC/COBie), código de identidade do ativo (`NXT-NNNNNN-C`), simulação de dispositivos (estado, telemetria, energia), manutenção (ordens), documentos (plantas, manuais, ARTs, com status e revisão), sensores, manutenção preditiva (injeção de falhas, sinais de saúde, relatórios de IA).
 
 ## Autorização
 

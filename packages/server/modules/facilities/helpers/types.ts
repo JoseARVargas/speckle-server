@@ -111,7 +111,7 @@ export type AssetRecord = {
   facilityId: string
   tagNumber: string
   /**
-   * PHD-NNNNNN-C - system-generated global identity code (ISO/IEC
+   * NXT-NNNNNN-C - system-generated global identity code (ISO/IEC
    * 81346-style: identity/location/function kept separate). Never edited
    * after creation - see services/identity.ts.
    */

@@ -24,11 +24,11 @@ function luhnCheckDigit(payload: string): number {
 
 function formatIdentityCode(n: number): string {
   const payload = String(n).padStart(6, '0')
-  return `PHD-${payload}-${luhnCheckDigit(payload)}`
+  return `NXT-${payload}-${luhnCheckDigit(payload)}`
 }
 
 /**
- * Adds the PHD-NNNNNN-C system-generated asset identity code (see
+ * Adds the NXT-NNNNNN-C system-generated asset identity code (see
  * services/identity.ts) as its own field, kept separate from tagNumber -
  * tagNumber still matches the BIM model's own tag property for
  * reconciliation and must not be repurposed for this.

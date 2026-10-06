@@ -36,8 +36,8 @@ def sample_ifc(tmp_path) -> dict:
             )
         return el
 
-    ok = element("IfcColumn", "P1", "Pset_PHD", {"ClasseConcreto": "C30"})
-    bad = element("IfcColumn", "P2", "Pset_PHD", {"ClasseConcreto": "C25"})
+    ok = element("IfcColumn", "P1", "Pset_Teste", {"ClasseConcreto": "C30"})
+    bad = element("IfcColumn", "P2", "Pset_Teste", {"ClasseConcreto": "C25"})
     door = element("IfcDoor", "D1")
     wall = element("IfcWall", "W1")
     path = tmp_path / "sample.ifc"
