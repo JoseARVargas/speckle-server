@@ -1,8 +1,15 @@
 import { BadRequestError } from '@/modules/shared/errors'
 import type { AssetNamingConfig } from '@/modules/facilities/helpers/types'
 
+/**
+ * Sequence tokens: the next free number among the facility's tags that share
+ * the rest of the rendered tag, padded to 2 ({seq}) or 3 ({seq3}) digits.
+ * Computed by the client when suggesting a tag; only valid in the tag template.
+ */
+export const SEQUENCE_TOKENS = ['seq', 'seq3'] as const
+
 export const DEFAULT_ASSET_NAMING_CONFIG: AssetNamingConfig = {
-  tagTemplate: '{tag}',
+  tagTemplate: '{groupCode}-{familyCode}-{typeCode}-{seq3}',
   nameTemplate: '{name}',
   ifcClassProperty: 'IfcType',
   propertyMappings: {}
@@ -33,7 +40,14 @@ export function validateAssetNamingConfig(value: unknown): AssetNamingConfig {
   const entries = Object.entries(propertyMappings as Record<string, unknown>)
   if (entries.length > 20)
     throw new BadRequestError('At most 20 property mappings are allowed')
-  const reservedTokens = new Set(['tag', 'name', 'groupCode', 'familyCode', 'typeCode'])
+  const reservedTokens = new Set([
+    'tag',
+    'name',
+    'groupCode',
+    'familyCode',
+    'typeCode',
+    ...SEQUENCE_TOKENS
+  ])
   const normalizedMappings: Record<string, string> = {}
   for (const [token, property] of entries) {
     if (
@@ -57,11 +71,14 @@ export function validateAssetNamingConfig(value: unknown): AssetNamingConfig {
     'typeCode',
     ...Object.keys(normalizedMappings)
   ])
-  const templates = [tagTemplate, nameTemplate]
-  for (const template of templates) {
+  const templates: [string, Set<string>][] = [
+    [tagTemplate, new Set([...allowedTokens, ...SEQUENCE_TOKENS])],
+    [nameTemplate, allowedTokens]
+  ]
+  for (const [template, allowed] of templates) {
     const tokens = template.match(/\{([^{}]+)\}/g) ?? []
     if (
-      tokens.some((token) => !allowedTokens.has(token.slice(1, -1))) ||
+      tokens.some((token) => !allowed.has(token.slice(1, -1))) ||
       /[{}]/.test(template.replace(/\{[^{}]+\}/g, ''))
     ) {
       throw new BadRequestError('Templates contain unknown or malformed tokens')
