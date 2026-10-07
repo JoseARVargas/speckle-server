@@ -1111,6 +1111,29 @@ export const CoordDeliverableRequirements = buildTableHelper(
   ['deliverableId', 'requirementId']
 )
 
+export const CoordPropertyIndex = buildTableHelper('coord_property_index', [
+  'versionId',
+  'projectId',
+  'modelId',
+  'elementCount',
+  'truncated',
+  'paths',
+  'ifcTypes',
+  'createdAt'
+])
+
+export const CoordSearchSets = buildTableHelper('coord_search_sets', [
+  'id',
+  'projectId',
+  'name',
+  'description',
+  'modelId',
+  'where',
+  'createdBy',
+  'createdAt',
+  'updatedAt'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'

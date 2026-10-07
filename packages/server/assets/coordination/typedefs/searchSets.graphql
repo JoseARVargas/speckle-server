@@ -1,0 +1,95 @@
+# BIM coordination, phase 2a: property index of a model version (feeds the
+# autocomplete of condition editors) and Search Sets (named, reusable element
+# selections used by clash groups and copied into Model Check rules).
+
+extend type ProjectCoordination {
+  """
+  Property paths of a model version (latest when versionId is omitted), with
+  how many elements have each one, sample values and IFC classes. Computed
+  once per version and kept.
+  """
+  modelProperties(modelId: String!, versionId: String): CoordPropertyIndex!
+  searchSets: [CoordSearchSet!]!
+  searchSet(id: String!): CoordSearchSet
+  """
+  How many elements of a model version match the conditions, with a sample
+  """
+  searchSetPreview(
+    modelId: String!
+    versionId: String
+    where: [JSONObject!]!
+  ): CoordSearchSetPreview!
+}
+
+type CoordPropertyIndex {
+  versionId: String!
+  modelId: String!
+  elementCount: Int!
+  """
+  true when the element or path limits were reached
+  """
+  truncated: Boolean!
+  paths: [CoordPropertyPath!]!
+  ifcTypes: [CoordIfcTypeCount!]!
+}
+
+type CoordPropertyPath {
+  path: String!
+  """
+  Elements that have this property
+  """
+  count: Int!
+  samples: [String!]!
+}
+
+type CoordIfcTypeCount {
+  type: String!
+  count: Int!
+}
+
+type CoordSearchSet {
+  id: String!
+  name: String!
+  description: String
+  """
+  The set only applies to this model, when set
+  """
+  modelId: String
+  """
+  Conditions (same format as Model Check WHERE)
+  """
+  where: [JSONObject!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CoordSearchSetPreview {
+  versionId: String!
+  elementCount: Int!
+  matchCount: Int!
+  truncated: Boolean!
+  sample: [CoordSearchSetElement!]!
+  """
+  Viewer object ids of the matches (first 10000), to highlight them
+  """
+  objectIds: [String!]!
+}
+
+type CoordSearchSetElement {
+  elementKey: String
+  speckleObjectId: String!
+  name: String
+  ifcType: String
+}
+
+extend type CoordinationMutations {
+  """
+  { name, description?, modelId?, where: [condition] }
+  """
+  createSearchSet(projectId: String!, input: JSONObject!): CoordSearchSet!
+  updateSearchSet(id: String!, input: JSONObject!): CoordSearchSet!
+  """
+  Refused while a clash test uses the set
+  """
+  deleteSearchSet(id: String!): Boolean!
+}

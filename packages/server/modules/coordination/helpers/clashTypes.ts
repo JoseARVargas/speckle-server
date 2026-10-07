@@ -31,6 +31,8 @@ export type ClashType = (typeof ClashTypes)[number]
 const groupSchema = z
   .object({
     modelId: z.string().trim().min(1).max(10),
+    /** optional Search Set whose conditions are prepended when a run is queued */
+    searchSetId: z.string().trim().min(1).max(10).nullish(),
     where: z
       .array(coordConditionSchema)
       .max(COORD_LIMITS.maxConditionsPerList)
