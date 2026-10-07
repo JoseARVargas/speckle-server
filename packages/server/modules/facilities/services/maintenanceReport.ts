@@ -7,15 +7,13 @@ import {
   getAssetByIdFactory,
   listAssetsFactory
 } from '@/modules/facilities/repositories/facilities'
+import { insertMaintenanceReportFactory } from '@/modules/facilities/repositories/health'
 import {
-  listHealthSignalsByAssetFactory,
-  listHealthSignalsByFacilityFactory,
-  insertMaintenanceReportFactory
-} from '@/modules/facilities/repositories/health'
-import type {
-  DeviceHealthSignalRecord,
-  MaintenanceReportRecord
-} from '@/modules/facilities/helpers/types'
+  getAssetHealthSignalsFactory,
+  getFacilityHealthSignalsFactory
+} from '@/modules/facilities/services/health'
+import type { HealthSignal } from '@/modules/facilities/services/simulationModel'
+import type { MaintenanceReportRecord } from '@/modules/facilities/helpers/types'
 
 const ReportSchema = z.object({
   summary: z.string().describe('2-4 sentences in plain language, no jargon dump'),
@@ -37,7 +35,7 @@ Respond with ONLY a single JSON object, no markdown fences, no other text, match
 {"summary": string, "recommendation": string, "severity": "info" | "warning" | "critical"}`
 
 function formatSignals(
-  signals: DeviceHealthSignalRecord[],
+  signals: HealthSignal[],
   assetLabel?: (assetId: string) => string
 ): string {
   if (!signals.length) return '[]'
@@ -74,15 +72,16 @@ export const generateMaintenanceReportFactory =
       )
     }
 
-    let signals: DeviceHealthSignalRecord[]
+    let signals: HealthSignal[]
     let promptInput: string
     let deviceContext: string
 
     if (params.assetId) {
       const asset = await getAssetByIdFactory({ db: deps.db })({ id: params.assetId })
       if (!asset) throw new BadRequestError('Asset not found')
-      signals = await listHealthSignalsByAssetFactory({ db: deps.db })({
-        assetId: params.assetId
+      signals = await getAssetHealthSignalsFactory({ db: deps.db })({
+        assetId: params.assetId,
+        projectId: params.projectId
       })
       deviceContext = `Single device: "${asset.tagNumber}"${
         asset.name ? ` (${asset.name})` : ''
@@ -96,7 +95,8 @@ export const generateMaintenanceReportFactory =
       const labels = new Map(
         assets.map((a) => [a.id, a.name ? `${a.tagNumber} (${a.name})` : a.tagNumber])
       )
-      signals = await listHealthSignalsByFacilityFactory({ db: deps.db })({
+      signals = await getFacilityHealthSignalsFactory({ db: deps.db })({
+        projectId: params.projectId,
         assetIds: assets.map((a) => a.id)
       })
       deviceContext = `Facility-wide report across ${assets.length} device(s).`

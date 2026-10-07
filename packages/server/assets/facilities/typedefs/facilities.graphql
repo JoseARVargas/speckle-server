@@ -65,15 +65,16 @@ type FacilityDashboard {
   totalAssets: Int!
   assetsOn: Int!
   """
-  Total simulated instantaneous power draw at the most recent simulation
-  tick, summed across every asset with a device state.
+  Total simulated instantaneous power draw now, summed across every asset
+  with a device state.
   """
   currentPowerKw: Float!
   cumulativeKwh: Float!
   cumulativeCost: Float!
   bySystem: [FacilitySystemBreakdown!]!
   """
-  Facility-wide power/energy/cost per simulation tick, oldest first.
+  Facility-wide power/energy/cost per 15s simulation tick, oldest first.
+  At most 1000 points.
   """
   series(limit: Int = 120): [FacilityEnergyPoint!]!
 }
@@ -338,11 +339,13 @@ type Asset {
   """
   deviceState: DeviceState
   """
-  Simulated temperature readings, most recent first.
+  Simulated temperature readings on the 15s grid, most recent first. At
+  most 1000.
   """
   telemetryHistory(limit: Int = 50): [TelemetryReading!]!
   """
-  Simulated energy/cost readings, most recent first.
+  Simulated energy/cost readings on the 15s grid, most recent first. At
+  most 1000.
   """
   energyHistory(limit: Int = 50): [EnergyReading!]!
   createdAt: DateTime!
@@ -355,9 +358,9 @@ enum DevicePowerState {
 }
 
 """
-Live simulated state of an asset's device - see the facilities module's
-simulation worker, which ticks this forward every few seconds once an
-asset has a state at all.
+Live simulated state of an asset's device, computed when read from the
+events recorded so far (power, setpoint, fault profile, tariff) - see the
+facilities module's simulationModel.
 """
 type DeviceState {
   assetId: String!

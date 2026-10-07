@@ -23,8 +23,9 @@ enum HealthSeverity {
 
 """
 Current statistical state of one metric for one device - a moving
-baseline/z-score and trend regression over its recent telemetry, recomputed
-every simulation tick. One signal per (asset, metric).
+baseline/z-score and trend regression over its last 30 simulated readings,
+computed when read. One signal per (asset, metric); none for a device that
+was off during the whole window.
 """
 type DeviceHealthSignal {
   assetId: String!
@@ -33,8 +34,8 @@ type DeviceHealthSignal {
   severity: HealthSeverity!
   zScore: Float!
   """
-  When the current severity started (unchanged across ticks as long as the
-  severity stays the same, so this reads as "warning since 14:32").
+  When the current severity started, so this reads as "warning since 14:32".
+  Searched at most 2 hours back: an older state reads as "at least since".
   """
   since: DateTime!
   updatedAt: DateTime!

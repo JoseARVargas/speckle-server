@@ -1,190 +1,138 @@
 import cryptoRandomString from 'crypto-random-string'
-import { moduleLogger } from '@/observability/logging'
 import type { Knex } from 'knex'
 import {
-  ensureDeviceStateFactory,
+  getLatestSegmentFactory,
   insertDeviceCommandFactory,
-  insertEnergyReadingFactory,
-  insertTelemetryReadingFactory,
-  listAllDeviceStatesFactory,
-  updateDeviceStateFactory
+  listAssetSegmentsFactory,
+  listLatestProjectSegmentsFactory,
+  listProjectSegmentsFactory,
+  recordSegmentFactory
 } from '@/modules/facilities/repositories/simulation'
 import { getFacilityByProjectIdFactory } from '@/modules/facilities/repositories/facilities'
-import { runHealthDetectionFactory } from '@/modules/facilities/services/health'
 import type {
   DeviceCommandType,
-  DevicePowerState
+  DevicePowerState,
+  DeviceStateRecord
 } from '@/modules/facilities/helpers/types'
+import type {
+  SimulatedReading,
+  SimulationSegment
+} from '@/modules/facilities/services/simulationModel'
+import {
+  nextSegment,
+  readingAt,
+  readingsUntil,
+  windowStartMs
+} from '@/modules/facilities/services/simulationModel'
+import { BadRequestError } from '@/modules/shared/errors'
 
-const TICK_SECONDS = 15
-// How fast the temperature converges toward its target - lower is faster.
-// Tuned for a demo (minutes, not the ~15-20min a real split AC takes) rather
-// than physical accuracy.
-const ON_TIME_CONSTANT_SECONDS = 5 * 60
-const OFF_TIME_CONSTANT_SECONDS = 12 * 60
-const NOISE_DEGREES = 0.15
-// Below this distance from the setpoint, the compressor is treated as
-// cycling (low duty) rather than running flat out.
-const CYCLING_BAND_DEGREES = 1
-// Single-phase line voltage assumed for deriving simulated amperage from
-// simulated power draw - matches what a real PZEM-004T would be wired at.
-const VOLTAGE_V = 220
-// How long after power-on the compressor's inrush current spike decays back
-// to its steady-state value.
-const STARTUP_WINDOW_SECONDS = 45
-// A healthy unit's starting current is roughly this multiple of its
-// steady-state draw.
-const STARTUP_PEAK_MULTIPLIER = 3
+/**
+ * The simulated devices: events write segments, everything else is
+ * computed on read from them (services/simulationModel.ts). Nothing runs in
+ * the background.
+ */
+
 // A real remote (IR) gives no direct acknowledgement - the UI only ever
 // finds out a command took effect once telemetry reflects it. Delaying the
 // command's application here (rather than applying it synchronously) keeps
 // the frontend honest about that instead of assuming instant confirmation.
 const COMMAND_APPLY_DELAY_MS = [2000, 5000] as const
+const DEFAULT_TARIFF_PER_KWH = 0.75
 
-const jitter = (spread: number) => (Math.random() * 2 - 1) * spread
+/** Cap on readings per history/series request (A06: computed on demand). */
+export const MAX_HISTORY_POINTS = 1000
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const randomDelay = () =>
   COMMAND_APPLY_DELAY_MS[0] +
   Math.random() * (COMMAND_APPLY_DELAY_MS[1] - COMMAND_APPLY_DELAY_MS[0])
 
-/**
- * One simulation step for every asset that has ever been turned on or had
- * its temperature set, across the whole database - see listAllDeviceStatesFactory
- * for why this isn't scoped per-project.
- */
-export const runSimulationTickFactory =
-  (deps: { db: Knex }) => async (): Promise<void> => {
-    const states = await listAllDeviceStatesFactory(deps)()
-    if (!states.length) return
-
-    const tariffCache = new Map<string, number>()
-    const getTariff = async (projectId: string) => {
-      const cached = tariffCache.get(projectId)
-      if (cached !== undefined) return cached
-      const facility = await getFacilityByProjectIdFactory(deps)({ projectId })
-      const tariff = facility?.energyTariffPerKwh ?? 0.75
-      tariffCache.set(projectId, tariff)
-      return tariff
-    }
-
-    const now = new Date()
-    for (const state of states) {
-      const isOn = state.powerState === 'on'
-      const target = isOn ? state.setpoint : state.ambientTemperature
-      const timeConstant = isOn ? ON_TIME_CONSTANT_SECONDS : OFF_TIME_CONSTANT_SECONDS
-      // A degraded unit (low refrigerant, dirty filter, ...) removes heat
-      // less effectively per tick - modeled as a slower convergence toward
-      // setpoint while running. That alone also keeps compressorDuty pinned
-      // at 1 for longer below, since the room stays "far from setpoint"
-      // longer - no separate duty adjustment needed.
-      const convergence =
-        (1 - Math.exp(-TICK_SECONDS / timeConstant)) *
-        (isOn ? 1 - state.degradationRate * 0.85 : 1)
-      const nextTemperature =
-        state.currentTemperature +
-        (target - state.currentTemperature) * convergence +
-        jitter(NOISE_DEGREES)
-
-      // The compressor doesn't run flat out the whole time the unit is "on" -
-      // it cycles down to a low duty once the room is near setpoint, same as
-      // a real split AC.
-      let compressorDuty = 0
-      if (isOn) {
-        const distance = Math.abs(state.currentTemperature - state.setpoint)
-        compressorDuty =
-          distance > CYCLING_BAND_DEGREES ? 1 : 0.2 + Math.random() * 0.15
-      }
-      const powerKw = state.nominalPowerKw * compressorDuty
-
-      // Reported amperage gets its own noise/spike on top of the
-      // (noise-free) power used for energy accounting, so the accumulated
-      // kWh stays clean while the live reading still looks like a real
-      // sensor.
-      let currentA = 0
-      if (isOn) {
-        const baseCurrentA = (powerKw * 1000) / VOLTAGE_V
-        // Inrush current spike right after power-on, decaying linearly back
-        // to the steady-state value - a worn starting capacitor
-        // (startupCurrentDecay) shrinks how high that peak reaches.
-        const secondsSincePowerOn = state.poweredOnAt
-          ? (now.getTime() - state.poweredOnAt.getTime()) / 1000
-          : Infinity
-        let startupMultiplier = 1
-        if (secondsSincePowerOn < STARTUP_WINDOW_SECONDS) {
-          const peak =
-            1 + (STARTUP_PEAK_MULTIPLIER - 1) * (1 - state.startupCurrentDecay)
-          const progress = secondsSincePowerOn / STARTUP_WINDOW_SECONDS
-          startupMultiplier = peak - (peak - 1) * progress
-        }
-        // A degraded electrical contact shows up as noisier readings, not a
-        // shifted mean - only the noise spread scales with
-        // noiseAmplification, never the underlying value.
-        currentA =
-          baseCurrentA *
-          startupMultiplier *
-          (1 + jitter(0.02 * state.noiseAmplification))
-      }
-
-      const energyKwhInterval = powerKw * (TICK_SECONDS / 3600)
-      const cumulativeKwh = state.cumulativeKwh + energyKwhInterval
-      const tariff = await getTariff(state.projectId)
-      const costInterval = energyKwhInterval * tariff
-      const cumulativeCost = state.cumulativeCost + costInterval
-
-      await updateDeviceStateFactory(deps)({
-        assetId: state.assetId,
-        update: {
-          currentTemperature: nextTemperature,
-          cumulativeKwh,
-          cumulativeCost,
-          compressorDuty,
-          currentA
-        }
-      })
-      await insertTelemetryReadingFactory(deps)({
-        assetId: state.assetId,
-        projectId: state.projectId,
-        ts: now,
-        temperature: nextTemperature,
-        powerState: state.powerState,
-        compressorDuty,
-        currentA
-      })
-      await insertEnergyReadingFactory(deps)({
-        assetId: state.assetId,
-        projectId: state.projectId,
-        ts: now,
-        powerKw,
-        energyKwhInterval,
-        cumulativeKwh,
-        costInterval,
-        cumulativeCost
-      })
-      await runHealthDetectionFactory(deps)({
-        assetId: state.assetId,
-        projectId: state.projectId
-      })
-    }
+export const assertHistoryLimit = (limit: number) => {
+  if (!Number.isInteger(limit) || limit < 0 || limit > MAX_HISTORY_POINTS) {
+    throw new BadRequestError(
+      `limit must be an integer between 0 and ${MAX_HISTORY_POINTS}`
+    )
   }
-
-let tickInFlight = false
-
-export const startSimulationWorker = (deps: { db: Knex }) => {
-  const runTick = runSimulationTickFactory(deps)
-  const interval = setInterval(() => {
-    if (tickInFlight) return
-    tickInFlight = true
-    runTick()
-      .catch((err) => moduleLogger.error({ err }, 'Simulation tick failed'))
-      .finally(() => {
-        tickInFlight = false
-      })
-  }, TICK_SECONDS * 1000)
-  interval.unref?.()
-  return interval
 }
 
-// ---- commands ---------------------------------------------------------
+/** The DeviceState shape (GraphQL and the device_states mirror) at nowMs. */
+export const deviceStateAt = (
+  segment: SimulationSegment,
+  nowMs: number
+): DeviceStateRecord => {
+  // A single segment is enough: it is the one active at nowMs
+  const reading = readingAt([segment], Math.max(nowMs, segment.startsAt.getTime()))!
+  return {
+    assetId: segment.assetId,
+    projectId: segment.projectId,
+    powerState: segment.powerState,
+    setpoint: segment.setpoint,
+    currentTemperature: reading.temperature,
+    ambientTemperature: segment.ambientTemperature,
+    nominalPowerKw: segment.nominalPowerKw,
+    cumulativeKwh: reading.cumulativeKwh,
+    cumulativeCost: reading.cumulativeCost,
+    compressorDuty: reading.compressorDuty,
+    currentA: reading.currentA,
+    degradationRate: segment.degradationRate,
+    startupCurrentDecay: segment.startupCurrentDecay,
+    noiseAmplification: segment.noiseAmplification,
+    poweredOnAt: segment.poweredOnAt,
+    updatedAt: reading.ts
+  }
+}
+
+// ---- events -----------------------------------------------------------------------
+
+type SegmentChanges = Parameters<typeof nextSegment>[0]['changes']
+
+const applyEventFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    assetId: string
+    projectId: string
+    changes: SegmentChanges
+  }): Promise<DeviceStateRecord> => {
+    const facility = await getFacilityByProjectIdFactory(deps)({
+      projectId: params.projectId
+    })
+    const { mirror } = await recordSegmentFactory(deps)({
+      assetId: params.assetId,
+      projectId: params.projectId,
+      build: (previous) => {
+        const nowMs = Date.now()
+        const segment = nextSegment({
+          previous,
+          assetId: params.assetId,
+          projectId: params.projectId,
+          tMs: nowMs,
+          defaultTariffPerKwh: facility?.energyTariffPerKwh ?? DEFAULT_TARIFF_PER_KWH,
+          changes: params.changes
+        })
+        return { segment, mirror: deviceStateAt(segment, nowMs) }
+      }
+    })
+    return mirror
+  }
+
+const logCommandFactory =
+  (deps: { db: Knex }) =>
+  (params: {
+    assetId: string
+    projectId: string
+    commandType: DeviceCommandType
+    value: number | null
+    userId: string | null
+  }) =>
+    insertDeviceCommandFactory(deps)({
+      id: cryptoRandomString({ length: 10 }),
+      assetId: params.assetId,
+      projectId: params.projectId,
+      commandType: params.commandType,
+      value: params.value,
+      issuedBy: params.userId,
+      issuedAt: new Date()
+    })
 
 export const setAssetPowerFactory =
   (deps: { db: Knex }) =>
@@ -194,30 +142,20 @@ export const setAssetPowerFactory =
     powerState: DevicePowerState
     userId: string | null
   }) => {
-    await ensureDeviceStateFactory(deps)({
-      assetId: params.assetId,
-      projectId: params.projectId
-    })
-    const commandType: DeviceCommandType =
-      params.powerState === 'on' ? 'power_on' : 'power_off'
-    await insertDeviceCommandFactory(deps)({
-      id: cryptoRandomString({ length: 10 }),
+    await logCommandFactory(deps)({
       assetId: params.assetId,
       projectId: params.projectId,
-      commandType,
+      commandType: params.powerState === 'on' ? 'power_on' : 'power_off',
       value: null,
-      issuedBy: params.userId,
-      issuedAt: new Date()
+      userId: params.userId
     })
     await sleep(randomDelay())
-    return await updateDeviceStateFactory(deps)({
+    // poweredOnAt marks the moment power was actually applied (post-latency):
+    // the startup current spike counts from here.
+    return await applyEventFactory(deps)({
       assetId: params.assetId,
-      update: {
-        powerState: params.powerState,
-        // Marks the moment power was actually applied (post-latency) - the
-        // startup current spike in the tick counts from here.
-        poweredOnAt: params.powerState === 'on' ? new Date() : null
-      }
+      projectId: params.projectId,
+      changes: { powerState: params.powerState }
     })
   }
 
@@ -229,33 +167,25 @@ export const setAssetTemperatureFactory =
     setpoint: number
     userId: string | null
   }) => {
-    await ensureDeviceStateFactory(deps)({
-      assetId: params.assetId,
-      projectId: params.projectId
-    })
-    await insertDeviceCommandFactory(deps)({
-      id: cryptoRandomString({ length: 10 }),
+    await logCommandFactory(deps)({
       assetId: params.assetId,
       projectId: params.projectId,
       commandType: 'set_temperature',
       value: params.setpoint,
-      issuedBy: params.userId,
-      issuedAt: new Date()
+      userId: params.userId
     })
     await sleep(randomDelay())
-    return await updateDeviceStateFactory(deps)({
+    return await applyEventFactory(deps)({
       assetId: params.assetId,
-      update: { setpoint: params.setpoint }
+      projectId: params.projectId,
+      changes: { setpoint: params.setpoint }
     })
   }
 
-// ---- fault injection (predictive maintenance testing) ---------------------
-
 /**
- * Sets a device's fault-injection knobs (see runSimulationTickFactory for
- * how each one distorts the physics) - takes effect on the next tick, no
- * command latency, since this represents a hardware condition rather than a
- * user-issued control action.
+ * Sets a device's fault-injection knobs (see simulationModel.ts for how each
+ * one distorts the physics) - immediate, no command latency, since this
+ * represents a hardware condition rather than a user-issued control action.
  */
 export const setDeviceFaultProfileFactory =
   (deps: { db: Knex }) =>
@@ -266,24 +196,138 @@ export const setDeviceFaultProfileFactory =
     startupCurrentDecay?: number | null
     noiseAmplification?: number | null
   }) => {
-    await ensureDeviceStateFactory(deps)({
+    const changes: SegmentChanges = {}
+    if (params.degradationRate !== undefined && params.degradationRate !== null)
+      changes.degradationRate = params.degradationRate
+    if (params.startupCurrentDecay !== undefined && params.startupCurrentDecay !== null)
+      changes.startupCurrentDecay = params.startupCurrentDecay
+    if (params.noiseAmplification !== undefined && params.noiseAmplification !== null)
+      changes.noiseAmplification = params.noiseAmplification
+    return await applyEventFactory(deps)({
       assetId: params.assetId,
+      projectId: params.projectId,
+      changes
+    })
+  }
+
+/**
+ * A facility tariff change bills from now on: every simulated asset of the
+ * project gets a new segment with the new tariff (energy so far keeps the
+ * old one).
+ */
+export const applyTariffChangeFactory =
+  (deps: { db: Knex }) =>
+  async (params: { projectId: string; tariffPerKwh: number }) => {
+    const latest = await listLatestProjectSegmentsFactory(deps)({
       projectId: params.projectId
     })
-    return await updateDeviceStateFactory(deps)({
+    for (const segment of latest) {
+      if (segment.tariffPerKwh === params.tariffPerKwh) continue
+      await applyEventFactory(deps)({
+        assetId: segment.assetId,
+        projectId: params.projectId,
+        changes: { tariffPerKwh: params.tariffPerKwh }
+      })
+    }
+  }
+
+// ---- reads --------------------------------------------------------------------------
+
+/** Live state, or null until the asset has been turned on / set once. */
+export const getDeviceStateFactory =
+  (deps: { db: Knex }) =>
+  async (params: { assetId: string }): Promise<DeviceStateRecord | null> => {
+    const segment = await getLatestSegmentFactory(deps)({ assetId: params.assetId })
+    return segment ? deviceStateAt(segment, Date.now()) : null
+  }
+
+/** The last `limit` grid readings of one asset, most recent first. */
+export const listAssetReadingsFactory =
+  (deps: { db: Knex }) =>
+  async (params: { assetId: string; limit: number }): Promise<SimulatedReading[]> => {
+    assertHistoryLimit(params.limit)
+    if (!params.limit) return []
+    const nowMs = Date.now()
+    const segments = await listAssetSegmentsFactory(deps)({
       assetId: params.assetId,
-      update: {
-        ...(params.degradationRate !== undefined && params.degradationRate !== null
-          ? { degradationRate: params.degradationRate }
-          : {}),
-        ...(params.startupCurrentDecay !== undefined &&
-        params.startupCurrentDecay !== null
-          ? { startupCurrentDecay: params.startupCurrentDecay }
-          : {}),
-        ...(params.noiseAmplification !== undefined &&
-        params.noiseAmplification !== null
-          ? { noiseAmplification: params.noiseAmplification }
-          : {})
-      }
+      from: new Date(windowStartMs(nowMs, params.limit)),
+      to: new Date(nowMs)
     })
+    return readingsUntil(segments, nowMs, params.limit).reverse()
+  }
+
+/** Live state of every simulated asset of a project. */
+export const listProjectDeviceStatesFactory =
+  (deps: { db: Knex }) =>
+  async (params: { projectId: string }): Promise<DeviceStateRecord[]> => {
+    const nowMs = Date.now()
+    const latest = await listLatestProjectSegmentsFactory(deps)({
+      projectId: params.projectId
+    })
+    return latest.map((segment) => deviceStateAt(segment, nowMs))
+  }
+
+/**
+ * Facility-wide power/energy/cost per grid tick (every asset shares the
+ * ticks), oldest first, for the `limit` most recent ticks with any reading.
+ */
+export const getFacilityEnergySeriesFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    projectId: string
+    limit: number
+  }): Promise<
+    { ts: Date; powerKw: number; energyKwhInterval: number; costInterval: number }[]
+  > => {
+    assertHistoryLimit(params.limit)
+    if (!params.limit) return []
+    const nowMs = Date.now()
+    const byAsset = await listProjectSegmentsFactory(deps)({
+      projectId: params.projectId,
+      from: new Date(windowStartMs(nowMs, params.limit)),
+      to: new Date(nowMs)
+    })
+    const byTs = new Map<
+      number,
+      { ts: Date; powerKw: number; energyKwhInterval: number; costInterval: number }
+    >()
+    for (const segments of byAsset.values()) {
+      for (const r of readingsUntil(segments, nowMs, params.limit)) {
+        const key = r.ts.getTime()
+        const point = byTs.get(key) ?? {
+          ts: r.ts,
+          powerKw: 0,
+          energyKwhInterval: 0,
+          costInterval: 0
+        }
+        point.powerKw += r.powerKw
+        point.energyKwhInterval += r.energyKwhInterval
+        point.costInterval += r.costInterval
+        byTs.set(key, point)
+      }
+    }
+    return [...byTs.values()].sort((a, b) => a.ts.getTime() - b.ts.getTime())
+  }
+
+/** Dashboard totals at the current grid tick. */
+export const getFacilityEnergyTotalsFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    projectId: string
+  }): Promise<{
+    assetsOn: number
+    currentPowerKw: number
+    cumulativeKwh: number
+    cumulativeCost: number
+  }> => {
+    const states = await listProjectDeviceStatesFactory(deps)(params)
+    return states.reduce(
+      (acc, s) => ({
+        assetsOn: acc.assetsOn + (s.powerState === 'on' ? 1 : 0),
+        currentPowerKw: acc.currentPowerKw + s.nominalPowerKw * s.compressorDuty,
+        cumulativeKwh: acc.cumulativeKwh + s.cumulativeKwh,
+        cumulativeCost: acc.cumulativeCost + s.cumulativeCost
+      }),
+      { assetsOn: 0, currentPowerKw: 0, cumulativeKwh: 0, cumulativeCost: 0 }
+    )
   }

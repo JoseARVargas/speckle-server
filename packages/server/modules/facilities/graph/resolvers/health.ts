@@ -12,11 +12,13 @@ import {
   listAssetsFactory
 } from '@/modules/facilities/repositories/facilities'
 import {
-  listHealthSignalsByAssetFactory,
-  listHealthSignalsByFacilityFactory,
   listMaintenanceReportsByAssetFactory,
   listMaintenanceReportsByFacilityFactory
 } from '@/modules/facilities/repositories/health'
+import {
+  getAssetHealthSignalsFactory,
+  getFacilityHealthSignalsFactory
+} from '@/modules/facilities/services/health'
 
 function assertUnitInterval(value: number | null | undefined, field: string) {
   if (value === null || value === undefined) return
@@ -87,8 +89,9 @@ export default {
   Asset: {
     async healthSignals(parent: { id: string; projectId: string }) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
-      return await listHealthSignalsByAssetFactory({ db: projectDb })({
-        assetId: parent.id
+      return await getAssetHealthSignalsFactory({ db: projectDb })({
+        assetId: parent.id,
+        projectId: parent.projectId
       })
     },
     async maintenanceReports(
@@ -110,7 +113,8 @@ export default {
         facilityId: parent.id,
         limit: 500
       })
-      return await listHealthSignalsByFacilityFactory({ db: projectDb })({
+      return await getFacilityHealthSignalsFactory({ db: projectDb })({
+        projectId: parent.projectId,
         assetIds: assets.map((a) => a.id)
       })
     },
