@@ -49,7 +49,7 @@ services:
         aliases: [officio-minio]
 
   speckle-server:
-    image: ghcr.io/josearvargas/speckle-server:b52b7887ff
+    image: ghcr.io/josearvargas/speckle-server:61c6b3c181
     restart: always
     depends_on:
       postgres:
