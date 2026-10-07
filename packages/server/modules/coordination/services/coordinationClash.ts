@@ -54,6 +54,10 @@ import {
   resolveIfcObjectKeyFactory
 } from '@/modules/coordination/services/coordinationReader'
 import { CoordRunLimitError } from '@/modules/coordination/services/coordinationRunner'
+import {
+  assertClashSearchSetFactory,
+  expandClashGroupFactory
+} from '@/modules/coordination/services/coordinationSearchSets'
 
 /**
  * Clash detection pipeline, Node side (see the migration for the states).
@@ -65,16 +69,18 @@ import { CoordRunLimitError } from '@/modules/coordination/services/coordination
 // ---- tests ------------------------------------------------------------------------
 
 const assertGroupModelsFactory =
-  (deps: { projectDb: Knex }) =>
+  (deps: { db: Knex; projectDb: Knex }) =>
   async (p: { projectId: string; input: ClashTestInput }) => {
-    await assertModelInProjectFactory(deps)({
-      projectId: p.projectId,
-      modelId: p.input.groupA.modelId
-    })
-    if (p.input.groupB) {
+    for (const group of [p.input.groupA, p.input.groupB]) {
+      if (!group) continue
       await assertModelInProjectFactory(deps)({
         projectId: p.projectId,
-        modelId: p.input.groupB.modelId
+        modelId: group.modelId
+      })
+      await assertClashSearchSetFactory(deps)({
+        projectId: p.projectId,
+        modelId: group.modelId,
+        searchSetId: group.searchSetId
       })
     }
   }
@@ -207,8 +213,17 @@ export const enqueueClashRunFactory =
         type: test.type,
         toleranceMm: test.toleranceMm,
         clearanceMm: test.clearanceMm,
-        groupA: test.groupA,
-        groupB: test.groupB,
+        // Search Sets are expanded now: the run keeps this selection
+        groupA: await expandClashGroupFactory(deps)({
+          projectId: test.projectId,
+          group: test.groupA
+        }),
+        groupB: test.groupB
+          ? await expandClashGroupFactory(deps)({
+              projectId: test.projectId,
+              group: test.groupB
+            })
+          : null,
         ignore: test.ignore
       },
       queuedAt: new Date(),

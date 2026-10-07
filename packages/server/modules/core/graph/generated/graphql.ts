@@ -1597,6 +1597,12 @@ export type CoordElementResultCollection = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type CoordIfcTypeCount = {
+  __typename?: 'CoordIfcTypeCount';
+  count: Scalars['Int']['output'];
+  type: Scalars['String']['output'];
+};
+
 export type CoordMilestone = {
   __typename?: 'CoordMilestone';
   discipline?: Maybe<Scalars['String']['output']>;
@@ -1631,6 +1637,25 @@ export type CoordNamingCode = {
   description?: Maybe<Scalars['String']['output']>;
   /** project | originator | volume | level | type | role */
   field: Scalars['String']['output'];
+};
+
+export type CoordPropertyIndex = {
+  __typename?: 'CoordPropertyIndex';
+  elementCount: Scalars['Int']['output'];
+  ifcTypes: Array<CoordIfcTypeCount>;
+  modelId: Scalars['String']['output'];
+  paths: Array<CoordPropertyPath>;
+  /** true when the element or path limits were reached */
+  truncated: Scalars['Boolean']['output'];
+  versionId: Scalars['String']['output'];
+};
+
+export type CoordPropertyPath = {
+  __typename?: 'CoordPropertyPath';
+  /** Elements that have this property */
+  count: Scalars['Int']['output'];
+  path: Scalars['String']['output'];
+  samples: Array<Scalars['String']['output']>;
 };
 
 export type CoordRequirement = {
@@ -1819,6 +1844,38 @@ export const CoordRunTrigger = {
 } as const;
 
 export type CoordRunTrigger = typeof CoordRunTrigger[keyof typeof CoordRunTrigger];
+export type CoordSearchSet = {
+  __typename?: 'CoordSearchSet';
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  /** The set only applies to this model, when set */
+  modelId?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  /** Conditions (same format as Model Check WHERE) */
+  where: Array<Scalars['JSONObject']['output']>;
+};
+
+export type CoordSearchSetElement = {
+  __typename?: 'CoordSearchSetElement';
+  elementKey?: Maybe<Scalars['String']['output']>;
+  ifcType?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  speckleObjectId: Scalars['String']['output'];
+};
+
+export type CoordSearchSetPreview = {
+  __typename?: 'CoordSearchSetPreview';
+  elementCount: Scalars['Int']['output'];
+  matchCount: Scalars['Int']['output'];
+  /** Viewer object ids of the matches (first 10000), to highlight them */
+  objectIds: Array<Scalars['String']['output']>;
+  sample: Array<CoordSearchSetElement>;
+  truncated: Scalars['Boolean']['output'];
+  versionId: Scalars['String']['output'];
+};
+
 export const CoordSeverity = {
   Error: 'error',
   Warning: 'warning'
@@ -1834,6 +1891,8 @@ export type CoordinationMutations = {
   createRequirement: CoordRequirement;
   createRequirementSource: CoordRequirementSource;
   createRuleSet: CoordRuleSet;
+  /** { name, description?, modelId?, where: [condition] } */
+  createSearchSet: CoordSearchSet;
   deleteClashTest: Scalars['Boolean']['output'];
   deleteDeliverable: Scalars['Boolean']['output'];
   deleteDraftRule: Scalars['Boolean']['output'];
@@ -1841,6 +1900,8 @@ export type CoordinationMutations = {
   deleteRequirement: Scalars['Boolean']['output'];
   deleteRequirementSource: Scalars['Boolean']['output'];
   deleteRuleSet: Scalars['Boolean']['output'];
+  /** Refused while a clash test uses the set */
+  deleteSearchSet: Scalars['Boolean']['output'];
   duplicateRuleSet: CoordRuleSet;
   /** Rows already mapped from a CSV; all or nothing */
   importDeliverables: CoordDeliverableImportResult;
@@ -1872,6 +1933,7 @@ export type CoordinationMutations = {
   updateRequirement: CoordRequirement;
   updateRequirementSource: CoordRequirementSource;
   updateRuleSet: CoordRuleSet;
+  updateSearchSet: CoordSearchSet;
   /**
    * Creates (ruleId null) or updates a rule of the draft, creating the draft
    * from the published version when there's none
@@ -1922,6 +1984,12 @@ export type CoordinationMutationsCreateRuleSetArgs = {
 };
 
 
+export type CoordinationMutationsCreateSearchSetArgs = {
+  input: Scalars['JSONObject']['input'];
+  projectId: Scalars['String']['input'];
+};
+
+
 export type CoordinationMutationsDeleteClashTestArgs = {
   id: Scalars['String']['input'];
 };
@@ -1953,6 +2021,11 @@ export type CoordinationMutationsDeleteRequirementSourceArgs = {
 
 
 export type CoordinationMutationsDeleteRuleSetArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsDeleteSearchSetArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -2079,6 +2152,12 @@ export type CoordinationMutationsUpdateRequirementSourceArgs = {
 export type CoordinationMutationsUpdateRuleSetArgs = {
   id: Scalars['String']['input'];
   input: CoordRuleSetInput;
+};
+
+
+export type CoordinationMutationsUpdateSearchSetArgs = {
+  id: Scalars['String']['input'];
+  input: Scalars['JSONObject']['input'];
 };
 
 
@@ -4924,12 +5003,22 @@ export type ProjectCoordination = {
   deliverables: Array<CoordDeliverable>;
   milestoneReport?: Maybe<CoordMilestoneReport>;
   milestones: Array<CoordMilestone>;
+  /**
+   * Property paths of a model version (latest when versionId is omitted), with
+   * how many elements have each one, sample values and IFC classes. Computed
+   * once per version and kept.
+   */
+  modelProperties: CoordPropertyIndex;
   /** Codes allowed in each naming field (project, originator, volume, level, type, role) */
   namingCodes: Array<CoordNamingCode>;
   requirementSources: Array<CoordRequirementSource>;
   requirements: Array<CoordRequirement>;
   ruleSet?: Maybe<CoordRuleSet>;
   ruleSets: Array<CoordRuleSet>;
+  searchSet?: Maybe<CoordSearchSet>;
+  /** How many elements of a model version match the conditions, with a sample */
+  searchSetPreview: CoordSearchSetPreview;
+  searchSets: Array<CoordSearchSet>;
 };
 
 
@@ -4985,6 +5074,12 @@ export type ProjectCoordinationMilestoneReportArgs = {
 };
 
 
+export type ProjectCoordinationModelPropertiesArgs = {
+  modelId: Scalars['String']['input'];
+  versionId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
 export type ProjectCoordinationRequirementsArgs = {
   milestoneId?: InputMaybe<Scalars['String']['input']>;
 };
@@ -4992,6 +5087,18 @@ export type ProjectCoordinationRequirementsArgs = {
 
 export type ProjectCoordinationRuleSetArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type ProjectCoordinationSearchSetArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type ProjectCoordinationSearchSetPreviewArgs = {
+  modelId: Scalars['String']['input'];
+  versionId?: InputMaybe<Scalars['String']['input']>;
+  where: Array<Scalars['JSONObject']['input']>;
 };
 
 /** Any values left null will be ignored */
@@ -8794,10 +8901,13 @@ export type ResolversTypes = {
   CoordElementDetail: ResolverTypeWrapper<CoordElementDetail>;
   CoordElementResult: ResolverTypeWrapper<CoordElementResult>;
   CoordElementResultCollection: ResolverTypeWrapper<CoordElementResultCollection>;
+  CoordIfcTypeCount: ResolverTypeWrapper<CoordIfcTypeCount>;
   CoordMilestone: ResolverTypeWrapper<CoordMilestone>;
   CoordMilestoneInput: CoordMilestoneInput;
   CoordMilestoneReport: ResolverTypeWrapper<CoordMilestoneReport>;
   CoordNamingCode: ResolverTypeWrapper<CoordNamingCode>;
+  CoordPropertyIndex: ResolverTypeWrapper<CoordPropertyIndex>;
+  CoordPropertyPath: ResolverTypeWrapper<CoordPropertyPath>;
   CoordRequirement: ResolverTypeWrapper<CoordRequirement>;
   CoordRequirementCompliance: ResolverTypeWrapper<CoordRequirementCompliance>;
   CoordRequirementInput: CoordRequirementInput;
@@ -8816,6 +8926,9 @@ export type ResolversTypes = {
   CoordRunStatus: CoordRunStatus;
   CoordRunSummary: ResolverTypeWrapper<CoordRunSummary>;
   CoordRunTrigger: CoordRunTrigger;
+  CoordSearchSet: ResolverTypeWrapper<CoordSearchSet>;
+  CoordSearchSetElement: ResolverTypeWrapper<CoordSearchSetElement>;
+  CoordSearchSetPreview: ResolverTypeWrapper<CoordSearchSetPreview>;
   CoordSeverity: CoordSeverity;
   CoordinationMutations: ResolverTypeWrapper<CoordinationMutations>;
   CountOnlyCollection: ResolverTypeWrapper<CountOnlyCollection>;
@@ -9330,10 +9443,13 @@ export type ResolversParentTypes = {
   CoordElementDetail: CoordElementDetail;
   CoordElementResult: CoordElementResult;
   CoordElementResultCollection: CoordElementResultCollection;
+  CoordIfcTypeCount: CoordIfcTypeCount;
   CoordMilestone: CoordMilestone;
   CoordMilestoneInput: CoordMilestoneInput;
   CoordMilestoneReport: CoordMilestoneReport;
   CoordNamingCode: CoordNamingCode;
+  CoordPropertyIndex: CoordPropertyIndex;
+  CoordPropertyPath: CoordPropertyPath;
   CoordRequirement: CoordRequirement;
   CoordRequirementCompliance: CoordRequirementCompliance;
   CoordRequirementInput: CoordRequirementInput;
@@ -9348,6 +9464,9 @@ export type ResolversParentTypes = {
   CoordRuleSetVersion: CoordRuleSetVersion;
   CoordRuleStat: CoordRuleStat;
   CoordRunSummary: CoordRunSummary;
+  CoordSearchSet: CoordSearchSet;
+  CoordSearchSetElement: CoordSearchSetElement;
+  CoordSearchSetPreview: CoordSearchSetPreview;
   CoordinationMutations: CoordinationMutations;
   CountOnlyCollection: CountOnlyCollection;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
@@ -10533,6 +10652,12 @@ export type CoordElementResultCollectionResolvers<ContextType = GraphQLContext, 
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type CoordIfcTypeCountResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordIfcTypeCount'] = ResolversParentTypes['CoordIfcTypeCount']> = {
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CoordMilestoneResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordMilestone'] = ResolversParentTypes['CoordMilestone']> = {
   discipline?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   dueDate?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
@@ -10556,6 +10681,23 @@ export type CoordNamingCodeResolvers<ContextType = GraphQLContext, ParentType ex
   code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   field?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordPropertyIndexResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordPropertyIndex'] = ResolversParentTypes['CoordPropertyIndex']> = {
+  elementCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  ifcTypes?: Resolver<Array<ResolversTypes['CoordIfcTypeCount']>, ParentType, ContextType>;
+  modelId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  paths?: Resolver<Array<ResolversTypes['CoordPropertyPath']>, ParentType, ContextType>;
+  truncated?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  versionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordPropertyPathResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordPropertyPath'] = ResolversParentTypes['CoordPropertyPath']> = {
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  samples?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -10676,6 +10818,35 @@ export type CoordRunSummaryResolvers<ContextType = GraphQLContext, ParentType ex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type CoordSearchSetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordSearchSet'] = ResolversParentTypes['CoordSearchSet']> = {
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  where?: Resolver<Array<ResolversTypes['JSONObject']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordSearchSetElementResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordSearchSetElement'] = ResolversParentTypes['CoordSearchSetElement']> = {
+  elementKey?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ifcType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  speckleObjectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordSearchSetPreviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordSearchSetPreview'] = ResolversParentTypes['CoordSearchSetPreview']> = {
+  elementCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  matchCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  objectIds?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  sample?: Resolver<Array<ResolversTypes['CoordSearchSetElement']>, ParentType, ContextType>;
+  truncated?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  versionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordinationMutations'] = ResolversParentTypes['CoordinationMutations']> = {
   assignClashes?: Resolver<ResolversTypes['Int'], ParentType, ContextType, RequireFields<CoordinationMutationsAssignClashesArgs, 'ids'>>;
   createClashTest?: Resolver<ResolversTypes['CoordClashTest'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateClashTestArgs, 'input' | 'projectId'>>;
@@ -10684,6 +10855,7 @@ export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentT
   createRequirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRequirementArgs, 'input' | 'projectId'>>;
   createRequirementSource?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRequirementSourceArgs, 'input' | 'projectId'>>;
   createRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateRuleSetArgs, 'input' | 'projectId'>>;
+  createSearchSet?: Resolver<ResolversTypes['CoordSearchSet'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateSearchSetArgs, 'input' | 'projectId'>>;
   deleteClashTest?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteClashTestArgs, 'id'>>;
   deleteDeliverable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteDeliverableArgs, 'id'>>;
   deleteDraftRule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteDraftRuleArgs, 'ruleId'>>;
@@ -10691,6 +10863,7 @@ export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentT
   deleteRequirement?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRequirementArgs, 'id'>>;
   deleteRequirementSource?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRequirementSourceArgs, 'id'>>;
   deleteRuleSet?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteRuleSetArgs, 'id'>>;
+  deleteSearchSet?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<CoordinationMutationsDeleteSearchSetArgs, 'id'>>;
   duplicateRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsDuplicateRuleSetArgs, 'id' | 'name'>>;
   importDeliverables?: Resolver<ResolversTypes['CoordDeliverableImportResult'], ParentType, ContextType, RequireFields<CoordinationMutationsImportDeliverablesArgs, 'projectId' | 'rows'>>;
   importIdsRuleSet?: Resolver<ResolversTypes['CoordRuleSetImportResult'], ParentType, ContextType, RequireFields<CoordinationMutationsImportIdsRuleSetArgs, 'projectId' | 'xml'>>;
@@ -10711,6 +10884,7 @@ export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentT
   updateRequirement?: Resolver<ResolversTypes['CoordRequirement'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRequirementArgs, 'id' | 'input'>>;
   updateRequirementSource?: Resolver<ResolversTypes['CoordRequirementSource'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRequirementSourceArgs, 'id' | 'input'>>;
   updateRuleSet?: Resolver<ResolversTypes['CoordRuleSet'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateRuleSetArgs, 'id' | 'input'>>;
+  updateSearchSet?: Resolver<ResolversTypes['CoordSearchSet'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateSearchSetArgs, 'id' | 'input'>>;
   upsertDraftRule?: Resolver<ResolversTypes['CoordRule'], ParentType, ContextType, RequireFields<CoordinationMutationsUpsertDraftRuleArgs, 'input' | 'ruleSetId'>>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -11591,11 +11765,15 @@ export type ProjectCoordinationResolvers<ContextType = GraphQLContext, ParentTyp
   deliverables?: Resolver<Array<ResolversTypes['CoordDeliverable']>, ParentType, ContextType, RequireFields<ProjectCoordinationDeliverablesArgs, 'limit' | 'offset'>>;
   milestoneReport?: Resolver<Maybe<ResolversTypes['CoordMilestoneReport']>, ParentType, ContextType, RequireFields<ProjectCoordinationMilestoneReportArgs, 'milestoneId'>>;
   milestones?: Resolver<Array<ResolversTypes['CoordMilestone']>, ParentType, ContextType>;
+  modelProperties?: Resolver<ResolversTypes['CoordPropertyIndex'], ParentType, ContextType, RequireFields<ProjectCoordinationModelPropertiesArgs, 'modelId'>>;
   namingCodes?: Resolver<Array<ResolversTypes['CoordNamingCode']>, ParentType, ContextType>;
   requirementSources?: Resolver<Array<ResolversTypes['CoordRequirementSource']>, ParentType, ContextType>;
   requirements?: Resolver<Array<ResolversTypes['CoordRequirement']>, ParentType, ContextType, Partial<ProjectCoordinationRequirementsArgs>>;
   ruleSet?: Resolver<Maybe<ResolversTypes['CoordRuleSet']>, ParentType, ContextType, RequireFields<ProjectCoordinationRuleSetArgs, 'id'>>;
   ruleSets?: Resolver<Array<ResolversTypes['CoordRuleSet']>, ParentType, ContextType>;
+  searchSet?: Resolver<Maybe<ResolversTypes['CoordSearchSet']>, ParentType, ContextType, RequireFields<ProjectCoordinationSearchSetArgs, 'id'>>;
+  searchSetPreview?: Resolver<ResolversTypes['CoordSearchSetPreview'], ParentType, ContextType, RequireFields<ProjectCoordinationSearchSetPreviewArgs, 'modelId' | 'where'>>;
+  searchSets?: Resolver<Array<ResolversTypes['CoordSearchSet']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -12852,9 +13030,12 @@ export type Resolvers<ContextType = GraphQLContext> = {
   CoordElementDetail?: CoordElementDetailResolvers<ContextType>;
   CoordElementResult?: CoordElementResultResolvers<ContextType>;
   CoordElementResultCollection?: CoordElementResultCollectionResolvers<ContextType>;
+  CoordIfcTypeCount?: CoordIfcTypeCountResolvers<ContextType>;
   CoordMilestone?: CoordMilestoneResolvers<ContextType>;
   CoordMilestoneReport?: CoordMilestoneReportResolvers<ContextType>;
   CoordNamingCode?: CoordNamingCodeResolvers<ContextType>;
+  CoordPropertyIndex?: CoordPropertyIndexResolvers<ContextType>;
+  CoordPropertyPath?: CoordPropertyPathResolvers<ContextType>;
   CoordRequirement?: CoordRequirementResolvers<ContextType>;
   CoordRequirementCompliance?: CoordRequirementComplianceResolvers<ContextType>;
   CoordRequirementSource?: CoordRequirementSourceResolvers<ContextType>;
@@ -12866,6 +13047,9 @@ export type Resolvers<ContextType = GraphQLContext> = {
   CoordRuleSetVersion?: CoordRuleSetVersionResolvers<ContextType>;
   CoordRuleStat?: CoordRuleStatResolvers<ContextType>;
   CoordRunSummary?: CoordRunSummaryResolvers<ContextType>;
+  CoordSearchSet?: CoordSearchSetResolvers<ContextType>;
+  CoordSearchSetElement?: CoordSearchSetElementResolvers<ContextType>;
+  CoordSearchSetPreview?: CoordSearchSetPreviewResolvers<ContextType>;
   CoordinationMutations?: CoordinationMutationsResolvers<ContextType>;
   CountOnlyCollection?: CountOnlyCollectionResolvers<ContextType>;
   CreateDashboardTokenReturn?: CreateDashboardTokenReturnResolvers<ContextType>;
