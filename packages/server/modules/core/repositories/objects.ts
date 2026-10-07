@@ -135,8 +135,8 @@ export const getObjectChildrenStreamFactory =
         `SELECT objects.id as parent, d.key as child, d.value as mindepth, ? as "streamId"
         FROM objects
         JOIN jsonb_each_text(objects.data->'__closure') d ON true
-        where objects.id = ?`,
-        [streamId, objectId]
+        where objects.id = ? and objects."streamId" = ?`,
+        [streamId, objectId, streamId]
       )
     )
     q.select('id')
@@ -223,8 +223,8 @@ export const getObjectChildrenFactory =
         `SELECT objects.id as parent, d.key as child, d.value as mindepth, ? as "streamId"
         FROM objects
         JOIN jsonb_each_text(objects.data->'__closure') d ON true
-        where objects.id = ?`,
-        [streamId, objectId]
+        where objects.id = ? and objects."streamId" = ?`,
+        [streamId, objectId, streamId]
       )
     )
 
@@ -340,8 +340,8 @@ export const getObjectChildrenQueryFactory =
           `SELECT objects.id as parent, d.key as child, d.value as mindepth, ? as "streamId"
         FROM objects
         JOIN jsonb_each_text(objects.data->'__closure') d ON true
-        where objects.id = ?`,
-          [streamId, objectId]
+        where objects.id = ? and objects."streamId" = ?`,
+          [streamId, objectId, streamId]
         )
       )
       .with('objs', (cteInnerQuery) => {
