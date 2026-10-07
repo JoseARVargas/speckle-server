@@ -1,85 +1,203 @@
 import {
   DeviceStates,
   DeviceCommands,
-  TelemetryReadings,
-  EnergyReadings
+  DeviceStateSegments
 } from '@/modules/core/dbSchema'
 import type {
   DeviceStateRecord,
   DeviceCommandRecord,
-  TelemetryReadingRecord,
-  EnergyReadingRecord
+  DeviceStateSegmentRecord
 } from '@/modules/facilities/helpers/types'
+import type { SimulationSegment } from '@/modules/facilities/services/simulationModel'
 import type { Knex } from 'knex'
 
 const tables = {
   deviceStates: (db: Knex) => db<DeviceStateRecord>(DeviceStates.name),
   deviceCommands: (db: Knex) => db<DeviceCommandRecord>(DeviceCommands.name),
-  telemetryReadings: (db: Knex) => db<TelemetryReadingRecord>(TelemetryReadings.name),
-  energyReadings: (db: Knex) => db<EnergyReadingRecord>(EnergyReadings.name)
+  segments: (db: Knex) => db<DeviceStateSegmentRecord>(DeviceStateSegments.name)
 }
 
-// ---- device state -----------------------------------------------------
+const toSegment = (row: DeviceStateSegmentRecord): SimulationSegment => ({
+  assetId: row.assetId,
+  projectId: row.projectId,
+  startsAt: row.startsAt,
+  powerState: row.powerState,
+  setpoint: row.setpoint,
+  ambientTemperature: row.ambientTemperature,
+  nominalPowerKw: row.nominalPowerKw,
+  degradationRate: row.degradationRate,
+  startupCurrentDecay: row.startupCurrentDecay,
+  noiseAmplification: row.noiseAmplification,
+  tariffPerKwh: row.tariffPerKwh,
+  temperatureAtStart: row.temperatureAtStart,
+  cumulativeKwhAtStart: row.cumulativeKwhAtStart,
+  cumulativeCostAtStart: row.cumulativeCostAtStart,
+  poweredOnAt: row.poweredOnAt
+})
 
-export const getDeviceStateFactory =
-  (deps: { db: Knex }) => (params: { assetId: string }) =>
-    tables.deviceStates(deps.db).where({ assetId: params.assetId }).first()
+// ---- segments (one per event, the simulation's only writes) -----------------
+
+/** Ties on startsAt (two events in the same ms) resolve by insertion order. */
+const chronological = (
+  q: Knex.QueryBuilder<DeviceStateSegmentRecord>
+): Promise<DeviceStateSegmentRecord[]> =>
+  q
+    .orderBy(DeviceStateSegments.col.startsAt, 'asc')
+    .orderBy(DeviceStateSegments.col.id, 'asc')
+
+export const getLatestSegmentFactory =
+  (deps: { db: Knex }) =>
+  async (params: { assetId: string }): Promise<SimulationSegment | null> => {
+    const row = await tables
+      .segments(deps.db)
+      .where(DeviceStateSegments.col.assetId, params.assetId)
+      .orderBy(DeviceStateSegments.col.startsAt, 'desc')
+      .orderBy(DeviceStateSegments.col.id, 'desc')
+      .first()
+    return row ? toSegment(row) : null
+  }
 
 /**
- * A device_states row only exists once someone turns an asset "on" for the
- * first time (or sets a temperature) - before that, an asset simply has no
- * simulated state. Sensible fixed defaults for now (no per-AssetType
- * nominal power catalog yet).
+ * The segments of one asset needed to compute readings in [fromMs, toMs]:
+ * the one active at fromMs plus every later one up to toMs, oldest first.
  */
-export const ensureDeviceStateFactory =
+export const listAssetSegmentsFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    assetId: string
+    from: Date
+    to: Date
+  }): Promise<SimulationSegment[]> => {
+    const rows = await chronological(
+      tables
+        .segments(deps.db)
+        .where(DeviceStateSegments.col.assetId, params.assetId)
+        .andWhere(DeviceStateSegments.col.startsAt, '<=', params.to)
+        .andWhere(
+          DeviceStateSegments.col.startsAt,
+          '>=',
+          deps.db.raw(
+            `COALESCE((SELECT MAX("startsAt") FROM "${DeviceStateSegments.name}"
+              WHERE "assetId" = ? AND "startsAt" <= ?), '-infinity'::timestamptz)`,
+            [params.assetId, params.from]
+          )
+        )
+    )
+    return rows.map(toSegment)
+  }
+
+/** Same as listAssetSegmentsFactory for every asset of a project, by asset. */
+export const listProjectSegmentsFactory =
+  (deps: { db: Knex }) =>
+  async (params: {
+    projectId: string
+    from: Date
+    to: Date
+  }): Promise<Map<string, SimulationSegment[]>> => {
+    const name = DeviceStateSegments.name
+    const rows = await chronological(
+      tables
+        .segments(deps.db)
+        .where(DeviceStateSegments.col.projectId, params.projectId)
+        .andWhere(DeviceStateSegments.col.startsAt, '<=', params.to)
+        .andWhere(
+          DeviceStateSegments.col.startsAt,
+          '>=',
+          deps.db.raw(
+            `COALESCE((SELECT MAX(s2."startsAt") FROM "${name}" s2
+              WHERE s2."assetId" = "${name}"."assetId" AND s2."startsAt" <= ?),
+              '-infinity'::timestamptz)`,
+            [params.from]
+          )
+        )
+    )
+    const byAsset = new Map<string, SimulationSegment[]>()
+    for (const row of rows) {
+      const list = byAsset.get(row.assetId) ?? []
+      list.push(toSegment(row))
+      byAsset.set(row.assetId, list)
+    }
+    return byAsset
+  }
+
+/** Latest segment of every asset of a project that has a simulated state. */
+export const listLatestProjectSegmentsFactory =
+  (deps: { db: Knex }) =>
+  async (params: { projectId: string }): Promise<SimulationSegment[]> => {
+    const rows = await tables
+      .segments(deps.db)
+      .distinctOn(DeviceStateSegments.col.assetId)
+      .where(DeviceStateSegments.col.projectId, params.projectId)
+      .orderBy([
+        { column: DeviceStateSegments.col.assetId, order: 'asc' },
+        { column: DeviceStateSegments.col.startsAt, order: 'desc' },
+        { column: DeviceStateSegments.col.id, order: 'desc' }
+      ])
+    return rows.map(toSegment)
+  }
+
+/**
+ * Records an event: locks the asset's device_states row (serializing
+ * concurrent events on the same asset, so none of them is lost), lets
+ * `build` derive the new segment from the latest one, inserts it and
+ * mirrors the materialized state into device_states. The mirror keeps the
+ * previous server image (which still ticks from device_states) usable for
+ * a rollback.
+ */
+export const recordSegmentFactory =
   (deps: { db: Knex }) =>
   async (params: {
     assetId: string
     projectId: string
-  }): Promise<DeviceStateRecord> => {
-    const existing = await getDeviceStateFactory(deps)({ assetId: params.assetId })
-    if (existing) return existing
-
-    const defaults: DeviceStateRecord = {
-      assetId: params.assetId,
-      projectId: params.projectId,
-      powerState: 'off',
-      setpoint: 22,
-      currentTemperature: 28,
-      ambientTemperature: 28,
-      nominalPowerKw: 1.2,
-      cumulativeKwh: 0,
-      cumulativeCost: 0,
-      compressorDuty: 0,
-      currentA: 0,
-      degradationRate: 0,
-      startupCurrentDecay: 0,
-      noiseAmplification: 1,
-      poweredOnAt: null,
-      updatedAt: new Date()
+    build: (previous: SimulationSegment | null) => {
+      segment: SimulationSegment
+      mirror: DeviceStateRecord
     }
-    const [row] = await tables.deviceStates(deps.db).insert(defaults).returning('*')
-    return row
-  }
-
-export const updateDeviceStateFactory =
-  (deps: { db: Knex }) =>
-  async (params: { assetId: string; update: Partial<DeviceStateRecord> }) => {
-    const [row] = await tables
-      .deviceStates(deps.db)
-      .where({ assetId: params.assetId })
-      .update({ ...params.update, updatedAt: new Date() })
-      .returning('*')
-    return row
-  }
-
-/**
- * Every device_states row, regardless of project - the simulation tick
- * walks all of them each cycle. Single-database deployments only for now
- * (see simulation.ts); a multi-region setup would need this per-region.
- */
-export const listAllDeviceStatesFactory = (deps: { db: Knex }) => () =>
-  tables.deviceStates(deps.db).select('*')
+  }): Promise<{ segment: SimulationSegment; mirror: DeviceStateRecord }> =>
+    await deps.db.transaction(async (trx) => {
+      const existing = await tables
+        .deviceStates(trx)
+        .where({ assetId: params.assetId })
+        .forUpdate()
+        .first()
+      const previous = await getLatestSegmentFactory({ db: trx })({
+        assetId: params.assetId
+      })
+      const built = params.build(previous)
+      const { segment } = built
+      await tables.segments(trx).insert({
+        assetId: segment.assetId,
+        projectId: segment.projectId,
+        startsAt: segment.startsAt,
+        powerState: segment.powerState,
+        setpoint: segment.setpoint,
+        ambientTemperature: segment.ambientTemperature,
+        nominalPowerKw: segment.nominalPowerKw,
+        degradationRate: segment.degradationRate,
+        startupCurrentDecay: segment.startupCurrentDecay,
+        noiseAmplification: segment.noiseAmplification,
+        tariffPerKwh: segment.tariffPerKwh,
+        temperatureAtStart: segment.temperatureAtStart,
+        cumulativeKwhAtStart: segment.cumulativeKwhAtStart,
+        cumulativeCostAtStart: segment.cumulativeCostAtStart,
+        poweredOnAt: segment.poweredOnAt
+      })
+      if (existing) {
+        await tables
+          .deviceStates(trx)
+          .where({ assetId: params.assetId })
+          .update(built.mirror)
+      } else {
+        // Two first events racing on a brand new asset: the loser simply
+        // overwrites the mirror, its segment is recorded either way.
+        await tables
+          .deviceStates(trx)
+          .insert(built.mirror)
+          .onConflict('assetId')
+          .merge()
+      }
+      return built
+    })
 
 // ---- device commands (audit log) -------------------------------------------
 
@@ -87,98 +205,4 @@ export const insertDeviceCommandFactory =
   (deps: { db: Knex }) => async (command: DeviceCommandRecord) => {
     const [row] = await tables.deviceCommands(deps.db).insert(command).returning('*')
     return row
-  }
-
-// ---- telemetry & energy readings -------------------------------------------
-
-export const insertTelemetryReadingFactory =
-  (deps: { db: Knex }) => (reading: Omit<TelemetryReadingRecord, 'id'>) =>
-    tables.telemetryReadings(deps.db).insert(reading)
-
-export const listTelemetryReadingsFactory =
-  (deps: { db: Knex }) => (params: { assetId: string; limit: number }) =>
-    tables
-      .telemetryReadings(deps.db)
-      .where({ assetId: params.assetId })
-      .orderBy('ts', 'desc')
-      .limit(params.limit)
-
-export const insertEnergyReadingFactory =
-  (deps: { db: Knex }) => (reading: Omit<EnergyReadingRecord, 'id'>) =>
-    tables.energyReadings(deps.db).insert(reading)
-
-export const listEnergyReadingsFactory =
-  (deps: { db: Knex }) => (params: { assetId: string; limit: number }) =>
-    tables
-      .energyReadings(deps.db)
-      .where({ assetId: params.assetId })
-      .orderBy('ts', 'desc')
-      .limit(params.limit)
-
-// ---- facility-wide rollups (dashboard) --------------------------------
-
-export const getFacilityEnergyTotalsFactory =
-  (deps: { db: Knex }) =>
-  async (params: {
-    projectId: string
-  }): Promise<{
-    assetsOn: number
-    cumulativeKwh: number
-    cumulativeCost: number
-  }> => {
-    const [sums] = await tables
-      .deviceStates(deps.db)
-      .where({ projectId: params.projectId })
-      .sum<{ cumulativeKwh: string | null; cumulativeCost: string | null }[]>({
-        cumulativeKwh: 'cumulativeKwh',
-        cumulativeCost: 'cumulativeCost'
-      })
-    const [{ count }] = await tables
-      .deviceStates(deps.db)
-      .where({ projectId: params.projectId, powerState: 'on' })
-      .count()
-    return {
-      assetsOn: parseInt(count + ''),
-      cumulativeKwh: Number(sums?.cumulativeKwh ?? 0),
-      cumulativeCost: Number(sums?.cumulativeCost ?? 0)
-    }
-  }
-
-/**
- * Every asset ticks in lockstep (a single global setInterval - see
- * runSimulationTickFactory), so grouping energy_readings by `ts` and
- * summing gives one point per simulation tick for the whole facility.
- * Returned oldest-first (ready to chart), limited to the most recent
- * `limit` ticks.
- */
-export const getFacilityEnergySeriesFactory =
-  (deps: { db: Knex }) =>
-  async (params: {
-    projectId: string
-    limit: number
-  }): Promise<
-    { ts: Date; powerKw: number; energyKwhInterval: number; costInterval: number }[]
-  > => {
-    const rows = await tables
-      .energyReadings(deps.db)
-      .where({ projectId: params.projectId })
-      .groupBy('ts')
-      .orderBy('ts', 'desc')
-      .limit(params.limit)
-      .select<
-        { ts: Date; powerKw: string; energyKwhInterval: string; costInterval: string }[]
-      >(
-        'ts',
-        deps.db.raw('SUM("powerKw") as "powerKw"'),
-        deps.db.raw('SUM("energyKwhInterval") as "energyKwhInterval"'),
-        deps.db.raw('SUM("costInterval") as "costInterval"')
-      )
-    return rows
-      .map((r) => ({
-        ts: r.ts,
-        powerKw: Number(r.powerKw),
-        energyKwhInterval: Number(r.energyKwhInterval),
-        costInterval: Number(r.costInterval)
-      }))
-      .sort((a, b) => a.ts.getTime() - b.ts.getTime())
   }

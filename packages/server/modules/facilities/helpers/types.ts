@@ -165,6 +165,32 @@ export type DeviceStateRecord = {
   updatedAt: Date
 }
 
+/**
+ * One simulation segment: the device parameters valid from `startsAt` until
+ * the next segment, plus the state reached at that instant. Written once per
+ * event (power, setpoint, fault profile, tariff); every reading is computed
+ * from these (see services/simulationModel.ts).
+ */
+export type DeviceStateSegmentRecord = {
+  id: string
+  assetId: string
+  projectId: string
+  startsAt: Date
+  powerState: DevicePowerState
+  setpoint: number
+  ambientTemperature: number
+  nominalPowerKw: number
+  degradationRate: number
+  startupCurrentDecay: number
+  noiseAmplification: number
+  tariffPerKwh: number
+  temperatureAtStart: number
+  cumulativeKwhAtStart: number
+  cumulativeCostAtStart: number
+  poweredOnAt: Nullable<Date>
+  createdAt: Date
+}
+
 export type DeviceCommandType = 'power_on' | 'power_off' | 'set_temperature'
 
 export type DeviceCommandRecord = {

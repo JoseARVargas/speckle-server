@@ -50,7 +50,7 @@ import {
   updateAssetFactory,
   deleteAssetFactory,
   setAssetSystemsFactory,
-  getSystemEnergyBreakdownFactory
+  listSystemMembersFactory
 } from '@/modules/facilities/repositories/facilities'
 import {
   assertAssetClassCanBeDeletedFactory,
@@ -63,13 +63,12 @@ import {
   validateIfcClasses
 } from '@/modules/facilities/services/assetNaming'
 import {
+  applyTariffChangeFactory,
   getDeviceStateFactory,
-  listTelemetryReadingsFactory,
-  listEnergyReadingsFactory,
+  getFacilityEnergySeriesFactory,
   getFacilityEnergyTotalsFactory,
-  getFacilityEnergySeriesFactory
-} from '@/modules/facilities/repositories/simulation'
-import {
+  listAssetReadingsFactory,
+  listProjectDeviceStatesFactory,
   setAssetPowerFactory,
   setAssetTemperatureFactory
 } from '@/modules/facilities/services/simulation'
@@ -194,7 +193,7 @@ const facilityMutations = {
       projectId
     })
     if (!facility) throw new NotFoundError('Facility not found')
-    return await updateFacilityFactory({ db: projectDb })({
+    const updated = await updateFacilityFactory({ db: projectDb })({
       id: facility.id,
       update: {
         ...(name !== undefined && name !== null ? { name } : {}),
@@ -209,6 +208,18 @@ const facilityMutations = {
           : {})
       }
     })
+    if (
+      energyTariffPerKwh !== undefined &&
+      energyTariffPerKwh !== null &&
+      energyTariffPerKwh !== facility.energyTariffPerKwh
+    ) {
+      // Bills the simulated devices at the new tariff from now on
+      await applyTariffChangeFactory({ db: projectDb })({
+        projectId,
+        tariffPerKwh: energyTariffPerKwh
+      })
+    }
+    return updated
   },
 
   async createFloor(
@@ -892,22 +903,18 @@ export default {
     },
     async dashboard(parent: { id: string; projectId: string }) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
-      const [totals, totalAssets, latestTick] = await Promise.all([
+      const [totals, totalAssets] = await Promise.all([
         getFacilityEnergyTotalsFactory({ db: projectDb })({
           projectId: parent.projectId
         }),
-        countAssetsFactory({ db: projectDb })({ facilityId: parent.id }),
-        getFacilityEnergySeriesFactory({ db: projectDb })({
-          projectId: parent.projectId,
-          limit: 1
-        })
+        countAssetsFactory({ db: projectDb })({ facilityId: parent.id })
       ])
       return {
         facilityId: parent.id,
         projectId: parent.projectId,
         totalAssets,
         assetsOn: totals.assetsOn,
-        currentPowerKw: latestTick[0]?.powerKw ?? 0,
+        currentPowerKw: totals.currentPowerKw,
         cumulativeKwh: totals.cumulativeKwh,
         cumulativeCost: totals.cumulativeCost
       }
@@ -917,8 +924,27 @@ export default {
   FacilityDashboard: {
     async bySystem(parent: { facilityId: string; projectId: string }) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
-      return await getSystemEnergyBreakdownFactory({ db: projectDb })({
-        facilityId: parent.facilityId
+      const [systems, states] = await Promise.all([
+        listSystemMembersFactory({ db: projectDb })({ facilityId: parent.facilityId }),
+        listProjectDeviceStatesFactory({ db: projectDb })({
+          projectId: parent.projectId
+        })
+      ])
+      const byAsset = new Map(states.map((s) => [s.assetId, s]))
+      return systems.map((system) => {
+        let cumulativeKwh = 0
+        let cumulativeCost = 0
+        for (const assetId of system.assetIds) {
+          cumulativeKwh += byAsset.get(assetId)?.cumulativeKwh ?? 0
+          cumulativeCost += byAsset.get(assetId)?.cumulativeCost ?? 0
+        }
+        return {
+          systemId: system.systemId,
+          systemName: system.systemName,
+          assetCount: system.assetIds.length,
+          cumulativeKwh,
+          cumulativeCost
+        }
       })
     },
     async series(
@@ -1056,30 +1082,42 @@ export default {
     },
     async deviceState(parent: { id: string; projectId: string }) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
-      const state = await getDeviceStateFactory({ db: projectDb })({
-        assetId: parent.id
-      })
-      return state ?? null
+      return await getDeviceStateFactory({ db: projectDb })({ assetId: parent.id })
     },
     async telemetryHistory(
       parent: { id: string; projectId: string },
       args: { limit?: number | null }
     ) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
-      return await listTelemetryReadingsFactory({ db: projectDb })({
+      const readings = await listAssetReadingsFactory({ db: projectDb })({
         assetId: parent.id,
         limit: args.limit ?? 50
       })
+      return readings.map((r) => ({
+        ts: r.ts,
+        temperature: r.temperature,
+        powerState: r.powerState,
+        compressorDuty: r.compressorDuty,
+        currentA: r.currentA
+      }))
     },
     async energyHistory(
       parent: { id: string; projectId: string },
       args: { limit?: number | null }
     ) {
       const projectDb = await getProjectDbClient({ projectId: parent.projectId })
-      return await listEnergyReadingsFactory({ db: projectDb })({
+      const readings = await listAssetReadingsFactory({ db: projectDb })({
         assetId: parent.id,
         limit: args.limit ?? 50
       })
+      return readings.map((r) => ({
+        ts: r.ts,
+        powerKw: r.powerKw,
+        energyKwhInterval: r.energyKwhInterval,
+        cumulativeKwh: r.cumulativeKwh,
+        costInterval: r.costInterval,
+        cumulativeCost: r.cumulativeCost
+      }))
     }
   },
 

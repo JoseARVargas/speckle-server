@@ -16,9 +16,10 @@ yarn workspace @speckle/server lint:tsc     # typecheck (obrigatório)
 yarn workspace @speckle/server lint:eslint  # ESLint
 yarn workspace @speckle/server build        # build
 
-# um arquivo de teste (dentro de packages/server), sem rodar a suíte inteira:
+# só alguns testes (dentro de packages/server), sem rodar a suíte inteira. O filtro é o -g:
+# o .mocharc.js já define `spec`, então passar o caminho de um arquivo NÃO restringe a execução.
 npx cross-env TSX=true NODE_ENV=test LOG_FILTER=test POSTGRES_DB=speckle2_test yarn ts-mocha --reporter spec \
-  modules/<facilities|coordination>/tests/<arquivo>.spec.ts -g "<describe>"
+  -g "<describe>"
 ```
 
 ## Worker Python (`packages/coord-worker`)

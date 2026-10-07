@@ -681,6 +681,26 @@ export const DeviceStates = buildTableHelper('device_states', [
   'updatedAt'
 ])
 
+export const DeviceStateSegments = buildTableHelper('device_state_segments', [
+  'id',
+  'assetId',
+  'projectId',
+  'startsAt',
+  'powerState',
+  'setpoint',
+  'ambientTemperature',
+  'nominalPowerKw',
+  'degradationRate',
+  'startupCurrentDecay',
+  'noiseAmplification',
+  'tariffPerKwh',
+  'temperatureAtStart',
+  'cumulativeKwhAtStart',
+  'cumulativeCostAtStart',
+  'poweredOnAt',
+  'createdAt'
+])
+
 export const DeviceCommands = buildTableHelper('device_commands', [
   'id',
   'assetId',

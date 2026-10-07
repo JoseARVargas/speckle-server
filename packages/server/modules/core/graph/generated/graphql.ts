@@ -493,7 +493,10 @@ export type Asset = {
    * or had a temperature set at least once.
    */
   deviceState?: Maybe<DeviceState>;
-  /** Simulated energy/cost readings, most recent first. */
+  /**
+   * Simulated energy/cost readings on the 15s grid, most recent first. At
+   * most 1000.
+   */
   energyHistory: Array<EnergyReading>;
   /**
    * Any other Component attribute (AssetIdentifier, ExtSystem, custom
@@ -523,7 +526,10 @@ export type Asset = {
    * element's IfcTag/IfcName property. Unique per facility.
    */
   tagNumber: Scalars['String']['output'];
-  /** Simulated temperature readings, most recent first. */
+  /**
+   * Simulated temperature readings on the 15s grid, most recent first. At
+   * most 1000.
+   */
   telemetryHistory: Array<TelemetryReading>;
   tenure?: Maybe<AssetTenure>;
   updatedAt: Scalars['DateTime']['output'];
@@ -2503,8 +2509,9 @@ export type DenyWorkspaceJoinRequestInput = {
 
 /**
  * Current statistical state of one metric for one device - a moving
- * baseline/z-score and trend regression over its recent telemetry, recomputed
- * every simulation tick. One signal per (asset, metric).
+ * baseline/z-score and trend regression over its last 30 simulated readings,
+ * computed when read. One signal per (asset, metric); none for a device that
+ * was off during the whole window.
  */
 export type DeviceHealthSignal = {
   __typename?: 'DeviceHealthSignal';
@@ -2512,8 +2519,8 @@ export type DeviceHealthSignal = {
   metric: HealthMetric;
   severity: HealthSeverity;
   /**
-   * When the current severity started (unchanged across ticks as long as the
-   * severity stays the same, so this reads as "warning since 14:32").
+   * When the current severity started, so this reads as "warning since 14:32".
+   * Searched at most 2 hours back: an older state reads as "at least since".
    */
   since: Scalars['DateTime']['output'];
   trend: HealthTrend;
@@ -2528,9 +2535,9 @@ export const DevicePowerState = {
 
 export type DevicePowerState = typeof DevicePowerState[keyof typeof DevicePowerState];
 /**
- * Live simulated state of an asset's device - see the facilities module's
- * simulation worker, which ticks this forward every few seconds once an
- * asset has a state at all.
+ * Live simulated state of an asset's device, computed when read from the
+ * events recorded so far (power, setpoint, fault profile, tariff) - see the
+ * facilities module's simulationModel.
  */
 export type DeviceState = {
   __typename?: 'DeviceState';
@@ -2836,11 +2843,14 @@ export type FacilityDashboard = {
   cumulativeCost: Scalars['Float']['output'];
   cumulativeKwh: Scalars['Float']['output'];
   /**
-   * Total simulated instantaneous power draw at the most recent simulation
-   * tick, summed across every asset with a device state.
+   * Total simulated instantaneous power draw now, summed across every asset
+   * with a device state.
    */
   currentPowerKw: Scalars['Float']['output'];
-  /** Facility-wide power/energy/cost per simulation tick, oldest first. */
+  /**
+   * Facility-wide power/energy/cost per 15s simulation tick, oldest first.
+   * At most 1000 points.
+   */
   series: Array<FacilityEnergyPoint>;
   totalAssets: Scalars['Int']['output'];
 };
