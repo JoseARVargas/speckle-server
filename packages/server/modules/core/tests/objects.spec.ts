@@ -618,6 +618,59 @@ describe('Objects @core-objects', () => {
       await promisses[i]
     }
   })
+
+  describe('when the same object tree exists in two streams', () => {
+    let otherStream: BasicTestStream
+    let rootId: string
+
+    before(async () => {
+      otherStream = await createTestStream(
+        { name: 'Same objects, other stream', isPublic: false, ownerId: userOne.id },
+        userOne
+      )
+      // object ids are content hashes: sending the same file to two projects
+      // stores the same root and children once per stream
+      const objs = createManyObjects(5, 'same tree in two streams')
+      rootId = objs[0].id
+      await createObjects({ streamId: stream.id, objects: cloneDeep(objs) })
+      await createObjects({ streamId: otherStream.id, objects: cloneDeep(objs) })
+    })
+
+    it('streams each child once', async () => {
+      const ids: string[] = []
+      const childrenStream = await getObjectChildrenStream({
+        streamId: stream.id,
+        objectId: rootId
+      })
+      await new Promise<void>((resolve, reject) => {
+        childrenStream.on('data', (row: { id: string }) => ids.push(row.id))
+        childrenStream.on('end', resolve)
+        childrenStream.on('error', reject)
+      })
+      expect(ids).to.have.lengthOf(5)
+      expect(new Set(ids).size).to.equal(5)
+    })
+
+    it('lists each child once', async () => {
+      const { objects } = await getObjectChildren({
+        streamId: stream.id,
+        objectId: rootId,
+        limit: 100
+      })
+      expect(objects).to.have.lengthOf(5)
+      expect(new Set(objects.map((o) => o.id)).size).to.equal(5)
+    })
+
+    it('queries each child once', async () => {
+      const { objects, totalCount } = await getObjectChildrenQuery({
+        streamId: stream.id,
+        objectId: rootId,
+        limit: 100
+      })
+      expect(totalCount).to.equal(5)
+      expect(objects).to.have.lengthOf(5)
+    })
+  })
 }).timeout(5000)
 
 function createManyObjects(num: number, noise: string | number) {
