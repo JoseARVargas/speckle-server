@@ -1,3 +1,6 @@
+import { db } from '@/db/knex'
+import { StreamAcl } from '@/modules/core/dbSchema'
+import { Roles } from '@/modules/core/helpers/mainConstants'
 import { ForbiddenError } from '@/modules/shared/errors'
 import { throwIfAuthNotOk } from '@/modules/shared/helpers/errorHelper'
 import { throwIfResourceAccessNotAllowed } from '@/modules/core/helpers/token'
@@ -26,4 +29,18 @@ export async function assertCanManageCoordination(
     projectId
   })
   throwIfAuthNotOk(canPublish)
+}
+
+/**
+ * Project configuration (CDE states, approvers) is the owner's call: the
+ * token must reach the project and the user must own it.
+ */
+export async function assertProjectOwner(ctx: GraphQLContext, projectId: string) {
+  await assertCanManageCoordination(ctx, projectId)
+  const acl = await db(StreamAcl.name)
+    .where({ resourceId: projectId, userId: ctx.userId! })
+    .first()
+  if (acl?.role !== Roles.Stream.Owner) {
+    throw new ForbiddenError('Só o dono do projeto pode alterar esta configuração')
+  }
 }

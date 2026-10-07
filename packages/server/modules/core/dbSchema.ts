@@ -1134,6 +1134,38 @@ export const CoordSearchSets = buildTableHelper('coord_search_sets', [
   'updatedAt'
 ])
 
+export const CoordCdeConfigs = buildTableHelper('coord_cde_configs', [
+  'projectId',
+  'config',
+  'updatedBy',
+  'updatedAt'
+])
+
+export const CoordProjectApprovers = buildTableHelper('coord_project_approvers', [
+  'projectId',
+  'userId',
+  'createdBy',
+  'createdAt'
+])
+
+export const CoordVersionStates = buildTableHelper('coord_version_states', [
+  'id',
+  'projectId',
+  'modelId',
+  'versionId',
+  'deliverableId',
+  'stage',
+  'stateCode',
+  'stateLabel',
+  'suitability',
+  'revision',
+  'action',
+  'kind',
+  'comment',
+  'changedBy',
+  'changedAt'
+])
+
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [
   'appId',
   'scopeName'

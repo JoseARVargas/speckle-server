@@ -36,7 +36,15 @@ import {
   setNamingCodesFactory,
   updateDeliverableServiceFactory
 } from '@/modules/coordination/services/coordinationPlanning'
-import { auditFactory } from '@/modules/coordination/services/coordination'
+import {
+  assertModelInProjectFactory,
+  auditFactory
+} from '@/modules/coordination/services/coordination'
+import {
+  findModelDeliverableFactory,
+  getModelCdeFactory,
+  syncDeliverableStatusFactory
+} from '@/modules/coordination/services/coordinationCde'
 
 /**
  * Information delivery planning API (ISO 19650 MIDP/TIDP). Reads are nested
@@ -268,6 +276,17 @@ export default {
       const status = statusSchema.safeParse(args.status)
       if (!status.success) throw new BadRequestError('Status de entregável inválido')
       const current = await loadManagedDeliverable(ctx, args.id)
+      if (current.modelId) {
+        const versions = await getModelCdeFactory({ db })({
+          projectId: current.projectId,
+          modelId: current.modelId
+        })
+        if (versions.length) {
+          throw new BadRequestError(
+            'O status deste entregável segue os estados do CDE das versões do modelo'
+          )
+        }
+      }
       const deliverable = await updateDeliverableFactory({ db })({
         id: current.id,
         update: { status: status.data }
@@ -280,6 +299,54 @@ export default {
         entityId: current.id,
         data: { from: current.status, to: status.data }
       })
+      return deliverable
+    },
+
+    async setDeliverableModel(
+      _parent: unknown,
+      args: { id: string; modelId: string | null },
+      ctx: GraphQLContext
+    ) {
+      const userId = requireUser(ctx)
+      const current = await loadManagedDeliverable(ctx, args.id)
+      if (args.modelId) {
+        if (current.kind !== 'model') {
+          throw new BadRequestError('Só entregáveis do tipo modelo recebem um modelo')
+        }
+        const projectDb = await getProjectDbClient({ projectId: current.projectId })
+        await assertModelInProjectFactory({ projectDb })({
+          projectId: current.projectId,
+          modelId: args.modelId
+        })
+        const other = await findModelDeliverableFactory({ db })({
+          projectId: current.projectId,
+          modelId: args.modelId
+        })
+        if (other && other.id !== current.id) {
+          throw new BadRequestError(
+            `Este modelo já é do entregável ${other.containerName}`
+          )
+        }
+      }
+      const deliverable = await updateDeliverableFactory({ db })({
+        id: current.id,
+        update: { modelId: args.modelId ?? null }
+      })
+      await audit({
+        projectId: current.projectId,
+        actorId: userId,
+        action: 'deliverable.model_linked',
+        entityType: 'deliverable',
+        entityId: current.id,
+        data: { from: current.modelId, to: args.modelId ?? null }
+      })
+      if (args.modelId) {
+        await syncDeliverableStatusFactory({ db })({
+          projectId: current.projectId,
+          modelId: args.modelId,
+          actorId: userId
+        })
+      }
       return deliverable
     },
 

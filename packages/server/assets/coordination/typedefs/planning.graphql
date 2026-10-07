@@ -114,7 +114,17 @@ extend type CoordinationMutations {
   createDeliverable(projectId: String!, input: JSONObject!): CoordDeliverable!
   updateDeliverable(id: String!, input: JSONObject!): CoordDeliverable!
   deleteDeliverable(id: String!): Boolean!
+  """
+  Manual status: refused when the deliverable's model already has CDE states
+  (the status then follows the versions)
+  """
   setDeliverableStatus(id: String!, status: String!): CoordDeliverable!
+  """
+  Links the deliverable to a model of the project (null unlinks). Used by the
+  upload before the file is imported, so the new version enters the
+  deliverable's CDE flow. A model belongs to one deliverable at most.
+  """
+  setDeliverableModel(id: String!, modelId: String): CoordDeliverable!
   """
   Rows already mapped from a CSV; all or nothing
   """

@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import { StreamAcl } from '@/modules/core/dbSchema'
+import { CoordDeliverables, StreamAcl } from '@/modules/core/dbSchema'
 import { BadRequestError } from '@/modules/shared/errors'
 import type {
   CoordDeliverableRecord,
@@ -185,6 +185,17 @@ const assertReferencesFactory =
     }
     if (input.modelId) {
       await assertModelInProjectFactory(deps)({ projectId, modelId: input.modelId })
+      // one deliverable per model: the CDE flow and its status follow it
+      const other = await deps
+        .db(CoordDeliverables.name)
+        .where({ projectId, modelId: input.modelId })
+        .whereNot({ id: p.selfId ?? '' })
+        .first()
+      if (other) {
+        throw new BadRequestError(
+          `Este modelo já é do entregável ${other.containerName}`
+        )
+      }
     }
     const dependsOnIds = [...new Set(input.dependsOnIds)]
     if (p.selfId && dependsOnIds.includes(p.selfId)) {

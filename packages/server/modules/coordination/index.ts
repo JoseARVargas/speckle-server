@@ -4,6 +4,7 @@ import { db } from '@/db/knex'
 import { isTestEnv } from '@/modules/shared/helpers/envHelper'
 import { startCoordinationWorker } from '@/modules/coordination/services/coordinationRunner'
 import { startClashWorker } from '@/modules/coordination/services/coordinationClash'
+import { startCdeListener } from '@/modules/coordination/services/coordinationCde'
 
 /**
  * BIM coordination (Model Check + IDS). Independent of the facilities
@@ -15,5 +16,7 @@ export const init: SpeckleModule['init'] = ({ isInitial }) => {
   if (isInitial) {
     startCoordinationWorker({ db, pollQueue: !isTestEnv() })
     startClashWorker({ db, pollQueue: !isTestEnv() })
+    // ISO 19650 CDE: every new version enters WIP
+    startCdeListener({ db })
   }
 }
