@@ -4,6 +4,7 @@ import { moduleLogger } from '@/observability/logging'
 import { getProjectDbClient } from '@/modules/multiregion/utils/dbSelector'
 import { getEventBus } from '@/modules/shared/services/eventBus'
 import { VersionEvents } from '@/modules/core/domain/commits/events'
+import { evaluateAutoRejectFactory } from '@/modules/coordination/services/coordinationCde'
 import type {
   CoordCheckResultRecord,
   CoordCheckRunRecord,
@@ -432,6 +433,16 @@ const finishRunFactory =
         modelId: run.modelId,
         keep: COORD_LIMITS.keptFullResultRuns
       })
+      // CDE criterion: a shared version below target may go back to WIP.
+      // Never fails the run.
+      try {
+        await evaluateAutoRejectFactory(deps)({
+          projectId: run.projectId,
+          versionId: run.versionId
+        })
+      } catch (err) {
+        moduleLogger.error({ err, runId: run.id }, 'CDE automatic rejection failed')
+      }
     }
     return finished
   }

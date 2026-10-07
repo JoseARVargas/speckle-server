@@ -1,0 +1,84 @@
+# BIM coordination - ISO 19650 CDE states per model version (WIP, Shared,
+# Published, Archived), the project's approvers and CDE configuration.
+# Plan: officio-bim-coordination/.ai/plans/2026-10-07-upload-midp-cde.md
+
+extend type ProjectCoordination {
+  """
+  The project's CDE configuration (states, suitability codes, revision scheme,
+  Model Check criteria), or the UK National Annex default
+  """
+  cdeConfig: JSONObject!
+  """
+  Users who publish and reject; while empty, the project owners do
+  """
+  cdeApprovers: CoordCdeApprovers!
+  """
+  Every version of the model that has a CDE state: current state and history
+  """
+  modelCde(modelId: String!): [CoordVersionCde!]!
+  """
+  Adherence of a version to the requirements of its deliverable (latest
+  succeeded Model Check run per rule set), for the approval screen
+  """
+  versionAdherence(versionId: String!): JSONObject!
+}
+
+type CoordCdeApprovers {
+  userIds: [String!]!
+  """
+  True when no approver was designated and the owners approve
+  """
+  fallbackToOwners: Boolean!
+}
+
+type CoordVersionCde {
+  versionId: String!
+  current: CoordVersionState!
+  history: [CoordVersionState!]!
+}
+
+type CoordVersionState {
+  id: String!
+  versionId: String!
+  modelId: String!
+  deliverableId: String
+  """
+  wip | shared | published | archived
+  """
+  stage: String!
+  stateCode: String!
+  stateLabel: String!
+  suitability: String
+  revision: String
+  """
+  created | advanced | shared | published | rejected | archived
+  """
+  action: String!
+  """
+  manual | automatic | exception | system
+  """
+  kind: String!
+  comment: String
+  changedBy: String
+  changedAt: DateTime!
+}
+
+extend type CoordinationMutations {
+  """
+  Owner only. Codes already used in the history can be deactivated, not removed.
+  """
+  setCdeConfig(projectId: String!, config: JSONObject!): JSONObject!
+  """
+  Owner only. Approvers must be contributors or owners of the project.
+  """
+  setCdeApprovers(projectId: String!, userIds: [String!]!): CoordCdeApprovers!
+  """
+  Moves a version to another state: { toStateCode, suitability?, comment?,
+  justification? }. The server checks the flow and the user's role.
+  """
+  transitionVersion(
+    projectId: String!
+    versionId: String!
+    input: JSONObject!
+  ): CoordVersionState!
+}

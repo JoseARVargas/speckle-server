@@ -1370,6 +1370,13 @@ export type CommitsMoveInput = {
   targetBranch: Scalars['String']['input'];
 };
 
+export type CoordCdeApprovers = {
+  __typename?: 'CoordCdeApprovers';
+  /** True when no approver was designated and the owners approve */
+  fallbackToOwners: Scalars['Boolean']['output'];
+  userIds: Array<Scalars['String']['output']>;
+};
+
 export type CoordCheckRun = {
   __typename?: 'CoordCheckRun';
   element?: Maybe<CoordElementDetail>;
@@ -1882,6 +1889,34 @@ export const CoordSeverity = {
 } as const;
 
 export type CoordSeverity = typeof CoordSeverity[keyof typeof CoordSeverity];
+export type CoordVersionCde = {
+  __typename?: 'CoordVersionCde';
+  current: CoordVersionState;
+  history: Array<CoordVersionState>;
+  versionId: Scalars['String']['output'];
+};
+
+export type CoordVersionState = {
+  __typename?: 'CoordVersionState';
+  /** created | advanced | shared | published | rejected | archived */
+  action: Scalars['String']['output'];
+  changedAt: Scalars['DateTime']['output'];
+  changedBy?: Maybe<Scalars['String']['output']>;
+  comment?: Maybe<Scalars['String']['output']>;
+  deliverableId?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  /** manual | automatic | exception | system */
+  kind: Scalars['String']['output'];
+  modelId: Scalars['String']['output'];
+  revision?: Maybe<Scalars['String']['output']>;
+  /** wip | shared | published | archived */
+  stage: Scalars['String']['output'];
+  stateCode: Scalars['String']['output'];
+  stateLabel: Scalars['String']['output'];
+  suitability?: Maybe<Scalars['String']['output']>;
+  versionId: Scalars['String']['output'];
+};
+
 export type CoordinationMutations = {
   __typename?: 'CoordinationMutations';
   assignClashes: Scalars['Int']['output'];
@@ -1921,12 +1956,31 @@ export type CoordinationMutations = {
   runCheck: CoordCheckRun;
   /** Runs the test on the latest version of each model */
   runClashTest: CoordClashRun;
+  /** Owner only. Approvers must be contributors or owners of the project. */
+  setCdeApprovers: CoordCdeApprovers;
+  /** Owner only. Codes already used in the history can be deactivated, not removed. */
+  setCdeConfig: Scalars['JSONObject']['output'];
   /** Returns how many clashes were updated */
   setClashStatus: Scalars['Int']['output'];
+  /**
+   * Links the deliverable to a model of the project (null unlinks). Used by the
+   * upload before the file is imported, so the new version enters the
+   * deliverable's CDE flow. A model belongs to one deliverable at most.
+   */
+  setDeliverableModel: CoordDeliverable;
+  /**
+   * Manual status: refused when the deliverable's model already has CDE states
+   * (the status then follows the versions)
+   */
   setDeliverableStatus: CoordDeliverable;
   /** Replaces the naming lists: { project: [{code, description}], originator: [...], ... } */
   setNamingCodes: Array<CoordNamingCode>;
   setRuleSetBinding: CoordRuleSetBinding;
+  /**
+   * Moves a version to another state: { toStateCode, suitability?, comment?,
+   * justification? }. The server checks the flow and the user's role.
+   */
+  transitionVersion: CoordVersionState;
   updateClashTest: CoordClashTest;
   updateDeliverable: CoordDeliverable;
   updateMilestone: CoordMilestone;
@@ -2092,10 +2146,28 @@ export type CoordinationMutationsRunClashTestArgs = {
 };
 
 
+export type CoordinationMutationsSetCdeApproversArgs = {
+  projectId: Scalars['String']['input'];
+  userIds: Array<Scalars['String']['input']>;
+};
+
+
+export type CoordinationMutationsSetCdeConfigArgs = {
+  config: Scalars['JSONObject']['input'];
+  projectId: Scalars['String']['input'];
+};
+
+
 export type CoordinationMutationsSetClashStatusArgs = {
   comment?: InputMaybe<Scalars['String']['input']>;
   ids: Array<Scalars['String']['input']>;
   status: Scalars['String']['input'];
+};
+
+
+export type CoordinationMutationsSetDeliverableModelArgs = {
+  id: Scalars['String']['input'];
+  modelId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2116,6 +2188,13 @@ export type CoordinationMutationsSetRuleSetBindingArgs = {
   modelId: Scalars['String']['input'];
   ruleSetId: Scalars['String']['input'];
   unkeyedBlockPct?: InputMaybe<Scalars['Float']['input']>;
+};
+
+
+export type CoordinationMutationsTransitionVersionArgs = {
+  input: Scalars['JSONObject']['input'];
+  projectId: Scalars['String']['input'];
+  versionId: Scalars['String']['input'];
 };
 
 
@@ -4991,6 +5070,13 @@ export const ProjectCommentsUpdatedMessageType = {
 export type ProjectCommentsUpdatedMessageType = typeof ProjectCommentsUpdatedMessageType[keyof typeof ProjectCommentsUpdatedMessageType];
 export type ProjectCoordination = {
   __typename?: 'ProjectCoordination';
+  /** Users who publish and reject; while empty, the project owners do */
+  cdeApprovers: CoordCdeApprovers;
+  /**
+   * The project's CDE configuration (states, suitability codes, revision scheme,
+   * Model Check criteria), or the UK National Annex default
+   */
+  cdeConfig: Scalars['JSONObject']['output'];
   checkRun?: Maybe<CoordCheckRun>;
   checkRuns: CoordCheckRunCollection;
   /** Collaborators of the project, for assigning clashes */
@@ -5003,6 +5089,8 @@ export type ProjectCoordination = {
   deliverables: Array<CoordDeliverable>;
   milestoneReport?: Maybe<CoordMilestoneReport>;
   milestones: Array<CoordMilestone>;
+  /** Every version of the model that has a CDE state: current state and history */
+  modelCde: Array<CoordVersionCde>;
   /**
    * Property paths of a model version (latest when versionId is omitted), with
    * how many elements have each one, sample values and IFC classes. Computed
@@ -5019,6 +5107,11 @@ export type ProjectCoordination = {
   /** How many elements of a model version match the conditions, with a sample */
   searchSetPreview: CoordSearchSetPreview;
   searchSets: Array<CoordSearchSet>;
+  /**
+   * Adherence of a version to the requirements of its deliverable (latest
+   * succeeded Model Check run per rule set), for the approval screen
+   */
+  versionAdherence: Scalars['JSONObject']['output'];
 };
 
 
@@ -5074,6 +5167,11 @@ export type ProjectCoordinationMilestoneReportArgs = {
 };
 
 
+export type ProjectCoordinationModelCdeArgs = {
+  modelId: Scalars['String']['input'];
+};
+
+
 export type ProjectCoordinationModelPropertiesArgs = {
   modelId: Scalars['String']['input'];
   versionId?: InputMaybe<Scalars['String']['input']>;
@@ -5099,6 +5197,11 @@ export type ProjectCoordinationSearchSetPreviewArgs = {
   modelId: Scalars['String']['input'];
   versionId?: InputMaybe<Scalars['String']['input']>;
   where: Array<Scalars['JSONObject']['input']>;
+};
+
+
+export type ProjectCoordinationVersionAdherenceArgs = {
+  versionId: Scalars['String']['input'];
 };
 
 /** Any values left null will be ignored */
@@ -8887,6 +8990,7 @@ export type ResolversTypes = {
   CommitUpdateInput: CommitUpdateInput;
   CommitsDeleteInput: CommitsDeleteInput;
   CommitsMoveInput: CommitsMoveInput;
+  CoordCdeApprovers: ResolverTypeWrapper<CoordCdeApprovers>;
   CoordCheckRun: ResolverTypeWrapper<CoordCheckRun>;
   CoordCheckRunCollection: ResolverTypeWrapper<CoordCheckRunCollection>;
   CoordCheckStatus: CoordCheckStatus;
@@ -8930,6 +9034,8 @@ export type ResolversTypes = {
   CoordSearchSetElement: ResolverTypeWrapper<CoordSearchSetElement>;
   CoordSearchSetPreview: ResolverTypeWrapper<CoordSearchSetPreview>;
   CoordSeverity: CoordSeverity;
+  CoordVersionCde: ResolverTypeWrapper<CoordVersionCde>;
+  CoordVersionState: ResolverTypeWrapper<CoordVersionState>;
   CoordinationMutations: ResolverTypeWrapper<CoordinationMutations>;
   CountOnlyCollection: ResolverTypeWrapper<CountOnlyCollection>;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
@@ -9430,6 +9536,7 @@ export type ResolversParentTypes = {
   CommitUpdateInput: CommitUpdateInput;
   CommitsDeleteInput: CommitsDeleteInput;
   CommitsMoveInput: CommitsMoveInput;
+  CoordCdeApprovers: CoordCdeApprovers;
   CoordCheckRun: CoordCheckRun;
   CoordCheckRunCollection: CoordCheckRunCollection;
   CoordClash: CoordClash;
@@ -9467,6 +9574,8 @@ export type ResolversParentTypes = {
   CoordSearchSet: CoordSearchSet;
   CoordSearchSetElement: CoordSearchSetElement;
   CoordSearchSetPreview: CoordSearchSetPreview;
+  CoordVersionCde: CoordVersionCde;
+  CoordVersionState: CoordVersionState;
   CoordinationMutations: CoordinationMutations;
   CountOnlyCollection: CountOnlyCollection;
   CreateAccSyncItemInput: CreateAccSyncItemInput;
@@ -10486,6 +10595,12 @@ export type CommitCollectionResolvers<ContextType = GraphQLContext, ParentType e
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type CoordCdeApproversResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordCdeApprovers'] = ResolversParentTypes['CoordCdeApprovers']> = {
+  fallbackToOwners?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  userIds?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CoordCheckRunResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordCheckRun'] = ResolversParentTypes['CoordCheckRun']> = {
   element?: Resolver<Maybe<ResolversTypes['CoordElementDetail']>, ParentType, ContextType, RequireFields<CoordCheckRunElementArgs, 'elementKey'>>;
   elementResults?: Resolver<ResolversTypes['CoordElementResultCollection'], ParentType, ContextType, RequireFields<CoordCheckRunElementResultsArgs, 'limit'>>;
@@ -10847,6 +10962,31 @@ export type CoordSearchSetPreviewResolvers<ContextType = GraphQLContext, ParentT
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type CoordVersionCdeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordVersionCde'] = ResolversParentTypes['CoordVersionCde']> = {
+  current?: Resolver<ResolversTypes['CoordVersionState'], ParentType, ContextType>;
+  history?: Resolver<Array<ResolversTypes['CoordVersionState']>, ParentType, ContextType>;
+  versionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CoordVersionStateResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordVersionState'] = ResolversParentTypes['CoordVersionState']> = {
+  action?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  changedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  changedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  comment?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  deliverableId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  kind?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  revision?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  stage?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  stateCode?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  stateLabel?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  suitability?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CoordinationMutations'] = ResolversParentTypes['CoordinationMutations']> = {
   assignClashes?: Resolver<ResolversTypes['Int'], ParentType, ContextType, RequireFields<CoordinationMutationsAssignClashesArgs, 'ids'>>;
   createClashTest?: Resolver<ResolversTypes['CoordClashTest'], ParentType, ContextType, RequireFields<CoordinationMutationsCreateClashTestArgs, 'input' | 'projectId'>>;
@@ -10874,10 +11014,14 @@ export type CoordinationMutationsResolvers<ContextType = GraphQLContext, ParentT
   reorderDraftRules?: Resolver<Array<ResolversTypes['CoordRule']>, ParentType, ContextType, RequireFields<CoordinationMutationsReorderDraftRulesArgs, 'ruleIds' | 'ruleSetId'>>;
   runCheck?: Resolver<ResolversTypes['CoordCheckRun'], ParentType, ContextType, RequireFields<CoordinationMutationsRunCheckArgs, 'modelId' | 'ruleSetId'>>;
   runClashTest?: Resolver<ResolversTypes['CoordClashRun'], ParentType, ContextType, RequireFields<CoordinationMutationsRunClashTestArgs, 'id'>>;
+  setCdeApprovers?: Resolver<ResolversTypes['CoordCdeApprovers'], ParentType, ContextType, RequireFields<CoordinationMutationsSetCdeApproversArgs, 'projectId' | 'userIds'>>;
+  setCdeConfig?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType, RequireFields<CoordinationMutationsSetCdeConfigArgs, 'config' | 'projectId'>>;
   setClashStatus?: Resolver<ResolversTypes['Int'], ParentType, ContextType, RequireFields<CoordinationMutationsSetClashStatusArgs, 'ids' | 'status'>>;
+  setDeliverableModel?: Resolver<ResolversTypes['CoordDeliverable'], ParentType, ContextType, RequireFields<CoordinationMutationsSetDeliverableModelArgs, 'id'>>;
   setDeliverableStatus?: Resolver<ResolversTypes['CoordDeliverable'], ParentType, ContextType, RequireFields<CoordinationMutationsSetDeliverableStatusArgs, 'id' | 'status'>>;
   setNamingCodes?: Resolver<Array<ResolversTypes['CoordNamingCode']>, ParentType, ContextType, RequireFields<CoordinationMutationsSetNamingCodesArgs, 'input' | 'projectId'>>;
   setRuleSetBinding?: Resolver<ResolversTypes['CoordRuleSetBinding'], ParentType, ContextType, RequireFields<CoordinationMutationsSetRuleSetBindingArgs, 'autoRun' | 'modelId' | 'ruleSetId'>>;
+  transitionVersion?: Resolver<ResolversTypes['CoordVersionState'], ParentType, ContextType, RequireFields<CoordinationMutationsTransitionVersionArgs, 'input' | 'projectId' | 'versionId'>>;
   updateClashTest?: Resolver<ResolversTypes['CoordClashTest'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateClashTestArgs, 'id' | 'input'>>;
   updateDeliverable?: Resolver<ResolversTypes['CoordDeliverable'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateDeliverableArgs, 'id' | 'input'>>;
   updateMilestone?: Resolver<ResolversTypes['CoordMilestone'], ParentType, ContextType, RequireFields<CoordinationMutationsUpdateMilestoneArgs, 'id' | 'input'>>;
@@ -11754,6 +11898,8 @@ export type ProjectCommentsUpdatedMessageResolvers<ContextType = GraphQLContext,
 };
 
 export type ProjectCoordinationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProjectCoordination'] = ResolversParentTypes['ProjectCoordination']> = {
+  cdeApprovers?: Resolver<ResolversTypes['CoordCdeApprovers'], ParentType, ContextType>;
+  cdeConfig?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType>;
   checkRun?: Resolver<Maybe<ResolversTypes['CoordCheckRun']>, ParentType, ContextType, RequireFields<ProjectCoordinationCheckRunArgs, 'id'>>;
   checkRuns?: Resolver<ResolversTypes['CoordCheckRunCollection'], ParentType, ContextType, RequireFields<ProjectCoordinationCheckRunsArgs, 'includePreview' | 'limit'>>;
   clashAssignees?: Resolver<Array<ResolversTypes['CoordClashAssignee']>, ParentType, ContextType>;
@@ -11765,6 +11911,7 @@ export type ProjectCoordinationResolvers<ContextType = GraphQLContext, ParentTyp
   deliverables?: Resolver<Array<ResolversTypes['CoordDeliverable']>, ParentType, ContextType, RequireFields<ProjectCoordinationDeliverablesArgs, 'limit' | 'offset'>>;
   milestoneReport?: Resolver<Maybe<ResolversTypes['CoordMilestoneReport']>, ParentType, ContextType, RequireFields<ProjectCoordinationMilestoneReportArgs, 'milestoneId'>>;
   milestones?: Resolver<Array<ResolversTypes['CoordMilestone']>, ParentType, ContextType>;
+  modelCde?: Resolver<Array<ResolversTypes['CoordVersionCde']>, ParentType, ContextType, RequireFields<ProjectCoordinationModelCdeArgs, 'modelId'>>;
   modelProperties?: Resolver<ResolversTypes['CoordPropertyIndex'], ParentType, ContextType, RequireFields<ProjectCoordinationModelPropertiesArgs, 'modelId'>>;
   namingCodes?: Resolver<Array<ResolversTypes['CoordNamingCode']>, ParentType, ContextType>;
   requirementSources?: Resolver<Array<ResolversTypes['CoordRequirementSource']>, ParentType, ContextType>;
@@ -11774,6 +11921,7 @@ export type ProjectCoordinationResolvers<ContextType = GraphQLContext, ParentTyp
   searchSet?: Resolver<Maybe<ResolversTypes['CoordSearchSet']>, ParentType, ContextType, RequireFields<ProjectCoordinationSearchSetArgs, 'id'>>;
   searchSetPreview?: Resolver<ResolversTypes['CoordSearchSetPreview'], ParentType, ContextType, RequireFields<ProjectCoordinationSearchSetPreviewArgs, 'modelId' | 'where'>>;
   searchSets?: Resolver<Array<ResolversTypes['CoordSearchSet']>, ParentType, ContextType>;
+  versionAdherence?: Resolver<ResolversTypes['JSONObject'], ParentType, ContextType, RequireFields<ProjectCoordinationVersionAdherenceArgs, 'versionId'>>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -13017,6 +13165,7 @@ export type Resolvers<ContextType = GraphQLContext> = {
   CommentThreadActivityMessage?: CommentThreadActivityMessageResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
   CommitCollection?: CommitCollectionResolvers<ContextType>;
+  CoordCdeApprovers?: CoordCdeApproversResolvers<ContextType>;
   CoordCheckRun?: CoordCheckRunResolvers<ContextType>;
   CoordCheckRunCollection?: CoordCheckRunCollectionResolvers<ContextType>;
   CoordClash?: CoordClashResolvers<ContextType>;
@@ -13050,6 +13199,8 @@ export type Resolvers<ContextType = GraphQLContext> = {
   CoordSearchSet?: CoordSearchSetResolvers<ContextType>;
   CoordSearchSetElement?: CoordSearchSetElementResolvers<ContextType>;
   CoordSearchSetPreview?: CoordSearchSetPreviewResolvers<ContextType>;
+  CoordVersionCde?: CoordVersionCdeResolvers<ContextType>;
+  CoordVersionState?: CoordVersionStateResolvers<ContextType>;
   CoordinationMutations?: CoordinationMutationsResolvers<ContextType>;
   CountOnlyCollection?: CountOnlyCollectionResolvers<ContextType>;
   CreateDashboardTokenReturn?: CreateDashboardTokenReturnResolvers<ContextType>;
