@@ -583,6 +583,8 @@ export const duplicateRuleSetFactory =
       ...p.source,
       id: newCoordId(),
       name: p.name,
+      // A copy of the generated set is an ordinary, hand-maintained set
+      generatedFrom: null,
       createdBy: p.userId,
       createdAt: new Date(),
       updatedAt: new Date()

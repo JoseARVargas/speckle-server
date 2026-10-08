@@ -238,6 +238,14 @@ export const getRuleSetFactory = (deps: { db: Knex }) => (p: Scoped & { id: stri
 export const getRuleSetByIdFactory = (deps: { db: Knex }) => (p: { id: string }) =>
   tables.ruleSets(deps.db).where({ id: p.id }).first()
 
+/** The rule set "Gerar regras" maintains for the project, if created. */
+export const getGeneratedRuleSetFactory =
+  (deps: { db: Knex }) => (p: Scoped & { generatedFrom: 'requirements' }) =>
+    tables
+      .ruleSets(deps.db)
+      .where({ projectId: p.projectId, generatedFrom: p.generatedFrom })
+      .first()
+
 export const listRuleSetsByMilestoneFactory =
   (deps: { db: Knex }) => (p: Scoped & { milestoneId: string }) =>
     tables
@@ -526,6 +534,24 @@ export const getLatestSucceededRunFactory =
     )
     if (p.before) q.andWhere('queuedAt', '<', p.before)
     return q.first()
+  }
+
+/**
+ * The latest succeeded, non-preview run of every (rule set x model) pair of
+ * the project - the "current" Model Check picture the MIDP compares against.
+ */
+export const listLatestSucceededRunsFactory =
+  (deps: { db: Knex }) =>
+  (p: Scoped & { modelIds?: string[] }): Promise<CoordCheckRunRecord[]> => {
+    const q = runsQuery(deps.db, { ...p, status: 'succeeded' })
+      .distinctOn(['ruleSetId', 'modelId'])
+      .orderBy([
+        { column: 'ruleSetId', order: 'asc' },
+        { column: 'modelId', order: 'asc' },
+        { column: 'queuedAt', order: 'desc' }
+      ])
+    if (p.modelIds) q.whereIn('modelId', p.modelIds)
+    return q
   }
 
 /** Models that have at least one succeeded, non-preview run of the rule set. */

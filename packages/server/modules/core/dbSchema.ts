@@ -859,6 +859,7 @@ export const CoordRequirements = buildTableHelper('coord_requirements', [
   'discipline',
   'purpose',
   'targetPct',
+  'spec',
   'createdAt',
   'updatedAt'
 ])
@@ -870,6 +871,7 @@ export const CoordRuleSets = buildTableHelper('coord_rule_sets', [
   'format',
   'milestoneId',
   'purpose',
+  'generatedFrom',
   'createdBy',
   'createdAt',
   'updatedAt'
