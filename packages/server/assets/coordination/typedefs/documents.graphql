@@ -1,0 +1,60 @@
+# BIM coordination - document deliverables (drawings, documents, schedules).
+# Every uploaded file is a revision in the same ISO 19650 CDE flow as a model
+# version (WIP -> Shared -> Published -> Archived, suitability codes, P/C
+# revisions, approvers). Files live in Speckle's blob storage; the app
+# downloads them from /api/stream/:projectId/blob/:blobId.
+# Plan: speckle-digitaltwin-console/.ai/plans/2026-10-08-documentos-entregaveis-coordenacao.md
+
+type CoordDocumentRevision {
+  id: String!
+  deliverableId: String!
+  blobId: String!
+  fileName: String!
+  fileSize: Float!
+  """
+  Detected from the file's first bytes (application/pdf, image/vnd.dwg...)
+  """
+  contentType: String!
+  extension: String!
+  """
+  PDF: the app shows it in its viewer; the other formats are download only
+  """
+  viewable: Boolean!
+  sha256: String!
+  createdBy: String
+  createdByName: String
+  createdAt: DateTime!
+  """
+  Current CDE state (null only for a revision being registered)
+  """
+  current: CoordVersionState
+  history: [CoordVersionState!]!
+}
+
+extend type CoordDeliverable {
+  """
+  Document revisions, newest first (document deliverables only)
+  """
+  documentRevisions: [CoordDocumentRevision!]!
+}
+
+extend type CoordinationMutations {
+  """
+  Registers a blob already uploaded to the project as the next revision of a
+  document deliverable (PDF, DWG, DXF, XLSX, DOCX; checked from the bytes).
+  The revision enters the first WIP state. A refused file is deleted.
+  """
+  addDocumentRevision(deliverableId: String!, blobId: String!): CoordDocumentRevision!
+  """
+  Same flow and roles as transitionVersion: { toStateCode, suitability?, comment? }.
+  The Model Check gate doesn't apply to documents.
+  """
+  transitionDocumentRevision(
+    revisionId: String!
+    input: JSONObject!
+  ): CoordVersionState!
+  """
+  Only a revision that never left WIP; removes its file too
+  """
+  deleteDocumentRevision(revisionId: String!): Boolean!
+}

@@ -33,6 +33,7 @@ import { createBusboy } from '@/modules/blobstorage/rest/busboy'
 import contentDisposition from 'content-disposition'
 import { allowCrossOriginResourceAccessMiddelware } from '@/modules/shared/middleware/security'
 import cors from 'cors'
+import { isBlobReferencedFactory } from '@/modules/blobstorage/helpers/protectedBlobs'
 
 export const blobStorageRouterFactory = (): Router => {
   const processNewFileStream = processNewFileStreamFactory()
@@ -164,6 +165,17 @@ export const blobStorageRouterFactory = (): Router => {
         getProjectDbClient({ projectId: streamId }),
         getProjectObjectStorage({ projectId: streamId })
       ])
+
+      // OFFICIO fork: files of document records are removed by their module only
+      const referenced = await isBlobReferencedFactory({ db, projectDb })({
+        blobId: req.params.blobId
+      })
+      if (referenced) {
+        res.status(409).json({
+          error: 'Este arquivo pertence a um documento e não pode ser apagado por aqui'
+        })
+        return
+      }
 
       const getBlobMetadata = getBlobMetadataFactory({ db: projectDb })
       const deleteObject = deleteObjectFactory({ storage: projectStorage.private })

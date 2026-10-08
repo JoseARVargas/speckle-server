@@ -859,6 +859,7 @@ export const CoordRequirements = buildTableHelper('coord_requirements', [
   'discipline',
   'purpose',
   'targetPct',
+  'spec',
   'createdAt',
   'updatedAt'
 ])
@@ -870,6 +871,7 @@ export const CoordRuleSets = buildTableHelper('coord_rule_sets', [
   'format',
   'milestoneId',
   'purpose',
+  'generatedFrom',
   'createdBy',
   'createdAt',
   'updatedAt'
@@ -1153,6 +1155,7 @@ export const CoordVersionStates = buildTableHelper('coord_version_states', [
   'projectId',
   'modelId',
   'versionId',
+  'documentRevisionId',
   'deliverableId',
   'stage',
   'stateCode',
@@ -1164,6 +1167,20 @@ export const CoordVersionStates = buildTableHelper('coord_version_states', [
   'comment',
   'changedBy',
   'changedAt'
+])
+
+export const CoordDocumentRevisions = buildTableHelper('coord_document_revisions', [
+  'id',
+  'projectId',
+  'deliverableId',
+  'blobId',
+  'fileName',
+  'fileSize',
+  'contentType',
+  'extension',
+  'sha256',
+  'createdBy',
+  'createdAt'
 ])
 
 export const ServerAppsScopes = buildTableHelper('server_apps_scopes', [

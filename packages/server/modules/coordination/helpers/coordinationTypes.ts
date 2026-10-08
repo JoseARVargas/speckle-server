@@ -238,6 +238,34 @@ export const coordRuleSetImportSchema = z
   })
   .strict()
 
+/**
+ * Verifiable specification of a requirement (Fase 2c): the IFC classes it
+ * applies to plus the same WHERE/CHECK conditions as a rule. "Gerar regras"
+ * turns it into one rule of the managed rule set; "Exportar IDS" into one
+ * IDS specification when it fits the IDS facets.
+ */
+export const coordRequirementSpecSchema = z
+  .object({
+    ifcClasses: z
+      .array(
+        z
+          .string()
+          .trim()
+          .regex(/^Ifc[A-Za-z0-9]{1,60}$/, 'classe IFC inválida (ex.: IfcColumn)')
+      )
+      .max(COORD_LIMITS.maxValuesPerList)
+      .default([]),
+    where: conditionList.default([]),
+    check: conditionList.min(1, 'a especificação precisa de ao menos uma verificação'),
+    severity: z.enum(['error', 'warning']).default('error')
+  })
+  .strict()
+
+export type CoordRequirementSpec = z.infer<typeof coordRequirementSpecSchema>
+
+/** Name of the managed rule set "Gerar regras" writes (one per project). */
+export const GENERATED_RULE_SET_NAME = 'Requisitos do EIR (gerado)'
+
 /** `*.Name` (or `*.A.B`) means suffix matching even when `match` is omitted. */
 export const inferPathMatch = (path: string): CoordPathMatch =>
   path.startsWith('*.') ? 'suffix' : 'exact'
@@ -299,6 +327,8 @@ export type CoordRequirementRecord = {
   discipline: Nullable<string>
   purpose: Nullable<string>
   targetPct: number
+  /** Verifiable specification (null = not verifiable yet) */
+  spec?: Nullable<CoordRequirementSpec>
   createdAt: Date
   updatedAt: Date
 }
@@ -310,6 +340,8 @@ export type CoordRuleSetRecord = {
   format: 'native' | 'ids'
   milestoneId: Nullable<string>
   purpose: Nullable<string>
+  /** 'requirements' = maintained by "Gerar regras"; null = authored */
+  generatedFrom?: Nullable<'requirements'>
   createdBy: Nullable<string>
   createdAt: Date
   updatedAt: Date

@@ -39,8 +39,13 @@ type CoordVersionCde {
 
 type CoordVersionState {
   id: String!
-  versionId: String!
-  modelId: String!
+  """
+  The subject is a model version (versionId + modelId) or a document
+  revision (documentRevisionId), never both
+  """
+  versionId: String
+  modelId: String
+  documentRevisionId: String
   deliverableId: String
   """
   wip | shared | published | archived

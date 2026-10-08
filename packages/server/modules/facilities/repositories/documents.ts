@@ -23,8 +23,25 @@ export const listFacilityDocumentsFactory =
     if (params.category) q.andWhere({ category: params.category })
     if (params.assetId) q.andWhere({ assetId: params.assetId })
     if (params.spaceId) q.andWhere({ spaceId: params.spaceId })
-    if (params.cursor) q.andWhere('id', '>', params.cursor)
-    return q.orderBy('createdAt', 'desc').limit(params.limit)
+    // Cursor "<createdAt ISO>|<id>": the last row of the previous page, in
+    // the same (createdAt desc, id desc) order as the list
+    const [cursorTs, cursorId] = (params.cursor ?? '').split('|')
+    const cursorDate = cursorTs ? new Date(cursorTs) : null
+    if (cursorDate && !isNaN(cursorDate.getTime()) && cursorId) {
+      q.andWhere((w) =>
+        w
+          .where('createdAt', '<', cursorDate)
+          .orWhere((eq) =>
+            eq.where('createdAt', '=', cursorDate).andWhere('id', '<', cursorId)
+          )
+      )
+    }
+    return q
+      .orderBy([
+        { column: 'createdAt', order: 'desc' },
+        { column: 'id', order: 'desc' }
+      ])
+      .limit(params.limit)
   }
 
 export const countFacilityDocumentsFactory =

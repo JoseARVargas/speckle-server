@@ -1,0 +1,102 @@
+# BIM coordination - requirement -> verification (Fase 2c). A requirement may
+# carry a verifiable specification (IFC classes + WHERE/CHECK conditions, the
+# Model Check format). "Gerar regras" writes them as rules of one managed
+# rule set, "Exportar IDS" as IDS 1.0 specifications, and the MIDP compares
+# each deliverable's model against them through the latest runs.
+
+extend type CoordRequirement {
+  """
+  { ifcClasses: [...], where: [...], check: [...], severity } or null
+  """
+  spec: JSONObject
+  """
+  Human readable sentence of the specification
+  """
+  specSummary: String
+}
+
+extend type CoordRuleSet {
+  """
+  "requirements" for the rule set maintained by generateRequirementRules
+  """
+  generatedFrom: String
+}
+
+type CoordIdsNotExported {
+  code: String!
+  reason: String!
+}
+
+type CoordRequirementsIdsExport {
+  """
+  IDS 1.0 XML, null when no requirement could be exported
+  """
+  xml: String
+  fileName: String!
+  """
+  Requirement codes exported as specifications
+  """
+  exported: [String!]!
+  notExported: [CoordIdsNotExported!]!
+}
+
+extend type ProjectCoordination {
+  """
+  IDS 1.0 of the requirements (of a milestone, or all) with a specification
+  that fits the IDS facets
+  """
+  requirementsIds(milestoneId: String): CoordRequirementsIdsExport!
+}
+
+type CoordRequirementRulesResult {
+  ruleSet: CoordRuleSet!
+  """
+  Rules written to the draft (one per requirement with a specification)
+  """
+  generated: Int!
+  """
+  Requirement codes without a specification
+  """
+  skipped: [String!]!
+}
+
+type CoordDeliverableRequirementCompliance {
+  requirement: CoordRequirement!
+  applicable: Int!
+  passed: Int!
+  adherence: Float
+  """
+  adherence >= the requirement's target; null without results
+  """
+  met: Boolean
+}
+
+type CoordDeliverableCompliance {
+  """
+  no_model | no_requirements | no_run | met | partial (met, some without
+  results) | below (some requirement under its target)
+  """
+  status: String!
+  adherence: Float
+  requirements: [CoordDeliverableRequirementCompliance!]!
+}
+
+extend type CoordDeliverable {
+  """
+  The deliverable's model in its latest Model Check runs, on the
+  requirements the deliverable must meet (read only)
+  """
+  compliance: CoordDeliverableCompliance!
+}
+
+extend type CoordinationMutations {
+  """
+  Sets (null clears) the requirement's verifiable specification
+  """
+  setRequirementSpec(id: String!, spec: JSONObject): CoordRequirement!
+  """
+  Rewrites the draft of the managed rule set "Requisitos do EIR (gerado)" with
+  one rule per requirement that has a specification. Publishing stays manual.
+  """
+  generateRequirementRules(projectId: String!): CoordRequirementRulesResult!
+}
