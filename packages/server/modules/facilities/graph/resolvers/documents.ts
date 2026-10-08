@@ -1,7 +1,8 @@
 import { db } from '@/db/knex'
 import { getProjectDbClient } from '@/modules/multiregion/utils/dbSelector'
 import { getProjectObjectStorage } from '@/modules/multiregion/utils/blobStorageSelector'
-import { NotFoundError } from '@/modules/shared/errors'
+import { BadRequestError, NotFoundError } from '@/modules/shared/errors'
+import { BlobUploadStatus } from '@speckle/shared/blobs'
 import type { GraphQLContext } from '@/modules/shared/helpers/typeHelper'
 import { assertCanManageFacility } from '@/modules/facilities/graph/resolvers/facilities'
 import { ensureFacilityFactory, newId } from '@/modules/facilities/services/facilities'
@@ -27,6 +28,51 @@ import type {
   DocumentCategory,
   DocumentStatus
 } from '@/modules/facilities/helpers/types'
+import type { Knex } from 'knex'
+
+/**
+ * A01: the blob must be a completed upload of this very project (the blob
+ * REST upload answers 201 even when it failed, e.g. over the size limit),
+ * and linked assets/spaces must belong to the project too.
+ */
+const assertDocumentRefs = async (params: {
+  projectDb: Knex
+  projectId: string
+  blobId?: string
+  assetId?: string | null
+  spaceId?: string | null
+}) => {
+  const { projectDb, projectId } = params
+  let blob: { fileName: string; fileSize: number | null } | null = null
+  if (params.blobId) {
+    const found = await getBlobMetadataFactory({ db: projectDb })({
+      streamId: projectId,
+      blobId: params.blobId
+    }).catch(() => null)
+    if (!found) throw new BadRequestError('Arquivo não encontrado neste projeto')
+    if (found.uploadStatus !== BlobUploadStatus.Completed) {
+      throw new BadRequestError('O envio do arquivo não terminou com sucesso')
+    }
+    blob = { fileName: found.fileName, fileSize: found.fileSize }
+  }
+  if (params.assetId) {
+    const asset = await getAssetByIdFactory({ db: projectDb })({ id: params.assetId })
+    if (!asset || asset.projectId !== projectId) {
+      throw new BadRequestError('Ativo não pertence a este projeto')
+    }
+  }
+  if (params.spaceId) {
+    const space = await getSpaceByIdFactory({ db: projectDb })({ id: params.spaceId })
+    if (!space || space.projectId !== projectId) {
+      throw new BadRequestError('Espaço não pertence a este projeto')
+    }
+  }
+  return blob
+}
+
+/** Keyset cursor matching the list order (createdAt desc, id desc). */
+const encodeCursor = (row: { createdAt: Date; id: string }) =>
+  `${row.createdAt.toISOString()}|${row.id}`
 
 const documentMutations = {
   async create(
@@ -63,6 +109,13 @@ const documentMutations = {
     } = args.input
     await assertCanManageFacility(ctx, projectId)
     const projectDb = await getProjectDbClient({ projectId })
+    const blob = await assertDocumentRefs({
+      projectDb,
+      projectId,
+      blobId,
+      assetId,
+      spaceId
+    })
     const facility = await ensureFacilityFactory({ db: projectDb })({ projectId })
     return await insertFacilityDocumentFactory({ db: projectDb })({
       id: newId(),
@@ -74,8 +127,9 @@ const documentMutations = {
       category: category ?? null,
       description: description ?? null,
       blobId,
-      fileName,
-      fileSize: fileSize ?? null,
+      // What storage recorded wins over what the client says it sent
+      fileName: blob?.fileName || fileName,
+      fileSize: blob?.fileSize ?? fileSize ?? null,
       status: status ?? 'work_in_progress',
       revision: revision ?? 'P01',
       uploadedBy: ctx.userId ?? null,
@@ -106,6 +160,12 @@ const documentMutations = {
     if (!document) throw new NotFoundError('Document not found')
     await assertCanManageFacility(ctx, document.projectId)
     const projectDb = await getProjectDbClient({ projectId: document.projectId })
+    await assertDocumentRefs({
+      projectDb,
+      projectId: document.projectId,
+      assetId,
+      spaceId
+    })
     return await updateFacilityDocumentFactory({ db: projectDb })({
       id,
       update: {
@@ -179,7 +239,8 @@ export default {
       return {
         items,
         totalCount,
-        cursor: items.length ? items[items.length - 1].id : null
+        cursor:
+          items.length === params.limit ? encodeCursor(items[items.length - 1]) : null
       }
     }
   },

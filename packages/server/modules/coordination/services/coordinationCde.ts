@@ -47,6 +47,7 @@ import {
   listRequirementIdsOfDeliverableFactory,
   updateDeliverableFactory
 } from '@/modules/coordination/repositories/planning'
+import { listDocumentStatesFactory } from '@/modules/coordination/repositories/documents'
 import { auditFactory, newCoordId } from '@/modules/coordination/services/coordination'
 
 /**
@@ -258,25 +259,43 @@ const describeShortfall = (requirements: RequirementAdherence[]) =>
 
 // ---- state history ------------------------------------------------------------
 
+/** A model version or a document revision: whichever the row points at. */
+export const subjectIdOf = (row: CoordVersionStateRecord) =>
+  row.versionId ?? row.documentRevisionId ?? ''
+
+type SubjectCde = {
+  subjectId: string
+  current: CoordVersionStateRecord
+  history: CoordVersionStateRecord[]
+}
+
+export const groupBySubject = (rows: CoordVersionStateRecord[]): SubjectCde[] => {
+  const bySubject = new Map<string, CoordVersionStateRecord[]>()
+  for (const row of rows) {
+    const key = subjectIdOf(row)
+    const list = bySubject.get(key) ?? []
+    list.push(row)
+    bySubject.set(key, list)
+  }
+  return [...bySubject.entries()].map(([subjectId, history]) => ({
+    subjectId,
+    current: history[history.length - 1],
+    history
+  }))
+}
+
 type VersionCde = {
   versionId: string
   current: CoordVersionStateRecord
   history: CoordVersionStateRecord[]
 }
 
-const groupByVersion = (rows: CoordVersionStateRecord[]): VersionCde[] => {
-  const byVersion = new Map<string, CoordVersionStateRecord[]>()
-  for (const row of rows) {
-    const list = byVersion.get(row.versionId) ?? []
-    list.push(row)
-    byVersion.set(row.versionId, list)
-  }
-  return [...byVersion.entries()].map(([versionId, history]) => ({
-    versionId,
-    current: history[history.length - 1],
-    history
+const groupByVersion = (rows: CoordVersionStateRecord[]): VersionCde[] =>
+  groupBySubject(rows).map((g) => ({
+    versionId: g.subjectId,
+    current: g.current,
+    history: g.history
   }))
-}
 
 export const getModelCdeFactory =
   (deps: { db: Knex }) => async (p: { projectId: string; modelId: string }) =>
@@ -291,7 +310,7 @@ export const getModelCdeFactory =
 export const deriveDeliverableStatus = (
   rows: CoordVersionStateRecord[]
 ): DeliverableStatus | null => {
-  const versions = groupByVersion(rows)
+  const versions = groupBySubject(rows)
   if (!versions.length) return null
   const stages = versions.map((v) => v.current.stage)
   if (stages.includes('published')) return 'published'
@@ -347,8 +366,9 @@ const nextRevision = (
 
 const stateRow = (p: {
   projectId: string
-  modelId: string
-  versionId: string
+  modelId: string | null
+  versionId: string | null
+  documentRevisionId?: string | null
   deliverableId: string | null
   state: CdeState
   action: CdeAction
@@ -362,6 +382,7 @@ const stateRow = (p: {
   projectId: p.projectId,
   modelId: p.modelId,
   versionId: p.versionId,
+  documentRevisionId: p.documentRevisionId ?? null,
   deliverableId: p.deliverableId,
   stage: p.state.stage,
   stateCode: p.state.code,
@@ -407,6 +428,105 @@ export const recordVersionCreatedFactory =
     await syncDeliverableStatusFactory(deps)({ ...p, actorId: null })
   }
 
+// ---- document revisions ------------------------------------------------------------
+
+/** A new document revision enters the first WIP state (inside the caller's transaction). */
+export const recordDocumentRevisionCreatedFactory =
+  (deps: { db: Knex }) =>
+  async (p: {
+    projectId: string
+    deliverableId: string
+    documentRevisionId: string
+    config: CdeConfig
+  }) => {
+    const [first] = activeStates(p.config, 'wip')
+    return await insertVersionStateFactory(deps)(
+      stateRow({
+        projectId: p.projectId,
+        modelId: null,
+        versionId: null,
+        documentRevisionId: p.documentRevisionId,
+        deliverableId: p.deliverableId,
+        state: first,
+        action: 'created',
+        kind: 'system',
+        suitability: null,
+        changedBy: null
+      })
+    )
+  }
+
+/** MIDP status of a document deliverable, from its revisions (same rule as models). */
+export const syncDocumentDeliverableStatusFactory =
+  (deps: { db: Knex }) =>
+  async (p: { projectId: string; deliverableId: string; actorId: string | null }) => {
+    const deliverable = (await deps
+      .db<CoordDeliverableRecord>(CoordDeliverables.name)
+      .where({ projectId: p.projectId, id: p.deliverableId })
+      .first()) as CoordDeliverableRecord | undefined
+    if (!deliverable) return
+    const rows = await listDocumentStatesFactory(deps)(p)
+    const status = deriveDeliverableStatus(rows) ?? 'not_started'
+    if (status === deliverable.status) return
+    await updateDeliverableFactory(deps)({ id: deliverable.id, update: { status } })
+    await auditFactory(deps)({
+      projectId: p.projectId,
+      actorId: p.actorId,
+      action: 'deliverable.status_derived',
+      entityType: 'deliverable',
+      entityId: deliverable.id,
+      data: { from: deliverable.status, to: status }
+    })
+  }
+
+export const transitionDocumentRevisionFactory =
+  (deps: { db: Knex }) =>
+  async (p: {
+    projectId: string
+    deliverableId: string
+    revisionId: string
+    userId: string
+    input: TransitionInput
+  }) => {
+    const inserted = await transitionSubjectFactory(deps)({
+      projectId: p.projectId,
+      userId: p.userId,
+      input: p.input,
+      noun: REVISION_NOUN,
+      lockKey: `coord-cde-doc:${p.deliverableId}`,
+      listGroupRows: (trx) =>
+        listDocumentStatesFactory({ db: trx })({
+          projectId: p.projectId,
+          deliverableId: p.deliverableId
+        }),
+      subjectId: p.revisionId,
+      subject: { modelId: null, versionId: null, documentRevisionId: p.revisionId },
+      deliverableId: p.deliverableId,
+      // documents have no Model Check: the adherence gate doesn't apply
+      adherence: null
+    })
+    await auditFactory(deps)({
+      projectId: p.projectId,
+      actorId: p.userId,
+      action: `cde.${inserted.action}`,
+      entityType: 'document_revision',
+      entityId: p.revisionId,
+      data: {
+        deliverableId: p.deliverableId,
+        state: inserted.stateCode,
+        suitability: inserted.suitability,
+        revision: inserted.revision,
+        kind: inserted.kind
+      }
+    })
+    await syncDocumentDeliverableStatusFactory(deps)({
+      projectId: p.projectId,
+      deliverableId: p.deliverableId,
+      actorId: p.userId
+    })
+    return inserted
+  }
+
 // ---- transitions ------------------------------------------------------------------
 
 export const transitionVersionFactory =
@@ -426,228 +546,28 @@ export const transitionVersionFactory =
     if (!version || !model)
       throw new BadRequestError('Versão não pertence a este projeto')
     const modelId = model.id
-
-    const role = await projectRoleFactory(deps)({
-      projectId: p.projectId,
-      userId: p.userId
-    })
-    if (!role || !WRITE_ROLES.includes(role)) {
-      throw new ForbiddenError('Só colaboradores e donos mudam o estado de uma versão')
-    }
-    const config = await getCdeConfigFactory(deps)({ projectId: p.projectId })
-    const target = findState(config, p.input.toStateCode)
-    if (!target || !target.active)
-      throw new BadRequestError('Estado de destino inválido')
     const deliverable = await findModelDeliverableFactory(deps)({
       projectId: p.projectId,
       modelId
     })
 
-    const requireApprover = async (sharedBy: string | null) => {
-      const approvers = await effectiveApproversFactory(deps)({
-        projectId: p.projectId
-      })
-      if (!approvers.userIds.includes(p.userId)) {
-        throw new ForbiddenError(
-          approvers.fallbackToOwners
-            ? 'Só o dono do projeto aprova enquanto não houver aprovadores'
-            : 'Só um aprovador do projeto pode publicar ou recusar'
-        )
-      }
-      // the author of the submission doesn't approve it, if someone else can
-      if (sharedBy === p.userId && approvers.userIds.some((id) => id !== p.userId)) {
-        throw new ForbiddenError(
-          'Quem compartilhou a versão não pode aprová-la; peça a outro aprovador'
-        )
-      }
-    }
-
-    const inserted = await deps.db.transaction(async (trx) => {
-      await lockModel(trx, modelId)
-      const modelRows = await listModelStatesFactory({ db: trx })({
-        projectId: p.projectId,
-        modelId
-      })
-      const versionRows = modelRows.filter((r) => r.versionId === p.versionId)
-      // versions from before the CDE flow start in the first WIP state
-      const firstWip = activeStates(config, 'wip')[0]
-      const current =
-        versionRows[versionRows.length - 1] ??
-        stateRow({
+    const inserted = await transitionSubjectFactory(deps)({
+      projectId: p.projectId,
+      userId: p.userId,
+      input: p.input,
+      noun: VERSION_NOUN,
+      lockKey: `coord-cde:${modelId}`,
+      listGroupRows: (trx) =>
+        listModelStatesFactory({ db: trx })({ projectId: p.projectId, modelId }),
+      subjectId: p.versionId,
+      subject: { modelId, versionId: p.versionId, documentRevisionId: null },
+      deliverableId: deliverable?.id ?? null,
+      adherence: (trx) =>
+        versionAdherenceFactory({ db: trx })({
           projectId: p.projectId,
-          modelId,
           versionId: p.versionId,
-          deliverableId: deliverable?.id ?? null,
-          state: firstWip,
-          action: 'created',
-          kind: 'system',
-          changedBy: null
+          deliverableId: deliverable?.id ?? null
         })
-      if (!versionRows.length) await insertVersionStateFactory({ db: trx })(current)
-
-      const from = current.stage
-      const to = target.stage
-      const stageStates = activeStates(config, from)
-      const position = stageStates.findIndex(
-        (s) => s.code.toUpperCase() === current.stateCode.toUpperCase()
-      )
-      const atStageEnd = position === -1 || position === stageStates.length - 1
-      const base = {
-        projectId: p.projectId,
-        modelId,
-        versionId: p.versionId,
-        deliverableId: deliverable?.id ?? null,
-        state: target,
-        changedBy: p.userId
-      }
-      const sharedBy =
-        [...versionRows].reverse().find((r) => r.action === 'shared')?.changedBy ?? null
-      const suitabilityOf = (stage: 'shared' | 'published') => {
-        const code = p.input.suitability?.toUpperCase()
-        const allowed = config.suitability[stage].filter((s) => s.active)
-        const match = allowed.find((s) => s.code.toUpperCase() === code)
-        if (!match) {
-          throw new BadRequestError(
-            `Escolha o código de adequação (${allowed.map((s) => s.code).join(', ')})`
-          )
-        }
-        return match.code
-      }
-
-      let row: CoordVersionStateRecord
-      if (from === 'archived') {
-        throw new BadRequestError('Versão arquivada não muda de estado')
-      } else if (from === to) {
-        // next state inside the same stage (custom states)
-        if (stageStates[position + 1]?.code !== target.code) {
-          throw new BadRequestError('Avance para o próximo estado da etapa')
-        }
-        if (from === 'published') await requireApprover(null)
-        row = stateRow({
-          ...base,
-          action: 'advanced',
-          kind: 'manual',
-          suitability: current.suitability,
-          revision: current.revision,
-          comment: p.input.comment
-        })
-      } else if (from === 'wip' && to === 'shared') {
-        if (!atStageEnd)
-          throw new BadRequestError('Conclua os estados de WIP antes de compartilhar')
-        if (activeStates(config, 'shared')[0].code !== target.code) {
-          throw new BadRequestError('Compartilhe no primeiro estado da etapa Shared')
-        }
-        row = stateRow({
-          ...base,
-          action: 'shared',
-          kind: 'manual',
-          suitability: suitabilityOf('shared'),
-          revision: nextRevision(
-            modelRows,
-            'shared',
-            config.revision.sharedPrefix,
-            config.revision.digits
-          ),
-          comment: p.input.comment
-        })
-      } else if (from === 'shared' && to === 'published') {
-        if (!atStageEnd)
-          throw new BadRequestError('Conclua os estados de Shared antes de publicar')
-        if (activeStates(config, 'published')[0].code !== target.code) {
-          throw new BadRequestError('Publique no primeiro estado da etapa Published')
-        }
-        await requireApprover(sharedBy)
-        let kind: CdeKind = 'manual'
-        let comment = p.input.comment ?? null
-        if (config.requireAdherenceToPublish) {
-          const adherence = await versionAdherenceFactory({ db: trx })({
-            projectId: p.projectId,
-            versionId: p.versionId,
-            deliverableId: deliverable?.id ?? null
-          })
-          if (!adherence.met) {
-            if (!p.input.justification) {
-              throw new BadRequestError(
-                adherence.evaluated
-                  ? `Aderência abaixo da meta (${describeShortfall(
-                      adherence.requirements
-                    )}): informe uma justificativa para publicar`
-                  : 'Sem Model Check concluído para os requisitos do entregável: informe uma justificativa para publicar'
-              )
-            }
-            kind = 'exception'
-            comment = [p.input.justification, comment].filter(Boolean).join(' — ')
-          }
-        }
-        row = stateRow({
-          ...base,
-          action: 'published',
-          kind,
-          suitability: suitabilityOf('published'),
-          revision: nextRevision(
-            modelRows,
-            'published',
-            config.revision.publishedPrefix,
-            config.revision.digits
-          ),
-          comment
-        })
-      } else if (from === 'shared' && to === 'wip') {
-        if (firstWip.code !== target.code) {
-          throw new BadRequestError('A recusa volta para o primeiro estado de WIP')
-        }
-        if (!p.input.comment) throw new BadRequestError('Informe o motivo da recusa')
-        await requireApprover(sharedBy)
-        row = stateRow({
-          ...base,
-          action: 'rejected',
-          kind: 'manual',
-          suitability: null,
-          revision: current.revision,
-          comment: p.input.comment
-        })
-      } else if (from === 'published' && to === 'archived') {
-        if (role !== Roles.Stream.Owner) {
-          throw new ForbiddenError('Só o dono do projeto arquiva uma versão publicada')
-        }
-        row = stateRow({
-          ...base,
-          action: 'archived',
-          kind: 'manual',
-          suitability: current.suitability,
-          revision: current.revision,
-          comment: p.input.comment
-        })
-      } else {
-        throw new BadRequestError('Transição não permitida')
-      }
-
-      const saved = await insertVersionStateFactory({ db: trx })(row)
-
-      if (row.action === 'published') {
-        // the previous publication of this model is superseded
-        const [archived] = activeStates(config, 'archived')
-        for (const other of groupByVersion(modelRows)) {
-          if (other.versionId === p.versionId || other.current.stage !== 'published')
-            continue
-          await insertVersionStateFactory({ db: trx })(
-            stateRow({
-              projectId: p.projectId,
-              modelId,
-              versionId: other.versionId,
-              deliverableId: other.current.deliverableId,
-              state: archived,
-              action: 'archived',
-              kind: 'system',
-              suitability: other.current.suitability,
-              revision: other.current.revision,
-              comment: `Substituída por ${row.revision}`,
-              changedBy: p.userId
-            })
-          )
-        }
-      }
-      return saved
     })
 
     await auditFactory(deps)({
@@ -679,6 +599,277 @@ export const transitionVersionFactory =
     return inserted
   }
 
+/** Wording of the subject in user-facing messages (it differs by gender too). */
+export type CdeNoun = {
+  /** "versão" / "revisão" */
+  one: string
+  /** "Versão arquivada" / "Revisão arquivada" */
+  archived: string
+  /** "a versão" / "a revisão" */
+  the: string
+  /** "uma versão" / "uma revisão" */
+  a: string
+  /** "uma versão publicada" / "uma revisão publicada" */
+  aPublished: string
+}
+
+const VERSION_NOUN: CdeNoun = {
+  one: 'versão',
+  archived: 'Versão arquivada',
+  the: 'a versão',
+  a: 'uma versão',
+  aPublished: 'uma versão publicada'
+}
+
+export const REVISION_NOUN: CdeNoun = {
+  one: 'revisão',
+  archived: 'Revisão arquivada',
+  the: 'a revisão',
+  a: 'uma revisão',
+  aPublished: 'uma revisão publicada'
+}
+
+/**
+ * The stage rules of the ISO 19650 flow, for any subject (a model version or
+ * a document revision). The caller says which rows form the group (revision
+ * numbers and "previous publication" are per model / per deliverable), what
+ * lock serializes it and whether the Model Check gate applies.
+ */
+export const transitionSubjectFactory =
+  (deps: { db: Knex }) =>
+  async (p: {
+    projectId: string
+    userId: string
+    input: TransitionInput
+    noun: CdeNoun
+    lockKey: string
+    listGroupRows: (trx: Knex.Transaction) => Promise<CoordVersionStateRecord[]>
+    subjectId: string
+    subject: {
+      modelId: string | null
+      versionId: string | null
+      documentRevisionId: string | null
+    }
+    deliverableId: string | null
+    /** Model Check gate; null = not applicable (documents) */
+    adherence:
+      | null
+      | ((
+          trx: Knex.Transaction
+        ) => Promise<Awaited<ReturnType<ReturnType<typeof versionAdherenceFactory>>>>)
+  }) => {
+    const role = await projectRoleFactory(deps)({
+      projectId: p.projectId,
+      userId: p.userId
+    })
+    if (!role || !WRITE_ROLES.includes(role)) {
+      throw new ForbiddenError(`Só colaboradores e donos mudam o estado de ${p.noun.a}`)
+    }
+    const config = await getCdeConfigFactory(deps)({ projectId: p.projectId })
+    const target = findState(config, p.input.toStateCode)
+    if (!target || !target.active)
+      throw new BadRequestError('Estado de destino inválido')
+
+    const requireApprover = async (sharedBy: string | null) => {
+      const approvers = await effectiveApproversFactory(deps)({
+        projectId: p.projectId
+      })
+      if (!approvers.userIds.includes(p.userId)) {
+        throw new ForbiddenError(
+          approvers.fallbackToOwners
+            ? 'Só o dono do projeto aprova enquanto não houver aprovadores'
+            : 'Só um aprovador do projeto pode publicar ou recusar'
+        )
+      }
+      // the author of the submission doesn't approve it, if someone else can
+      if (sharedBy === p.userId && approvers.userIds.some((id) => id !== p.userId)) {
+        throw new ForbiddenError(
+          `Quem compartilhou ${p.noun.the} não pode aprová-la; peça a outro aprovador`
+        )
+      }
+    }
+
+    return await deps.db.transaction(async (trx) => {
+      await trx.raw('select pg_advisory_xact_lock(hashtext(?))', [p.lockKey])
+      const groupRows = await p.listGroupRows(trx)
+      const subjectRows = groupRows.filter((r) => subjectIdOf(r) === p.subjectId)
+      // subjects from before the CDE flow start in the first WIP state
+      const firstWip = activeStates(config, 'wip')[0]
+      const current =
+        subjectRows[subjectRows.length - 1] ??
+        stateRow({
+          projectId: p.projectId,
+          ...p.subject,
+          deliverableId: p.deliverableId,
+          state: firstWip,
+          action: 'created',
+          kind: 'system',
+          changedBy: null
+        })
+      if (!subjectRows.length) await insertVersionStateFactory({ db: trx })(current)
+
+      const from = current.stage
+      const to = target.stage
+      const stageStates = activeStates(config, from)
+      const position = stageStates.findIndex(
+        (s) => s.code.toUpperCase() === current.stateCode.toUpperCase()
+      )
+      const atStageEnd = position === -1 || position === stageStates.length - 1
+      const base = {
+        projectId: p.projectId,
+        ...p.subject,
+        deliverableId: p.deliverableId,
+        state: target,
+        changedBy: p.userId
+      }
+      const sharedBy =
+        [...subjectRows].reverse().find((r) => r.action === 'shared')?.changedBy ?? null
+      const suitabilityOf = (stage: 'shared' | 'published') => {
+        const code = p.input.suitability?.toUpperCase()
+        const allowed = config.suitability[stage].filter((s) => s.active)
+        const match = allowed.find((s) => s.code.toUpperCase() === code)
+        if (!match) {
+          throw new BadRequestError(
+            `Escolha o código de adequação (${allowed.map((s) => s.code).join(', ')})`
+          )
+        }
+        return match.code
+      }
+
+      let row: CoordVersionStateRecord
+      if (from === 'archived') {
+        throw new BadRequestError(`${p.noun.archived} não muda de estado`)
+      } else if (from === to) {
+        // next state inside the same stage (custom states)
+        if (stageStates[position + 1]?.code !== target.code) {
+          throw new BadRequestError('Avance para o próximo estado da etapa')
+        }
+        if (from === 'published') await requireApprover(null)
+        row = stateRow({
+          ...base,
+          action: 'advanced',
+          kind: 'manual',
+          suitability: current.suitability,
+          revision: current.revision,
+          comment: p.input.comment
+        })
+      } else if (from === 'wip' && to === 'shared') {
+        if (!atStageEnd)
+          throw new BadRequestError('Conclua os estados de WIP antes de compartilhar')
+        if (activeStates(config, 'shared')[0].code !== target.code) {
+          throw new BadRequestError('Compartilhe no primeiro estado da etapa Shared')
+        }
+        row = stateRow({
+          ...base,
+          action: 'shared',
+          kind: 'manual',
+          suitability: suitabilityOf('shared'),
+          revision: nextRevision(
+            groupRows,
+            'shared',
+            config.revision.sharedPrefix,
+            config.revision.digits
+          ),
+          comment: p.input.comment
+        })
+      } else if (from === 'shared' && to === 'published') {
+        if (!atStageEnd)
+          throw new BadRequestError('Conclua os estados de Shared antes de publicar')
+        if (activeStates(config, 'published')[0].code !== target.code) {
+          throw new BadRequestError('Publique no primeiro estado da etapa Published')
+        }
+        await requireApprover(sharedBy)
+        let kind: CdeKind = 'manual'
+        let comment = p.input.comment ?? null
+        if (config.requireAdherenceToPublish && p.adherence) {
+          const adherence = await p.adherence(trx)
+          if (!adherence.met) {
+            if (!p.input.justification) {
+              throw new BadRequestError(
+                adherence.evaluated
+                  ? `Aderência abaixo da meta (${describeShortfall(
+                      adherence.requirements
+                    )}): informe uma justificativa para publicar`
+                  : 'Sem Model Check concluído para os requisitos do entregável: informe uma justificativa para publicar'
+              )
+            }
+            kind = 'exception'
+            comment = [p.input.justification, comment].filter(Boolean).join(' — ')
+          }
+        }
+        row = stateRow({
+          ...base,
+          action: 'published',
+          kind,
+          suitability: suitabilityOf('published'),
+          revision: nextRevision(
+            groupRows,
+            'published',
+            config.revision.publishedPrefix,
+            config.revision.digits
+          ),
+          comment
+        })
+      } else if (from === 'shared' && to === 'wip') {
+        if (firstWip.code !== target.code) {
+          throw new BadRequestError('A recusa volta para o primeiro estado de WIP')
+        }
+        if (!p.input.comment) throw new BadRequestError('Informe o motivo da recusa')
+        await requireApprover(sharedBy)
+        row = stateRow({
+          ...base,
+          action: 'rejected',
+          kind: 'manual',
+          suitability: null,
+          revision: current.revision,
+          comment: p.input.comment
+        })
+      } else if (from === 'published' && to === 'archived') {
+        if (role !== Roles.Stream.Owner) {
+          throw new ForbiddenError(`Só o dono do projeto arquiva ${p.noun.aPublished}`)
+        }
+        row = stateRow({
+          ...base,
+          action: 'archived',
+          kind: 'manual',
+          suitability: current.suitability,
+          revision: current.revision,
+          comment: p.input.comment
+        })
+      } else {
+        throw new BadRequestError('Transição não permitida')
+      }
+
+      const saved = await insertVersionStateFactory({ db: trx })(row)
+
+      if (row.action === 'published') {
+        // the previous publication of the group is superseded
+        const [archived] = activeStates(config, 'archived')
+        for (const other of groupBySubject(groupRows)) {
+          if (other.subjectId === p.subjectId || other.current.stage !== 'published')
+            continue
+          await insertVersionStateFactory({ db: trx })(
+            stateRow({
+              projectId: p.projectId,
+              modelId: other.current.modelId,
+              versionId: other.current.versionId,
+              documentRevisionId: other.current.documentRevisionId ?? null,
+              deliverableId: other.current.deliverableId,
+              state: archived,
+              action: 'archived',
+              kind: 'system',
+              suitability: other.current.suitability,
+              revision: other.current.revision,
+              comment: `Substituída por ${row.revision}`,
+              changedBy: p.userId
+            })
+          )
+        }
+      }
+      return saved
+    })
+  }
+
 // ---- automatic rejection ------------------------------------------------------------
 
 /**
@@ -692,10 +883,12 @@ export const evaluateAutoRejectFactory =
     if (!config.autoRejectBelowTarget) return null
     const rows = await listVersionStatesFactory(deps)(p)
     const current = rows[rows.length - 1]
-    if (!current || current.stage !== 'shared') return null
+    // documents have no Model Check: only model versions are auto-rejected
+    if (!current || current.stage !== 'shared' || !current.modelId) return null
+    const modelId = current.modelId
     const deliverable = await findModelDeliverableFactory(deps)({
       projectId: p.projectId,
-      modelId: current.modelId
+      modelId
     })
     const adherence = await versionAdherenceFactory(deps)({
       projectId: p.projectId,
@@ -706,14 +899,14 @@ export const evaluateAutoRejectFactory =
 
     const [firstWip] = activeStates(config, 'wip')
     const rejected = await deps.db.transaction(async (trx) => {
-      await lockModel(trx, current.modelId)
+      await lockModel(trx, modelId)
       const latest = await listVersionStatesFactory({ db: trx })(p)
       // someone moved it meanwhile: nothing to do
       if (latest[latest.length - 1]?.id !== current.id) return null
       return await insertVersionStateFactory({ db: trx })(
         stateRow({
           projectId: p.projectId,
-          modelId: current.modelId,
+          modelId,
           versionId: p.versionId,
           deliverableId: deliverable?.id ?? null,
           state: firstWip,
@@ -735,11 +928,11 @@ export const evaluateAutoRejectFactory =
       action: 'cde.rejected',
       entityType: 'version',
       entityId: p.versionId,
-      data: { modelId: current.modelId, kind: 'automatic', comment: rejected.comment }
+      data: { modelId, kind: 'automatic', comment: rejected.comment }
     })
     await syncDeliverableStatusFactory(deps)({
       projectId: p.projectId,
-      modelId: current.modelId,
+      modelId,
       actorId: null
     })
     return rejected

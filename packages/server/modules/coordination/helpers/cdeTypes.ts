@@ -188,11 +188,16 @@ export type CoordProjectApproverRecord = {
   createdAt: Date
 }
 
+/**
+ * One CDE state row. The subject is either a model version (modelId +
+ * versionId) or a document revision (documentRevisionId), never both.
+ */
 export type CoordVersionStateRecord = {
   id: string
   projectId: string
-  modelId: string
-  versionId: string
+  modelId: string | null
+  versionId: string | null
+  documentRevisionId?: string | null
   deliverableId: string | null
   stage: CdeStage
   stateCode: string
@@ -217,3 +222,25 @@ export const transitionInputSchema = z
   .strict()
 
 export type TransitionInput = z.infer<typeof transitionInputSchema>
+
+// ---- document revisions (drawings, documents, schedules) ---------------------
+
+export const DOCUMENT_LIMITS = {
+  maxRevisionsPerDeliverable: 200,
+  /** same as the blob upload limit (FILE_SIZE_LIMIT_MB default) */
+  maxFileBytes: 100 * 1024 * 1024
+} as const
+
+export type CoordDocumentRevisionRecord = {
+  id: string
+  projectId: string
+  deliverableId: string
+  blobId: string
+  fileName: string
+  fileSize: number
+  contentType: string
+  extension: string
+  sha256: string
+  createdBy: string | null
+  createdAt: Date
+}

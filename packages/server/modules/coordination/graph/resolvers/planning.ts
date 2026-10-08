@@ -41,6 +41,11 @@ import {
   auditFactory
 } from '@/modules/coordination/services/coordination'
 import {
+  listDocumentRevisionsFactory,
+  listDocumentStatesFactory
+} from '@/modules/coordination/repositories/documents'
+import { deleteDocumentFilesFactory } from '@/modules/coordination/services/coordinationDocuments'
+import {
   findModelDeliverableFactory,
   getModelCdeFactory,
   syncDeliverableStatusFactory
@@ -255,7 +260,21 @@ export default {
     ) {
       const userId = requireUser(ctx)
       const deliverable = await loadManagedDeliverable(ctx, args.id)
+      // the revision rows go by cascade; their files are removed right after
+      const blobIds = (
+        await listDocumentRevisionsFactory({ db })({
+          projectId: deliverable.projectId,
+          deliverableId: deliverable.id
+        })
+      ).map((r) => r.blobId)
       await deleteDeliverableFactory({ db })({ id: deliverable.id })
+      if (blobIds.length) {
+        const projectDb = await getProjectDbClient({ projectId: deliverable.projectId })
+        await deleteDocumentFilesFactory({ projectDb })({
+          projectId: deliverable.projectId,
+          blobIds
+        })
+      }
       await audit({
         projectId: deliverable.projectId,
         actorId: userId,
@@ -286,6 +305,15 @@ export default {
             'O status deste entregável segue os estados do CDE das versões do modelo'
           )
         }
+      }
+      const documentStates = await listDocumentStatesFactory({ db })({
+        projectId: current.projectId,
+        deliverableId: current.id
+      })
+      if (documentStates.length) {
+        throw new BadRequestError(
+          'O status deste entregável segue os estados do CDE das revisões do documento'
+        )
       }
       const deliverable = await updateDeliverableFactory({ db })({
         id: current.id,
